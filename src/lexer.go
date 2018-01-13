@@ -4,11 +4,17 @@ import (
 	"fmt"
 	"go/scanner"
 	"go/token"
+	"io/ioutil"
+	"log"
 )
 
 func main() {
 	// src is the input that we want to tokenize.
-	src := []byte("cos(x) + 1i*sin(x) // Euler")
+	// TODO(shivansh) Handle the case when entire file cannot be loaded.
+	src, err := ioutil.ReadFile("test/example.go")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Initialize the scanner.
 	var s scanner.Scanner
@@ -24,5 +30,4 @@ func main() {
 		}
 		fmt.Printf("%s\t%s\t%q\n", fset.Position(pos), tok, lit)
 	}
-
 }
