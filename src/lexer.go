@@ -2,32 +2,57 @@ package main
 
 import (
 	"fmt"
-	"go/scanner"
-	"go/token"
 	"io/ioutil"
 	"log"
+	"os"
+
+	"gogo/src/lexer"
+	"gogo/src/token"
 )
 
 func main() {
-	// src is the input that we want to tokenize.
-	// TODO(shivansh) Handle the case when entire file cannot be loaded.
-	src, err := ioutil.ReadFile("test/example.go")
+	args := os.Args
+	if len(args) != 2 {
+		log.Fatalf("Usage: ./lexer <filename>")
+	}
+
+	src, err := ioutil.ReadFile(args[1])
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Initialize the scanner.
-	var s scanner.Scanner
-	fset := token.NewFileSet()                      // positions are relative to fset
-	file := fset.AddFile("", fset.Base(), len(src)) // register input "file"
-	s.Init(file, src, nil /* no error handler */, scanner.ScanComments)
+	type TokInfo struct {
+		freq   int            // frequency of a lexeme
+		litMap map[string]int // stores "unique" lexemes of same type
+	}
 
-	// Repeated calls to Scan yield the token sequence found in the input.
+	freqMap := make(map[token.Type]*TokInfo)
+	s := lexer.NewLexer(src)
+	var lexeme string
 	for {
-		pos, tok, lit := s.Scan()
-		if tok == token.EOF {
+		tok := s.Scan()
+		if tok.Pos.Offset >= len(src) {
 			break
 		}
-		fmt.Printf("%s\t%s\t%q\n", fset.Position(pos), tok, lit)
+		lexeme = string(tok.Lit[:])
+		if freqMap[tok.Type] == nil {
+			freqMap[tok.Type] = &TokInfo{
+				1,
+				map[string]int{lexeme: 1},
+			}
+		} else {
+			freqMap[tok.Type].litMap[lexeme] = 1
+			freqMap[tok.Type].freq++
+		}
+	}
+
+	fmt.Println("   Token   Occurrences   Lexemes")
+	fmt.Println("-----------------------------------")
+	for k, v := range freqMap {
+		fmt.Printf("%8s%8d", token.TokMap.Id(k), v.freq)
+		for lexeme := range v.litMap {
+			fmt.Printf("%14s\n\t\t", lexeme)
+		}
+		fmt.Printf("\r")
 	}
 }

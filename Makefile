@@ -1,25 +1,19 @@
-CC=     go
-BIN=    ./bin
-SRC=    ./src
+CC=      go
+BIN=     ./bin
+SRC=     ./src
+GOCCDIR= errors lexer parser token util
+CLEANDIR=$(addprefix $(SRC)/, $(GOCCDIR))
 
 all:
 	make lexer
-	make parser
-	make token
 
-.PHONY: lexer parser clean
+.PHONY: lexer clean
 
 lexer: $(SRC)/lexer.go
 	mkdir -p $(BIN)
-	$(CC) build -o $(BIN)/$@ $<
-
-parser: $(SRC)/parser.go
-	mkdir -p $(BIN)
-	$(CC) build -o $(BIN)/$@ $<
-
-token: $(SRC)/gentoken.go
-	mkdir -p $(BIN)
+	gocc -o $(SRC) $(SRC)/lang.bnf
 	$(CC) build -o $(BIN)/$@ $<
 
 clean:
-	rm -rf bin
+	rm -rf $(CLEANDIR)
+	rm -rf $(BIN)

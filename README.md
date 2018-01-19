@@ -22,5 +22,9 @@ make
 Alternatively, individual components can be built via -
 ```
 make lexer
-make parser
+```
+
+The tokens and their corresponding lexemes can be produced via -
+```
+./bin/lexer test/calcfile  # Currently based on example calc BNF
 ```
