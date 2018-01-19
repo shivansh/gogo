@@ -28,13 +28,12 @@ func main() {
 
 	freqMap := make(map[token.Type]*TokInfo)
 	s := lexer.NewLexer(src)
-	var lexeme string
 	for {
 		tok := s.Scan()
-		if tok.Pos.Offset >= len(src) {
+		if tok.Type == token.EOF {
 			break
 		}
-		lexeme = string(tok.Lit[:])
+		lexeme := string(tok.Lit[:])
 		if freqMap[tok.Type] == nil {
 			freqMap[tok.Type] = &TokInfo{
 				1,
