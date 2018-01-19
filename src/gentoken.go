@@ -2,26 +2,57 @@ package main
 
 import (
 	"fmt"
-	"github.com/goccmack/gocc/example/calc/lexer"
 	"io/ioutil"
 	"log"
+	"os"
+
+	"github.com/goccmack/gocc/example/calc/lexer"
+	"github.com/goccmack/gocc/example/calc/token"
 )
 
 func main() {
-	src, err := ioutil.ReadFile("test/calcfile")
+	args := os.Args
+	if len(args) != 2 {
+		log.Fatalf("Usage: ./gentoken <filename>")
+	}
+
+	src, err := ioutil.ReadFile(args[1])
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	type TokInfo struct {
+		freq   int            // frequency of a lexeme
+		litMap map[string]int // stores "unique" lexemes of same type
+	}
+
+	freqMap := make(map[token.Type]*TokInfo)
 	s := lexer.NewLexer(src)
-	fmt.Println("   offset   line   column   lexeme")
-	fmt.Println("-------------------------------------")
+	var lexeme string
 	for {
 		tok := s.Scan()
 		if tok.Pos.Offset >= len(src) {
 			break
 		}
-		fmt.Printf("%6d %7d %7d %8s\n", tok.Pos.Offset, tok.Pos.Line,
-			tok.Pos.Column, string(tok.Lit[:]))
+		lexeme = string(tok.Lit[:])
+		if freqMap[tok.Type] == nil {
+			freqMap[tok.Type] = &TokInfo{
+				1,
+				map[string]int{lexeme: 1},
+			}
+		} else {
+			freqMap[tok.Type].litMap[lexeme] = 1
+			freqMap[tok.Type].freq++
+		}
+	}
+
+	fmt.Println("   Token   Occurrences   Lexemes")
+	fmt.Println("-----------------------------------")
+	for k, v := range freqMap {
+		fmt.Printf("%8s%8d", token.TokMap.Id(k), v.freq)
+		for lexeme := range v.litMap {
+			fmt.Printf("%14s\n\t\t", lexeme)
+		}
+		fmt.Printf("\r")
 	}
 }
