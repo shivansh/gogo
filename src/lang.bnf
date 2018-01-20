@@ -1,33 +1,54 @@
 /* Lexical part */
 
-_digit : '0'-'9' ;
-
-int64 : '1'-'9' {_digit} ;
+/* Keywords */
+kwdRet : 'r' 'e' 't' 'u' 'r' 'n' ;
+kwdPack : 'p' 'a' 'c' 'k' 'a' 'g' 'e' ;
+kwdFunc : 'f' 'u' 'n' 'c' ;
+kwdImport : 'i' 'm' 'p' 'o' 'r' 't' ;
+kwdBreak : 'b' 'r' 'e' 'a' 'k' ;
+kwdCase : 'c' 'a' 's' 'e' ;
+kwdConst : 'c' 'o' 'n' 's' 't' ;
+kwdContinue : 'c' 'o' 'n' 't' 'i' 'n' 'u' 'e' ;
+kwdDefault : 'd' 'e' 'f' 'a' 'u' 'l' 't' ;
+kwdElse : 'e' 'l' 's' 'e' ;
+kwdFor : 'f' 'o' 'r' ;
+kwdGoto : 'g' 'o' 't' 'o' ;
+kwdIf : 'i' 'f' ;
+kwdPackage : 'p' 'a' 'c' 'k' 'a' 'g' 'e' ;
+kwdRange : 'r' 'a' 'n' 'g' 'e' ;
+kwdStruct : 's' 't' 'r' 'u' 'c' 't' ;
+kwdSwitch : 's' 'w' 'i' 't' 'c' 'h' ;
+kwdType : 't' 'y' 'p' 'e' ;
+kwdVar : 'v' 'a' 'r' ;
+kwdOpDot : '.' ;
 
 !whitespace : ' ' | '\t' | '\n' | '\r' ;
 
+/* Comment */
+!comment : _lineComment | _blockComment ;
+_lineComment  : '/' '/' {.} '\n' ;
+_blockComment : '/' '*' {. | '*'} '*' '/' ;
+
+/* Integers */
+_unicode_digit : '0'-'9' ;
+int64 : '1'-'9' {_unicode_digit} ;
+
+/* String literal */
+_unicode_letter : 'a' - 'z' | 'A' - 'Z' ;
+_letter : _unicode_letter | '_' ;
+identifier : _letter { _letter | _unicode_digit } ;
+_raw_string_lit : '`' {.} '`' ;
+_interpreted_string_lit : '"' {.} '"' ;
+string_lit :  _raw_string_lit | _interpreted_string_lit ;
+
+
 /* Syntax part */
 
-<< 
+<<
 import(
-	"github.com/goccmack/gocc/example/calc/token"
-	"github.com/goccmack/gocc/example/calc/util"
+	"gogo/src/token"
+	"gogo/src/util"
 )
 >>
 
-Calc : Expr;
-
-Expr :
-		Expr "+" Term	<< $0.(int64) + $2.(int64), nil >>
-	|	Term			
-;
-
-Term :
-		Term "*" Factor	<< $0.(int64) * $2.(int64), nil >>
-	|	Factor			
-;
-
-Factor :
-		"(" Expr ")"	<< $1, nil >>
-	|	int64			<< util.IntValue($0.(*token.Token).Lit) >>
-;
+Type : identifier | "(" identifier ")" ;
