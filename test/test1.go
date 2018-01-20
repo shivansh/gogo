@@ -1,10 +1,9 @@
-package foo
+package test
 
 import (
 	"fmt"
-	"time"
 )
 
-func bar() {
-	fmt.Println(time.Now())
+func main() {
+	fmt.Println("Hello world")
 }
