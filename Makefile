@@ -5,13 +5,16 @@ GOCCDIR= errors lexer parser token util
 CLEANDIR=$(addprefix $(SRC)/, $(GOCCDIR))
 
 all:
+	make deps
 	make lexer
 
 .PHONY: lexer clean
 
+deps:
+	gocc -o $(SRC) $(SRC)/lang.bnf
+
 lexer: $(SRC)/lexer.go
 	mkdir -p $(BIN)
-	gocc -o $(SRC) $(SRC)/lang.bnf
 	$(CC) build -o $(BIN)/$@ $<
 
 clean:
