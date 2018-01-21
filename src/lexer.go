@@ -45,8 +45,8 @@ func main() {
 		}
 	}
 
-	fmt.Println("   Token        Occurrences        Lexemes")
-	fmt.Println("---------------------------------------------")
+	fmt.Println("   Token         Occurrences        Lexemes")
+	fmt.Println("----------------------------------------------")
 	for k, v := range freqMap {
 		fmt.Printf("%12s%12d", token.TokMap.Id(k), v.freq)
 		for lexeme := range v.litMap {
