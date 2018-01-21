@@ -1,45 +1,79 @@
 /* Lexical part */
 
 /* Keywords */
-kwdRet : 'r' 'e' 't' 'u' 'r' 'n' ;
-kwdPack : 'p' 'a' 'c' 'k' 'a' 'g' 'e' ;
-kwdFunc : 'f' 'u' 'n' 'c' ;
-kwdImport : 'i' 'm' 'p' 'o' 'r' 't' ;
-kwdBreak : 'b' 'r' 'e' 'a' 'k' ;
-kwdCase : 'c' 'a' 's' 'e' ;
-kwdConst : 'c' 'o' 'n' 's' 't' ;
+kwdBreak    : 'b' 'r' 'e' 'a' 'k' ;
+kwdCase     : 'c' 'a' 's' 'e' ;
+kwdConst    : 'c' 'o' 'n' 's' 't' ;
 kwdContinue : 'c' 'o' 'n' 't' 'i' 'n' 'u' 'e' ;
-kwdDefault : 'd' 'e' 'f' 'a' 'u' 'l' 't' ;
-kwdElse : 'e' 'l' 's' 'e' ;
-kwdFor : 'f' 'o' 'r' ;
-kwdGoto : 'g' 'o' 't' 'o' ;
-kwdIf : 'i' 'f' ;
-kwdPackage : 'p' 'a' 'c' 'k' 'a' 'g' 'e' ;
-kwdRange : 'r' 'a' 'n' 'g' 'e' ;
-kwdStruct : 's' 't' 'r' 'u' 'c' 't' ;
-kwdSwitch : 's' 'w' 'i' 't' 'c' 'h' ;
-kwdType : 't' 'y' 'p' 'e' ;
-kwdVar : 'v' 'a' 'r' ;
-kwdOpDot : '.' ;
+kwdDefault  : 'd' 'e' 'f' 'a' 'u' 'l' 't' ;
+kwdElse     : 'e' 'l' 's' 'e' ;
+kwdFunc     : 'f' 'u' 'n' 'c' ;
+kwdFor      : 'f' 'o' 'r' ;
+kwdGoto     : 'g' 'o' 't' 'o' ;
+kwdIf       : 'i' 'f' ;
+kwdImport   : 'i' 'm' 'p' 'o' 'r' 't' ;
+kwdNil      : 'n' 'i' 'l' ;
+kwdPackage  : 'p' 'a' 'c' 'k' 'a' 'g' 'e' ;
+kwdRange    : 'r' 'a' 'n' 'g' 'e' ;
+kwdRet      : 'r' 'e' 't' 'u' 'r' 'n' ;
+kwdStruct   : 's' 't' 'r' 'u' 'c' 't' ;
+kwdSwitch   : 's' 'w' 'i' 't' 'c' 'h' ;
+kwdType     : 't' 'y' 'p' 'e' ;
+kwdVar      : 'v' 'a' 'r' ;
 
+/* Operators */
+binaryOp    : '|' '|' | '&' '&' | _relOp | _addOp | _mulOp ;
+_relOp      : '=' '=' | '!' '=' | '<' | '<' '=' | '>' | '>' '=' ;
+_addOp      : '+' | '-' | '|' | '^' ;
+_mulOp      : '*' | '/' | '%' | '<' '<' | '>' '>' | '&' | '&' '^' ;
+// _unaryOp will be used for defining UnaryExpr in parser.
+_unaryOp    : '+' | '-' | '!' | '^' | '*' | '&' | '<' '-' ;
+assignOp    : [ _addOp | _mulOp ] '=' ;
+shortAssign : ':' '=' ;
+dotOp       : '.' ;
+separator   : ',' ;  // FIXME
+
+/* Blocks */
+blockBegin : '{' ;
+blockEnd   : '}' ;
+
+/* Whitespaces (suppressed) */
 !whitespace : ' ' | '\t' | '\n' | '\r' ;
 
-/* Comment */
-!comment : _lineComment | _blockComment ;
-_lineComment  : '/' '/' {.} '\n' ;
-_blockComment : '/' '*' {. | '*'} '*' '/' ;
+/* Comments (suppressed) */
+!comment      : _lineComment | _blockComment ;
+_lineComment  : '/' '/' { . } '\n' ;
+_blockComment : '/' '*' { . | '*' } '*' '/' ;
 
-/* Integers */
-_unicode_digit : '0'-'9' ;
-int64 : '1'-'9' {_unicode_digit} ;
+/* Letters and digits */
+_letter       : _unicodeLetter | '_' ;
+_decimalDigit : '0' - '9' ;
+_octalDigit   : '0' - '7' ;
+_hexDigit     : _decimalDigit | 'a' - 'f' | 'A' - 'F' ;
 
-/* String literal */
-_unicode_letter : 'a' - 'z' | 'A' - 'Z' ;
-_letter : _unicode_letter | '_' ;
-identifier : _letter { _letter | _unicode_digit } ;
-_raw_string_lit : '`' {.} '`' ;
-_interpreted_string_lit : '"' {.} '"' ;
-string_lit :  _raw_string_lit | _interpreted_string_lit ;
+/* Identifiers */
+blankIdent     : '_' ;
+identifier     : _letter { _letter | _decimalDigit } ;
+_unicodeLetter : 'a' - 'z' | 'A' - 'Z' ;
+
+/* Integer literals */
+intLit      : _decimalLit | _octalLit | _hexLit ;
+_decimalLit : '1' - '9' { _decimalDigit } ;
+_octalLit   : '0' { _octalDigit } ;
+_hexLit     : '0' ( 'x' | 'X' ) _hexDigit { _hexDigit } ;
+
+/* Floating-point literals */
+floatLit  : _decimals '.' [ _decimals ] [ _exponent ]
+          | _decimals _exponent
+          | '.' _decimals [ _exponent ]
+          ;
+_decimals : _decimalDigit { _decimalDigit } ;
+_exponent : ( 'e' | 'E' ) [ '+' | '-' ] _decimals ;
+
+/* String literals */
+stringLit          :  _rawStrLit | _interpretedStrLit ;
+_rawStrLit         : '`' { . } '`' ;
+_interpretedStrLit : '"' { . } '"' ;
 
 
 /* Syntax part */
@@ -51,4 +85,5 @@ import(
 )
 >>
 
+// https://github.com/goccmack/gocc/issues/59
 Type : identifier | "(" identifier ")" ;
