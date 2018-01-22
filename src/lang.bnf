@@ -1,5 +1,8 @@
 /* Lexical part */
 
+separator  : ',' ;
+terminator : ';' '\n' | ';' | '\n' ;
+
 /* Keywords */
 kwdBreak    : 'b' 'r' 'e' 'a' 'k' ;
 kwdCase     : 'c' 'a' 's' 'e' ;
@@ -21,6 +24,19 @@ kwdSwitch   : 's' 'w' 'i' 't' 'c' 'h' ;
 kwdType     : 't' 'y' 'p' 'e' ;
 kwdVar      : 'v' 'a' 'r' ;
 
+/* Types */
+type : 'b' 'o' 'o' 'l'
+     | 'i' 'n' 't' | 'f' 'l' 'o' 'a' 't' '3' '2' | 'f' 'l' 'o' 'a' 't' '6' '4'
+     | 'b' 'y' 't' 'e'
+     | 's' 't' 'r' 'i' 'n' 'g'
+     ;
+
+/* Predeclared contants */
+boolConst : 't' 'r' 'u' 'e' | 'f' 'a' 'l' 's' 'e' ;
+
+/* Single-character escapes */
+escapeChar : '\\' 'n' | '\\' 'r' | '\\' 't' | '\\';
+
 /* Operators */
 binaryOp    : '|' '|' | '&' '&' | _relOp | _addOp | _mulOp ;
 _relOp      : '=' '=' | '!' '=' | '<' | '<' '=' | '>' | '>' '=' ;
@@ -31,14 +47,13 @@ _unaryOp    : '+' | '-' | '!' | '^' | '*' | '&' | '<' '-' ;
 assignOp    : [ _addOp | _mulOp ] '=' ;
 shortAssign : ':' '=' ;
 dotOp       : '.' ;
-separator   : ',' ;  // FIXME
 
 /* Blocks */
 blockBegin : '{' ;
 blockEnd   : '}' ;
 
 /* Whitespaces (suppressed) */
-!whitespace : ' ' | '\t' | '\n' | '\r' ;
+!whitespace : ' ' | '\t' | '\r' ;
 
 /* Comments (suppressed) */
 !comment      : _lineComment | _blockComment ;
@@ -46,15 +61,15 @@ _lineComment  : '/' '/' { . } '\n' ;
 _blockComment : '/' '*' { . | '*' } '*' '/' ;
 
 /* Letters and digits */
-_letter       : _unicodeLetter | '_' ;
-_decimalDigit : '0' - '9' ;
-_octalDigit   : '0' - '7' ;
-_hexDigit     : _decimalDigit | 'a' - 'f' | 'A' - 'F' ;
+_letter        : _unicodeLetter | '_' ;
+_unicodeLetter : 'a' - 'z' | 'A' - 'Z' ;
+_decimalDigit  : '0' - '9' ;
+_octalDigit    : '0' - '7' ;
+_hexDigit      : _decimalDigit | 'a' - 'f' | 'A' - 'F' ;
 
 /* Identifiers */
-blankIdent     : '_' ;
-identifier     : _letter { _letter | _decimalDigit } ;
-_unicodeLetter : 'a' - 'z' | 'A' - 'Z' ;
+blankIdent : '_' ;
+identifier : _letter { _letter | _decimalDigit } ;
 
 /* Integer literals */
 intLit      : _decimalLit | _octalLit | _hexLit ;
@@ -75,6 +90,8 @@ stringLit          :  _rawStrLit | _interpretedStrLit ;
 _rawStrLit         : '`' { . } '`' ;
 _interpretedStrLit : '"' { . } '"' ;
 
+/* Rune literals */
+runeLit  : '\'' [ . ] '\'' ;
 
 /* Syntax part */
 
@@ -86,4 +103,5 @@ import(
 >>
 
 // https://github.com/goccmack/gocc/issues/59
-Type : identifier | "(" identifier ")" ;
+Type      : identifier | "(" identifier ")" ;
+ArrayType : "[" intLit "]" Type ;
