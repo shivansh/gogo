@@ -20,6 +20,12 @@ func main() {
 	varExp := 6.67428e-11
 
 	// String literals
-	strLit := "String lit"
+	strLit := "String"
 	strRaw := `Raw string`
+
+	// Rune literals
+	runeLit := 'a'
+
+	// Array types
+	var buffer [256]byte
 }
