@@ -25,6 +25,7 @@ func main() {
 
 	// Rune literals
 	runeLit := 'a'
+	esc := '\t' // escape sequence also counts as a rune
 
 	// Array types
 	var buffer [256]byte
