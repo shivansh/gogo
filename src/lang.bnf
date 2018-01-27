@@ -9,6 +9,7 @@ kwdCase     : 'c' 'a' 's' 'e' ;
 kwdConst    : 'c' 'o' 'n' 's' 't' ;
 kwdContinue : 'c' 'o' 'n' 't' 'i' 'n' 'u' 'e' ;
 kwdDefault  : 'd' 'e' 'f' 'a' 'u' 'l' 't' ;
+kwdDefer    : 'd' 'e' 'f' 'e' 'r' ;
 kwdElse     : 'e' 'l' 's' 'e' ;
 kwdFunc     : 'f' 'u' 'n' 'c' ;
 kwdFor      : 'f' 'o' 'r' ;
@@ -19,6 +20,7 @@ kwdNil      : 'n' 'i' 'l' ;
 kwdPackage  : 'p' 'a' 'c' 'k' 'a' 'g' 'e' ;
 kwdRange    : 'r' 'a' 'n' 'g' 'e' ;
 kwdRet      : 'r' 'e' 't' 'u' 'r' 'n' ;
+kwdSet      : 's' 'e' 't' ;
 kwdStruct   : 's' 't' 'r' 'u' 'c' 't' ;
 kwdSwitch   : 's' 'w' 'i' 't' 'c' 'h' ;
 kwdType     : 't' 'y' 'p' 'e' ;
@@ -91,7 +93,7 @@ _rawStrLit         : '`' { . } '`' ;
 _interpretedStrLit : '"' { . } '"' ;
 
 /* Rune literals */
-runeLit  : '\'' [ . ] '\'' ;
+runeLit  : '\'' [ '\\' ] [ . ] '\'' ;
 
 /* Syntax part */
 
