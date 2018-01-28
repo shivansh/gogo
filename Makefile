@@ -7,7 +7,7 @@ CLEANDIR=$(addprefix $(SRC)/, $(GOCCDIR))
 all:
 	make deps
 	make lexer
-	make codegen
+	make tac
 
 .PHONY: lexer clean
 
@@ -18,7 +18,7 @@ lexer: $(SRC)/lexer.go
 	mkdir -p $(BIN)
 	$(CC) build -o $(BIN)/$@ $<
 
-codegen: $(SRC)/codegen.go
+tac: $(SRC)/tac.go
 	mkdir -p $(BIN)
 	$(CC) build -o $(BIN)/$@ $<
 
