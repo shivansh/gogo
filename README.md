@@ -25,9 +25,15 @@ make
 Alternatively, individual components can be built via -
 ```
 make lexer
+make tac
 ```
 
 The tokens and their corresponding lexemes can be produced via -
 ```
 ./bin/lexer test/test1.go
+```
+
+The three-address code (in-memory) data structure can be prepared via -
+```
+./bin/codegen test/test1.ir
 ```
