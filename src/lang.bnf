@@ -1,6 +1,6 @@
 /* Lexical part */
 
-separator  : ',' ;
+separator  : ',' | ':' ;
 terminator : ';' '\n' | ';' | '\n' ;
 
 /* Keywords */
