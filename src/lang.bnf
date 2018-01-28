@@ -44,8 +44,8 @@ binaryOp    : '|' '|' | '&' '&' | _relOp | _addOp | _mulOp ;
 _relOp      : '=' '=' | '!' '=' | '<' | '<' '=' | '>' | '>' '=' ;
 _addOp      : '+' | '-' | '|' | '^' ;
 _mulOp      : '*' | '/' | '%' | '<' '<' | '>' '>' | '&' | '&' '^' ;
-// _unaryOp will be used for defining UnaryExpr in parser.
-_unaryOp    : '+' | '-' | '!' | '^' | '*' | '&' | '<' '-' ;
+// unaryOp will be used for defining UnaryExpr in parser.
+unaryOp     : '+' | '-' | '!' | '^' | '*' | '&' | '<' '-' ;
 assignOp    : [ _addOp | _mulOp ] '=' ;
 shortAssign : ':' '=' ;
 dotOp       : '.' ;
