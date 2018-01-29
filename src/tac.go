@@ -1,10 +1,8 @@
 package main
 
 import (
-	"encoding/csv"
+	"bufio"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"regexp"
@@ -54,7 +52,7 @@ func main() {
 // is a tuple of the form -
 // 	<line-number, operation, destination-variable, source-variable(s)>
 func GenTAC(irfile string) (tac TAC) {
-	src, err := ioutil.ReadFile(irfile)
+	file, err := os.Open(irfile)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -73,16 +71,9 @@ func GenTAC(irfile string) (tac TAC) {
 	var blk *Block
 
 	rgx, _ := regexp.Compile("(^[0-9]*$)") // regex for integers
-	r := csv.NewReader(strings.NewReader(string(src)))
-	for {
-		record, err := r.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Fatal(err)
-		}
-
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		record := strings.Split(scanner.Text(), ",")
 		// Sanitize the records
 		for i := 0; i < len(record); i++ {
 			record[i] = strings.TrimSpace(record[i])
@@ -137,6 +128,10 @@ func GenTAC(irfile string) (tac TAC) {
 					Stmt{record[1], record[2], sv, blk})
 			}
 		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
 	}
 
 	return
