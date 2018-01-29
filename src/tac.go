@@ -45,7 +45,6 @@ func main() {
 	}
 
 	tac := GenTAC(args[1])
-	// TODO: Fix segfault
 	fmt.Println(tac[0].stmts[0].op)
 }
 
@@ -72,6 +71,7 @@ func GenTAC(irfile string) (tac TAC) {
 			log.Fatal(err)
 		}
 
+		// Sanitize the records
 		for i := 0; i < len(record); i++ {
 			record[i] = strings.TrimSpace(record[i])
 		}
