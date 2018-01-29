@@ -47,3 +47,15 @@
 |     blockStmt                 | blockStmt            |
 | }                             | ret                  |
 +-------------------------------+----------------------+
+|                     If statements                    |
++------------------------------------------------------+
+| if i < 5 {                    | if, <, i, 5          |
+|     blockStmt                 | blockStmt            |
+| } else if i > 5 {             | end, , ,             |
+|     blockStmt                 | elif, >, i, 5        |
+| } else {                      | blockStmt            |
+|     blockStmt                 | end, , ,             |
+| }                             | else, , ,            |
+|                               | blockStmt            |
+|                               | end, , ,             |
++-------------------------------+----------------------+
