@@ -28,6 +28,9 @@ type SrcVar struct {
 	val string
 }
 
+// NOTE: Placed here for the dummy register allocator GetReg
+var counter int = -1
+
 // GenTAC generates the three-address code (in-memory) data structure
 // from the input file. The format of each statement in the input file
 // is a tuple of the form -
@@ -65,4 +68,11 @@ func GenTAC(file *os.File) (tac Tac) {
 	}
 
 	return
+}
+
+// GetReg is (currently) a dummy register allocator which
+// returns the index of the next free register.
+func GetReg() int {
+	counter++
+	return counter
 }
