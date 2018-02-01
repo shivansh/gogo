@@ -1,7 +1,7 @@
 // Generate tokens and the corresponding
 // lexemes extracted from a source file.
 
-package main
+package gentoken
 
 import (
 	"fmt"
