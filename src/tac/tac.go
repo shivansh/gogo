@@ -1,4 +1,4 @@
-package main
+package tac
 
 import (
 	"bufio"
@@ -13,7 +13,7 @@ import (
 type SymTab map[string]*SrcVar // Symbol table
 
 type Tac struct {
-	stmts    []Stmt
+	Stmts    []Stmt
 	symtab   SymTab
 	labelmap map[string]int
 }
@@ -35,7 +35,7 @@ func main() {
 		log.Fatalf("Usage: ./tac ir-file")
 	}
 	tac := GenTAC(args[1])
-	fmt.Println(tac.stmts[9].op) // testcase for function statement
+	fmt.Println(tac.Stmts[9].op) // testcase for function statement
 }
 
 // GenTAC generates the three-address code (in-memory) data structure
@@ -73,7 +73,7 @@ func GenTAC(irfile string) (tac Tac) {
 				}
 				sv = append(sv, SrcVar{typ, record[i]})
 			}
-			tac.stmts = append(tac.stmts,
+			tac.Stmts = append(tac.Stmts,
 				Stmt{record[1], record[2], sv})
 		}
 	}
