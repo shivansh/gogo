@@ -8,21 +8,24 @@ DEBUGFLAGS=-gcflags "-N -l"
 
 all:
 	make deps
-	make lexer
+	make gentoken
 	make tac
+	make gogo
 
-.PHONY: lexer clean
+.PHONY: gentoken clean
 
 deps:
 	gocc -o $(SRC) $(SRC)/lang.bnf
 
-lexer: $(SRC)/lexer.go
-	mkdir -p $(BIN)
-	$(CC) build $(GCFLAGS) -o $(BIN)/$@ $<
+gentoken: $(SRC)/gentoken/gentoken.go
+	make deps
+	cd $(SRC)/gentoken; $(CC) install $(GCFLAGS)
 
-tac: $(SRC)/tac.go
-	mkdir -p $(BIN)
-	$(CC) build $(GCFLAGS) -o $(BIN)/$@ $<
+tac: $(SRC)/tac/tac.go
+	cd $(SRC)/tac; $(CC) install $(GCFLAGS)
+
+gogo: $(SRC)/main.go
+	go build $(GCFLAGS) -o $(BIN)/gogo $(SRC)/main.go
 
 clean:
 	rm -rf $(CLEANDIR)

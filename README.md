@@ -24,16 +24,12 @@ make
 
 Alternatively, individual components can be built via -
 ```
-make lexer
+make gentoken
 make tac
-```
-
-The tokens and their corresponding lexemes can be produced via -
-```
-./bin/lexer test/test1.go
+make gogo
 ```
 
 The three-address code (in-memory) data structure can be prepared via -
 ```
-./bin/codegen test/test1.ir
+bin/gogo test/test1.ir
 ```
