@@ -13,7 +13,7 @@ import (
 	"gogo/src/token"
 )
 
-func main() {
+func PrintTokens() {
 	args := os.Args
 	if len(args) != 2 {
 		log.Fatalf("Usage: ./lexer <filename>")

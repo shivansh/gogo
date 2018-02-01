@@ -2,7 +2,6 @@ package tac
 
 import (
 	"bufio"
-	"fmt"
 	"log"
 	"os"
 	"regexp"
@@ -19,7 +18,7 @@ type Tac struct {
 }
 
 type Stmt struct {
-	op  string
+	Op  string
 	dst string
 	src []SrcVar
 }
@@ -29,25 +28,11 @@ type SrcVar struct {
 	val string
 }
 
-func main() {
-	args := os.Args
-	if len(args) != 2 {
-		log.Fatalf("Usage: ./tac ir-file")
-	}
-	tac := GenTAC(args[1])
-	fmt.Println(tac.Stmts[9].op) // testcase for function statement
-}
-
 // GenTAC generates the three-address code (in-memory) data structure
 // from the input file. The format of each statement in the input file
 // is a tuple of the form -
 // 	<line-number, operation, destination-variable, source-variable(s)>
-func GenTAC(irfile string) (tac Tac) {
-	file, err := os.Open(irfile)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func GenTAC(file *os.File) (tac Tac) {
 	rgx, _ := regexp.Compile("(^[0-9]*$)") // natural numbers
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -59,10 +44,7 @@ func GenTAC(irfile string) (tac Tac) {
 
 		switch record[1] {
 		case "label":
-			tac.labelmap[record[2]], err = strconv.Atoi(record[0])
-			if err != nil {
-				log.Fatalf("Atoi")
-			}
+			tac.labelmap[record[2]], _ = strconv.Atoi(record[0])
 		default:
 			// Prepare a slice of source variables.
 			var sv []SrcVar
