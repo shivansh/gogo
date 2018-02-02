@@ -22,13 +22,13 @@ type Blk struct {
 
 type Stmt struct {
 	Op  string
-	dst string
-	src []SrcVar
+	Dst string
+	Src []SrcVar
 }
 
 type SrcVar struct {
-	typ string
-	val string
+	Typ string
+	Val string
 }
 
 // NOTE: Placed here for the dummy register allocator GetReg
@@ -64,11 +64,16 @@ func GenTAC(file *os.File) (tac Tac) {
 			blk.symtab = make(SymTab)
 			blk.labelmap = make(LabelMap)
 			blk.labelmap[record[2]], _ = strconv.Atoi(record[0])
-		case "jmp": // TODO: incomplete
+		case "jmp":
+			// It is possible that the target of jump instruction
+			// has not yet been encountered. Hence instead of trying
+			// resolving it via a lookup, insert the target name itself
+			// which can be resolved once the entire TAC is loaded.
 			tac = append(tac, *blk) // end the previous block
 			blk = new(Blk)          // start a new block
 			blk.symtab = make(SymTab)
 			blk.labelmap = make(LabelMap)
+			fallthrough // move into next section to update blk.Src
 		default:
 			// Prepare a slice of source variables.
 			var sv []SrcVar
@@ -83,6 +88,8 @@ func GenTAC(file *os.File) (tac Tac) {
 				Stmt{record[1], record[2], sv})
 		}
 	}
+
+	tac = append(tac, *blk) // push the last block
 
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
