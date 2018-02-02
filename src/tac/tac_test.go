@@ -1,6 +1,10 @@
 package tac
 
-import "testing"
+import (
+	"log"
+	"os"
+	"testing"
+)
 
 func TestGenTAC(t *testing.T) {
 	type args struct {
@@ -15,9 +19,13 @@ func TestGenTAC(t *testing.T) {
 	},
 	}
 	for _, tt := range tests {
-		tac := GenTAC(tt.args.irfile)
-		if tac.stmts[0].op != "func" {
-			t.Errorf("Expected: %s, Got: %s", "ret", tac.stmts[9].op)
+		file, err := os.Open(tt.args.irfile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		tac := GenTAC(file)
+		if tac[0].Stmts[0].Op != "=" {
+			t.Errorf("Expected: %s, Got: %s", "ret", tac[0].Stmts[0].Op)
 		}
 	}
 }

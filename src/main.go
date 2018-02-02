@@ -18,5 +18,5 @@ func main() {
 		log.Fatal(err)
 	}
 	t := tac.GenTAC(file)
-	fmt.Println(t.Stmts[0].Op)
+	fmt.Println(t[0].Stmts[0].Op)
 }
