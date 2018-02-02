@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 
+	"gogo/src/asm"
 	"gogo/src/tac"
 )
 
@@ -18,5 +18,5 @@ func main() {
 		log.Fatal(err)
 	}
 	t := tac.GenTAC(file)
-	fmt.Println(t[0].Stmts[0].Op)
+	asm.CodeGen(t)
 }
