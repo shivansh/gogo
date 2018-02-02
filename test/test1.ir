@@ -1,9 +1,9 @@
-1, func, main,
+1, label, main,
 2, =, v1, 1
 3, =, v2, v1
 4, call, temp
 5, ret, ,
-6, func, temp
+6, label, temp
 7, *, v1, 1
 8, <, v1, 5, 11
 9, =, v1, 4

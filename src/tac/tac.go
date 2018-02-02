@@ -10,11 +10,14 @@ import (
 )
 
 type SymTab map[string]*SrcVar // Symbol table
+type LabelMap map[string]int
 
-type Tac struct {
+type Tac []Blk
+
+type Blk struct {
 	Stmts    []Stmt
 	symtab   SymTab
-	labelmap map[string]int
+	labelmap LabelMap
 }
 
 type Stmt struct {
@@ -36,6 +39,7 @@ var counter int = -1
 // is a tuple of the form -
 // 	<line-number, operation, destination-variable, source-variable(s)>
 func GenTAC(file *os.File) (tac Tac) {
+	var blk *Blk = nil
 	rgx, _ := regexp.Compile("(^[0-9]*$)") // natural numbers
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -45,9 +49,26 @@ func GenTAC(file *os.File) (tac Tac) {
 			record[i] = strings.TrimSpace(record[i])
 		}
 
+		// A basic block starts:
+		//	* at label instruction
+		//	* after jump instruction
+		// and ends:
+		//	* before label instruction
+		//	* at jump instruction
 		switch record[1] {
 		case "label":
-			tac.labelmap[record[2]], _ = strconv.Atoi(record[0])
+			if blk != nil {
+				tac = append(tac, *blk) // end the previous block
+			}
+			blk = new(Blk) // start a new block
+			blk.symtab = make(SymTab)
+			blk.labelmap = make(LabelMap)
+			blk.labelmap[record[2]], _ = strconv.Atoi(record[0])
+		case "jmp": // TODO: incomplete
+			tac = append(tac, *blk) // end the previous block
+			blk = new(Blk)          // start a new block
+			blk.symtab = make(SymTab)
+			blk.labelmap = make(LabelMap)
 		default:
 			// Prepare a slice of source variables.
 			var sv []SrcVar
@@ -58,7 +79,7 @@ func GenTAC(file *os.File) (tac Tac) {
 				}
 				sv = append(sv, SrcVar{typ, record[i]})
 			}
-			tac.Stmts = append(tac.Stmts,
+			blk.Stmts = append(blk.Stmts,
 				Stmt{record[1], record[2], sv})
 		}
 	}
