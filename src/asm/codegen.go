@@ -86,15 +86,23 @@ func CodeGen(t tac.Tac) {
 			switch stmt.Op {
 			case "=":
 				if stmt.Src[0].Typ == "int" {
-					regIndex := tac.GetReg()
-					regDesc[regIndex] = stmt.Dst
-					addrDesc[stmt.Dst] = AddrDesc{regIndex, -1}
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli, $t%d, %s", regIndex, stmt.Src[0].Val))
+					if addrDesc[stmt.Dst].reg == 0 {
+						regIndex := tac.GetReg()
+						regDesc[regIndex] = stmt.Dst
+						addrDesc[stmt.Dst] = AddrDesc{regIndex, -1}
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli, $t%d, %s", regIndex, stmt.Src[0].Val))
+					} else {
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli, $t%d, %s", addrDesc[stmt.Dst].reg, stmt.Src[0].Val))
+					}
 				} else {
-					regIndex := tac.GetReg()
-					regDesc[regIndex] = stmt.Dst
-					addrDesc[stmt.Dst] = AddrDesc{regIndex, -1}
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove, $t%d, $t%d", regIndex, addrDesc[stmt.Src[0].Val].reg))
+					if addrDesc[stmt.Dst].reg == 0 {
+						regIndex := tac.GetReg()
+						regDesc[regIndex] = stmt.Dst
+						addrDesc[stmt.Dst] = AddrDesc{regIndex, -1}
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove, $t%d, $t%d", regIndex, addrDesc[stmt.Src[0].Val].reg))
+					} else {
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove, $t%d, $t%d", addrDesc[stmt.Dst].reg, addrDesc[stmt.Src[0].Val].reg))
+					}
 				}
 			case "<":
 				if stmt.Src[0].Typ == "int" {
