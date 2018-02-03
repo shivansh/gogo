@@ -38,7 +38,7 @@ var Counter int
 // 	<line-number, operation, destination-variable, source-variable(s)>
 func GenTAC(file *os.File) (tac Tac) {
 	var blk *Blk = nil
-	rgx, _ := regexp.Compile("(^[0-9]*$)") // natural numbers
+	rgx, _ := regexp.Compile("(^-?[0-9]*$)") // integers
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		record := strings.Split(scanner.Text(), ",")
@@ -62,10 +62,6 @@ func GenTAC(file *os.File) (tac Tac) {
 			// label statement is the part of the newly created block
 			blk.Stmts = append(blk.Stmts, Stmt{record[1], record[2], []SrcVar{}})
 		case "jmp":
-			// It is possible that the target of jump instruction
-			// has not yet been encountered. Hence instead of trying
-			// resolving it via a lookup, insert the target name itself
-			// which can be resolved once the entire TAC is loaded.
 			tac = append(tac, *blk) // end the previous block
 			blk = new(Blk)          // start a new block
 			fallthrough             // move into next section to update blk.Src

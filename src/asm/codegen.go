@@ -61,9 +61,10 @@ func CodeGen(t tac.Tac) {
 
 		// At the end of each basic block, all the registers are flushed
 		// back to memory which means that they can be reused inside a
-		// different basic block. Hence at the beginning of each basic
-		// block, reset the counter used to keep track of "free" registers
-		// by the "dummy" register allocator.
+		// different basic block (it can also be the same basic block,
+		// depending on the control flow). Hence at the beginning of
+		// each basic block, reset the counter used to keep track of
+		// "free" registers by the "dummy" register allocator.
 		tac.Counter = 0
 
 		// Update data section data structures. For this, make a single
@@ -73,17 +74,11 @@ func CodeGen(t tac.Tac) {
 			if stmt.Op == "=" {
 				if !ds.lookup[stmt.Dst] {
 					ds.lookup[stmt.Dst] = true
-					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.word", stmt.Dst))
+					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.word\t0", stmt.Dst))
 				}
 				// TODO It should be made possible to identify the contents of a variable.
 				// For e.g. strings should be defined as following in MIPS -
 				// 	str:	.byte	'a','b'
-				for _, s := range stmt.Src {
-					if !ds.lookup[s.Val] && s.Typ == "string" {
-						ds.lookup[s.Val] = true
-						ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s: .word", s.Val))
-					}
-				}
 			}
 		}
 
