@@ -132,12 +132,11 @@ func CodeGen(t tac.Tac) {
 
 		// Store variables back into memory for the previous basic block
 		ts.Stmts = append(ts.Stmts, "\n\t; Store variables back into memory")
-		for v, _ := range ds.lookup {
-			regIndex := addrDesc[v].reg
-			addrIndex := addrDesc[v].mem
-			// Only store the variables which were loaded in the first place
-			if addrIndex > 0 {
-				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, ($t%d)", regIndex, addrIndex))
+
+		// Only store the variables which were loaded in the first place
+		for _, v := range addrDesc {
+			if v.mem > 0 {
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, ($t%d)", v.reg, v.mem))
 			}
 		}
 	}
