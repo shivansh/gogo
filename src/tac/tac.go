@@ -5,19 +5,17 @@ import (
 	"log"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
-type SymTab map[string]*SrcVar // Symbol table
-type LabelMap map[string]int
-
+// TODO Remove line numbers
 type Tac []Blk
 
 type Blk struct {
-	Stmts    []Stmt
-	symtab   SymTab
-	labelmap LabelMap
+	Stmts []Stmt
+	// TODO: A symbol table is probably not required here
+	// since there are data structures already in codegen.go
+	// which handle its functionality (regDesc, addrDesc).
 }
 
 type Stmt struct {
@@ -32,7 +30,7 @@ type SrcVar struct {
 }
 
 // NOTE: Placed here for the dummy register allocator GetReg
-var counter int = -1
+var Counter int
 
 // GenTAC generates the three-address code (in-memory) data structure
 // from the input file. The format of each statement in the input file
@@ -61,9 +59,8 @@ func GenTAC(file *os.File) (tac Tac) {
 				tac = append(tac, *blk) // end the previous block
 			}
 			blk = new(Blk) // start a new block
-			blk.symtab = make(SymTab)
-			blk.labelmap = make(LabelMap)
-			blk.labelmap[record[2]], _ = strconv.Atoi(record[0])
+			// label statement is the part of the newly created block
+			blk.Stmts = append(blk.Stmts, Stmt{record[1], record[2], []SrcVar{}})
 		case "jmp":
 			// It is possible that the target of jump instruction
 			// has not yet been encountered. Hence instead of trying
@@ -71,21 +68,18 @@ func GenTAC(file *os.File) (tac Tac) {
 			// which can be resolved once the entire TAC is loaded.
 			tac = append(tac, *blk) // end the previous block
 			blk = new(Blk)          // start a new block
-			blk.symtab = make(SymTab)
-			blk.labelmap = make(LabelMap)
-			fallthrough // move into next section to update blk.Src
+			fallthrough             // move into next section to update blk.Src
 		default:
 			// Prepare a slice of source variables.
 			var sv []SrcVar
 			for i := 3; i < len(record); i++ {
 				var typ string = "string"
 				if rgx.MatchString(record[i]) {
-					typ = "Int"
+					typ = "int"
 				}
 				sv = append(sv, SrcVar{typ, record[i]})
 			}
-			blk.Stmts = append(blk.Stmts,
-				Stmt{record[1], record[2], sv})
+			blk.Stmts = append(blk.Stmts, Stmt{record[1], record[2], sv})
 		}
 	}
 
@@ -101,6 +95,6 @@ func GenTAC(file *os.File) (tac Tac) {
 // GetReg is (currently) a dummy register allocator which
 // returns the index of the next free register.
 func GetReg() int {
-	counter++
-	return counter
+	Counter++
+	return Counter
 }
