@@ -24,8 +24,8 @@ func TestGenTAC(t *testing.T) {
 			log.Fatal(err)
 		}
 		tac := GenTAC(file)
-		if tac[0].Stmts[0].Op != "=" {
-			t.Errorf("Expected: %s, Got: %s", "ret", tac[0].Stmts[0].Op)
+		if tac[0].Stmts[0].Op != "label" {
+			t.Errorf("Expected: %s, Got: %s", "label", tac[0].Stmts[0].Op)
 		}
 	}
 }
