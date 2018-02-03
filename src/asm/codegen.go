@@ -87,18 +87,28 @@ func CodeGen(t tac.Tac) {
 			case "=":
 				if stmt.Src[0].Typ == "int" {
 					if addrDesc[stmt.Dst].reg == 0 {
+						// Load variables from memory into registers
+						addrIndex := tac.GetReg()
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", addrIndex, stmt.Dst))
 						regIndex := tac.GetReg()
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, ($t%d)", regIndex, addrIndex))
+						// Update lookup tables
 						regDesc[regIndex] = stmt.Dst
-						addrDesc[stmt.Dst] = AddrDesc{regIndex, -1}
+						addrDesc[stmt.Dst] = AddrDesc{regIndex, addrIndex}
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli, $t%d, %s", regIndex, stmt.Src[0].Val))
 					} else {
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli, $t%d, %s", addrDesc[stmt.Dst].reg, stmt.Src[0].Val))
 					}
 				} else {
 					if addrDesc[stmt.Dst].reg == 0 {
+						// Load variables from memory into registers
+						addrIndex := tac.GetReg()
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", addrIndex, stmt.Dst))
 						regIndex := tac.GetReg()
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, ($t%d)", regIndex, addrIndex))
+						// Update lookup tables
 						regDesc[regIndex] = stmt.Dst
-						addrDesc[stmt.Dst] = AddrDesc{regIndex, -1}
+						addrDesc[stmt.Dst] = AddrDesc{regIndex, addrIndex}
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove, $t%d, $t%d", regIndex, addrDesc[stmt.Src[0].Val].reg))
 					} else {
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove, $t%d, $t%d", addrDesc[stmt.Dst].reg, addrDesc[stmt.Src[0].Val].reg))
@@ -113,16 +123,6 @@ func CodeGen(t tac.Tac) {
 				}
 			case "label":
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("%s:", stmt.Dst))
-				// Load variables from data section (memory) into registers
-				ts.Stmts = append(ts.Stmts, "\t; Load variables from memory into registers")
-				for v, _ := range ds.lookup {
-					addrIndex := tac.GetReg()
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", addrIndex, v))
-					regIndex := tac.GetReg()
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, ($t%d)", regIndex, addrIndex))
-					addrDesc[v] = AddrDesc{regIndex, addrIndex}
-				}
-				ts.Stmts = append(ts.Stmts, "")
 			case "call":
 				fallthrough
 			case "jump":
