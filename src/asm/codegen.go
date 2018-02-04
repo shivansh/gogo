@@ -63,14 +63,6 @@ func CodeGen(t tac.Tac) {
 		//		- stack (TODO)
 		blk.Adesc = make(map[string]tac.AddrDesc)
 
-		// At the end of each basic block, all the registers are flushed
-		// back to memory which means that they can be reused inside a
-		// different basic block (it can also be the same basic block,
-		// depending on the control flow). Hence at the beginning of
-		// each basic block, reset the counter used to keep track of
-		// "free" registers by the "dummy" register allocator.
-		tac.Counter = 0
-
 		// Update data section data structures. For this, make a single
 		// pass through the entire three-address code and for each
 		// assignment statement, update the DS for data section.
@@ -96,9 +88,19 @@ func CodeGen(t tac.Tac) {
 			case "=":
 				if stmt.Src[0].Typ == "int" {
 					if blk.Adesc[stmt.Dst].Reg == 0 {
-						for k, _ := range blk.Rdesc {
-							spillReg = k
-							break
+						// The following is a non-deterministic O(1) algorithm
+						// for k, _ := range blk.Rdesc {
+						// 	spillReg = k
+						// 	break
+						// }
+
+						// The following is a deterministic O(RegLimit) algorithm.
+						for i := 1; i <= tac.RegLimit; i++ {
+							_, ok := blk.Rdesc[i]
+							if ok {
+								spillReg = i
+								break
+							}
 						}
 						addrIndex := blk.GetReg(spillReg)
 						if addrIndex == spillReg {
@@ -114,9 +116,20 @@ func CodeGen(t tac.Tac) {
 
 						// Load variables from memory into registers
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", addrIndex, stmt.Dst))
-						for k, _ := range blk.Rdesc {
-							spillReg = k
-							break
+
+						// The following is a non-deterministic O(1) algorithm
+						// for k, _ := range blk.Rdesc {
+						// 	spillReg = k
+						// 	break
+						// }
+
+						// The following is a deterministic O(RegLimit) algorithm.
+						for i := 1; i <= tac.RegLimit; i++ {
+							_, ok := blk.Rdesc[i]
+							if ok {
+								spillReg = i
+								break
+							}
 						}
 						regIndex := blk.GetReg(spillReg)
 						if regIndex == spillReg {

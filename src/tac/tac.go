@@ -23,21 +23,26 @@ type Blk struct {
 	EmptyDesc map[int]bool
 }
 
-// NOTE: Placed here for the dummy register allocator GetReg
-var Counter int
+const RegLimit = 4
 
-const regLimit = 4
-
-// GetReg is (currently) a dummy register allocator which
-// returns the index of the next free register.
 func (blk Blk) GetReg(spillReg int) (retReg int) {
-	if len(blk.Rdesc) == regLimit || len(blk.EmptyDesc) == 0 {
+	if len(blk.Rdesc) == RegLimit || len(blk.EmptyDesc) == 0 {
 		retReg = spillReg
 	} else {
-		for k, _ := range blk.EmptyDesc {
-			retReg = k
-			delete(blk.EmptyDesc, k)
-			break
+		// The following is a non-deterministic O(1) algorithm.
+		// for k, _ := range blk.EmptyDesc {
+		// 	retReg = k
+		// 	delete(blk.EmptyDesc, k)
+		// 	break
+		// }
+
+		// The following is a deterministic O(RegLimit) algorithm.
+		for i := 1; i <= RegLimit; i++ {
+			if blk.EmptyDesc[i] {
+				retReg = i
+				delete(blk.EmptyDesc, i)
+				break
+			}
 		}
 	}
 	return
@@ -63,12 +68,6 @@ func GenTAC(file *os.File) (tac Tac) {
 	rgx, _ := regexp.Compile("(^-?[0-9]*$)") // integers
 	scanner := bufio.NewScanner(file)
 
-	// a dummy EmptyDesc map with all the variables initialized as free
-	dummyEmptyMap := make(map[int]bool)
-	for i := 1; i <= 4; i++ {
-		dummyEmptyMap[i] = true
-	}
-
 	for scanner.Scan() {
 		record := strings.Split(scanner.Text(), ",")
 		// Sanitize the records
@@ -85,14 +84,14 @@ func GenTAC(file *os.File) (tac Tac) {
 		switch record[1] {
 		case "label":
 			if blk != nil {
-				blk.EmptyDesc = dummyEmptyMap
+				blk.EmptyDesc = make(map[int]bool)
 				tac = append(tac, *blk) // end the previous block
 			}
 			blk = new(Blk) // start a new block
 			// label statement is the part of the newly created block
 			blk.Stmts = append(blk.Stmts, Stmt{record[1], record[2], []SrcVar{}})
 		case "jmp":
-			blk.EmptyDesc = dummyEmptyMap
+			blk.EmptyDesc = make(map[int]bool)
 			tac = append(tac, *blk) // end the previous block
 			blk = new(Blk)          // start a new block
 			fallthrough             // move into next section to update blk.Src
@@ -110,8 +109,7 @@ func GenTAC(file *os.File) (tac Tac) {
 		}
 	}
 
-	// Initialize EmptyDesc to have all elements as empty
-	blk.EmptyDesc = dummyEmptyMap
+	blk.EmptyDesc = make(map[int]bool)
 	tac = append(tac, *blk) // push the last block
 
 	if err := scanner.Err(); err != nil {
