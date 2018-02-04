@@ -11,11 +11,44 @@ import (
 // TODO Remove line numbers
 type Tac []Blk
 
+type AddrDesc struct {
+	Reg int
+	Mem int
+}
+
 type Blk struct {
-	Stmts []Stmt
-	// TODO: A symbol table is probably not required here
-	// since there are data structures already in codegen.go
-	// which handle its functionality (regDesc, addrDesc).
+	Stmts     []Stmt
+	Adesc     map[string]AddrDesc
+	Rdesc     map[int]string
+	emptydesc map[int]bool
+}
+
+// NOTE: Placed here for the dummy register allocator GetReg
+var Counter int
+
+const regLimit = 4
+
+// GetReg is (currently) a dummy register allocator which
+// returns the index of the next free register.
+func (blk Blk) GetReg(spillReg int) (retReg int) {
+	if spillReg == 0 {
+		retReg = 2
+		blk.emptydesc[retReg] = false
+		return
+	}
+	if len(blk.Rdesc) == regLimit {
+		retReg = spillReg
+		blk.emptydesc[spillReg] = true
+	} else {
+		for k, _ := range blk.emptydesc {
+			if blk.emptydesc[k] {
+				retReg = k
+				blk.emptydesc[k] = false
+				break
+			}
+		}
+	}
+	return
 }
 
 type Stmt struct {
@@ -28,9 +61,6 @@ type SrcVar struct {
 	Typ string
 	Val string
 }
-
-// NOTE: Placed here for the dummy register allocator GetReg
-var Counter int
 
 // GenTAC generates the three-address code (in-memory) data structure
 // from the input file. The format of each statement in the input file
@@ -56,12 +86,14 @@ func GenTAC(file *os.File) (tac Tac) {
 		switch record[1] {
 		case "label":
 			if blk != nil {
+				blk.emptydesc = make(map[int]bool)
 				tac = append(tac, *blk) // end the previous block
 			}
 			blk = new(Blk) // start a new block
 			// label statement is the part of the newly created block
 			blk.Stmts = append(blk.Stmts, Stmt{record[1], record[2], []SrcVar{}})
 		case "jmp":
+			blk.emptydesc = make(map[int]bool)
 			tac = append(tac, *blk) // end the previous block
 			blk = new(Blk)          // start a new block
 			fallthrough             // move into next section to update blk.Src
@@ -79,6 +111,8 @@ func GenTAC(file *os.File) (tac Tac) {
 		}
 	}
 
+	// Initialize emptydesc to have all elements as empty
+	blk.emptydesc = make(map[int]bool)
 	tac = append(tac, *blk) // push the last block
 
 	if err := scanner.Err(); err != nil {
@@ -86,11 +120,4 @@ func GenTAC(file *os.File) (tac Tac) {
 	}
 
 	return
-}
-
-// GetReg is (currently) a dummy register allocator which
-// returns the index of the next free register.
-func GetReg() int {
-	Counter++
-	return Counter
 }
