@@ -39,6 +39,10 @@ type AddrDesc struct {
 func CodeGen(t tac.Tac) {
 	var ds DataSec
 	var ts TextSec
+	// The register allocator requires a register index as an argument
+	// which "might" be spilled in case there is no empty register left.
+	// The argument (spillReg) should have a non-empty register.
+	var spillReg int
 	ds.lookup = make(map[string]bool)
 
 	// Define the assembler directives for data and text.
@@ -49,7 +53,6 @@ func CodeGen(t tac.Tac) {
 		// Register descriptor:
 		//	* Keeps track of what is currently in each register.
 		//	* Initially all registers are empty.
-		// regDesc := make(map[int]string)
 		blk.Rdesc = make(map[int]string)
 		// Address descriptor:
 		//	* Keeps track of location where current value of the
@@ -58,7 +61,6 @@ func CodeGen(t tac.Tac) {
 		//		- register
 		//		- memory address
 		//		- stack (TODO)
-		// addrDesc := make(map[string]AddrDesc)
 		blk.Adesc = make(map[string]tac.AddrDesc)
 
 		// At the end of each basic block, all the registers are flushed
@@ -84,58 +86,64 @@ func CodeGen(t tac.Tac) {
 			}
 		}
 
+		// Initialize all registers to be empty at the starting of basic block.
+		for i := 1; i <= 4; i++ {
+			blk.EmptyDesc[i] = true
+		}
+
 		for _, stmt := range blk.Stmts {
 			switch stmt.Op {
 			case "=":
 				if stmt.Src[0].Typ == "int" {
-					_, ok := blk.Adesc[stmt.Dst]
-					// if blk.Adesc[stmt.Dst].Reg == 0 {
-					if !ok {
-						var tobespilled int
+					if blk.Adesc[stmt.Dst].Reg == 0 {
 						for k, _ := range blk.Rdesc {
-							tobespilled = k
+							spillReg = k
 							break
 						}
-						addrIndex := blk.GetReg(tobespilled)
-						if addrIndex == tobespilled {
-							// Register was spilled
-							ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, ($t%d)", tobespilled, blk.Adesc[blk.Rdesc[tobespilled]].Mem))
-							delete(blk.Rdesc, tobespilled)
-							delete(blk.Adesc, blk.Rdesc[tobespilled])
+						addrIndex := blk.GetReg(spillReg)
+						if addrIndex == spillReg {
+							// The register needs to be spilled.
+							comment := fmt.Sprintf("; spilled %s and freed {$t%d, $t%d}",
+								blk.Rdesc[spillReg], spillReg, blk.Adesc[blk.Rdesc[spillReg]].Mem)
+							ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, ($t%d)\t\t%s",
+								spillReg, blk.Adesc[blk.Rdesc[spillReg]].Mem, comment))
+							blk.EmptyDesc[blk.Adesc[blk.Rdesc[spillReg]].Mem] = true
+							delete(blk.Adesc, blk.Rdesc[spillReg])
+							delete(blk.Rdesc, spillReg)
 						}
 
 						// Load variables from memory into registers
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", addrIndex, stmt.Dst))
-						// regIndex := blk.GetReg()
 						for k, _ := range blk.Rdesc {
-							tobespilled = k
+							spillReg = k
 							break
 						}
-						regIndex := blk.GetReg(tobespilled)
-						if regIndex == tobespilled {
-							// Register was spilled
-							ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, ($t%d)", tobespilled, blk.Adesc[blk.Rdesc[tobespilled]].Mem))
-							delete(blk.Rdesc, tobespilled)
-							delete(blk.Adesc, blk.Rdesc[tobespilled])
+						regIndex := blk.GetReg(spillReg)
+						if regIndex == spillReg {
+							// The register needs to be spilled.
+							ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, ($t%d)", spillReg, blk.Adesc[blk.Rdesc[spillReg]].Mem))
+							blk.EmptyDesc[blk.Adesc[blk.Rdesc[spillReg]].Mem] = true
+							delete(blk.Rdesc, spillReg)
+							delete(blk.Adesc, blk.Rdesc[spillReg])
 						}
-
-						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, ($t%d)", regIndex, addrIndex))
 						// Update lookup tables
 						blk.Rdesc[regIndex] = stmt.Dst
 						blk.Adesc[stmt.Dst] = tac.AddrDesc{regIndex, addrIndex}
-						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli, $t%d, %s", regIndex, stmt.Src[0].Val))
+						comment := fmt.Sprintf("; %s -> {reg: $t%d, mem: $t%d}", blk.Rdesc[regIndex], regIndex, addrIndex)
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli, $t%d, %s\t\t%s", regIndex, stmt.Src[0].Val, comment))
 					} else {
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli, $t%d, %s", blk.Adesc[stmt.Dst].Reg, stmt.Src[0].Val))
 					}
 				} else {
 					if blk.Adesc[stmt.Dst].Reg == 0 {
+						// By the current heuristic of register allocation, the register
+						// which "might" be spilled is always first source variable.
 						addrIndex := blk.GetReg(blk.Adesc[stmt.Src[0].Val].Reg)
-
 						// Load variables from memory into registers
 						addrIndex = blk.GetReg(blk.Adesc[stmt.Src[0].Val].Reg)
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", addrIndex, stmt.Dst))
 						regIndex := blk.GetReg(blk.Adesc[stmt.Src[0].Val].Reg)
-						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tpingilw $t%d, ($t%d)", regIndex, addrIndex))
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, ($t%d)", regIndex, addrIndex))
 						// Update lookup tables
 						blk.Rdesc[regIndex] = stmt.Dst
 						blk.Adesc[stmt.Dst] = tac.AddrDesc{regIndex, addrIndex}
@@ -145,6 +153,7 @@ func CodeGen(t tac.Tac) {
 					}
 				}
 			case "<":
+				// TODO Handle the case when the argument variables are not in registers
 				if stmt.Src[0].Typ == "int" {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tjlt, $t%d, %s, %s", blk.Adesc[stmt.Dst].Reg, stmt.Src[0].Val, stmt.Src[1].Val))
 				} else {
@@ -169,16 +178,6 @@ func CodeGen(t tac.Tac) {
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, ($t%d)", v.Reg, v.Mem))
 			}
 		}
-
-		// Update the symbol tables inside the basic block
-		// blk.Adesc = make(map[string]tac.AddrDesc)
-		// blk.Rdesc = make(map[int]string)
-		// for k, v := range addrDesc {
-		// 	blk.Adesc[k] = tac.AddrDesc{v.reg, v.mem}
-		// }
-		// for k, v := range regDesc {
-		// 	blk.Rdesc[k] = v
-		// }
 	}
 
 	ds.Stmts = append(ds.Stmts, "") // data section terminator
