@@ -39,10 +39,6 @@ type AddrDesc struct {
 func CodeGen(t tac.Tac) {
 	var ds DataSec
 	var ts TextSec
-	// The register allocator requires a register index as an argument
-	// which "might" be spilled in case there is no empty register left.
-	// The argument (spillReg) should have a non-empty register.
-	var spillReg int
 	ds.lookup = make(map[string]bool)
 
 	// Define the assembler directives for data and text.
@@ -79,7 +75,7 @@ func CodeGen(t tac.Tac) {
 		}
 
 		// Initialize all registers to be empty at the starting of basic block.
-		for i := 1; i <= 4; i++ {
+		for i := 1; i <= tac.RegLimit; i++ {
 			blk.EmptyDesc[i] = true
 		}
 
@@ -88,82 +84,47 @@ func CodeGen(t tac.Tac) {
 			case "=":
 				if stmt.Src[0].Typ == "int" {
 					if blk.Adesc[stmt.Dst].Reg == 0 {
-						// The following is a non-deterministic O(1) algorithm
-						// for k, _ := range blk.Rdesc {
-						// 	spillReg = k
-						// 	break
-						// }
-
-						// The following is a deterministic O(RegLimit) algorithm.
-						for i := 1; i <= tac.RegLimit; i++ {
-							_, ok := blk.Rdesc[i]
-							if ok {
-								spillReg = i
-								break
-							}
-						}
-						addrIndex := blk.GetReg(spillReg)
-						if addrIndex == spillReg {
+						retReg, retMem, retVar, isSpilled := blk.GetReg(1, stmt.Dst, 2)
+						if isSpilled {
 							// The register needs to be spilled.
 							comment := fmt.Sprintf("; spilled %s and freed {$t%d, $t%d}",
-								blk.Rdesc[spillReg], spillReg, blk.Adesc[blk.Rdesc[spillReg]].Mem)
+								retVar, retReg, retMem)
 							ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, ($t%d)\t\t%s",
-								spillReg, blk.Adesc[blk.Rdesc[spillReg]].Mem, comment))
-							blk.EmptyDesc[blk.Adesc[blk.Rdesc[spillReg]].Mem] = true
-							delete(blk.Adesc, blk.Rdesc[spillReg])
-							delete(blk.Rdesc, spillReg)
+								retReg, retMem, comment))
 						}
 
 						// Load variables from memory into registers
-						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", addrIndex, stmt.Dst))
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", retReg, stmt.Dst))
 
-						// The following is a non-deterministic O(1) algorithm
-						// for k, _ := range blk.Rdesc {
-						// 	spillReg = k
-						// 	break
-						// }
-
-						// The following is a deterministic O(RegLimit) algorithm.
-						for i := 1; i <= tac.RegLimit; i++ {
-							_, ok := blk.Rdesc[i]
-							if ok {
-								spillReg = i
-								break
-							}
-						}
-						regIndex := blk.GetReg(spillReg)
-						if regIndex == spillReg {
+						retReg, retMem, retVar, isSpilled = blk.GetReg(1, stmt.Dst, 1)
+						if isSpilled {
 							// The register needs to be spilled.
-							ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, ($t%d)", spillReg, blk.Adesc[blk.Rdesc[spillReg]].Mem))
-							blk.EmptyDesc[blk.Adesc[blk.Rdesc[spillReg]].Mem] = true
-							delete(blk.Rdesc, spillReg)
-							delete(blk.Adesc, blk.Rdesc[spillReg])
+							comment := fmt.Sprintf("; spilled %s and freed {$t%d, $t%d}",
+								retVar, retReg, retMem)
+							ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, ($t%d)\t\t%s", retReg, retMem, comment))
 						}
-						// Update lookup tables
-						blk.Rdesc[regIndex] = stmt.Dst
-						blk.Adesc[stmt.Dst] = tac.AddrDesc{regIndex, addrIndex}
-						comment := fmt.Sprintf("; %s -> {reg: $t%d, mem: $t%d}", blk.Rdesc[regIndex], regIndex, addrIndex)
-						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli, $t%d, %s\t\t%s", regIndex, stmt.Src[0].Val, comment))
+						comment := fmt.Sprintf("; %s -> {reg: $t%d, mem: $t%d}", stmt.Dst, retReg, blk.Adesc[blk.Rdesc[retReg]].Mem)
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli, $t%d, %s\t\t%s", retReg, stmt.Src[0].Val, comment))
 					} else {
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli, $t%d, %s", blk.Adesc[stmt.Dst].Reg, stmt.Src[0].Val))
 					}
 				} else {
-					if blk.Adesc[stmt.Dst].Reg == 0 {
-						// By the current heuristic of register allocation, the register
-						// which "might" be spilled is always first source variable.
-						addrIndex := blk.GetReg(blk.Adesc[stmt.Src[0].Val].Reg)
-						// Load variables from memory into registers
-						addrIndex = blk.GetReg(blk.Adesc[stmt.Src[0].Val].Reg)
-						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", addrIndex, stmt.Dst))
-						regIndex := blk.GetReg(blk.Adesc[stmt.Src[0].Val].Reg)
-						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, ($t%d)", regIndex, addrIndex))
-						// Update lookup tables
-						blk.Rdesc[regIndex] = stmt.Dst
-						blk.Adesc[stmt.Dst] = tac.AddrDesc{regIndex, addrIndex}
-						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove, $t%d, $t%d", regIndex, blk.Adesc[stmt.Src[0].Val].Reg))
-					} else {
-						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove, $t%d, $t%d", blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].Val].Reg))
-					}
+					// if blk.Adesc[stmt.Dst].Reg == 0 {
+					// 	// By the current heuristic of register allocation, the register
+					// 	// which "might" be spilled is always first source variable.
+					// 	addrIndex := blk.GetReg(blk.Adesc[stmt.Src[0].Val].Reg)
+					// 	// Load variables from memory into registers
+					// 	addrIndex = blk.GetReg(blk.Adesc[stmt.Src[0].Val].Reg)
+					// 	ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", addrIndex, stmt.Dst))
+					// 	regIndex := blk.GetReg(blk.Adesc[stmt.Src[0].Val].Reg)
+					// 	ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, ($t%d)", regIndex, addrIndex))
+					// 	// Update lookup tables
+					// 	blk.Rdesc[regIndex] = stmt.Dst
+					// 	blk.Adesc[stmt.Dst] = tac.AddrDesc{regIndex, addrIndex}
+					// 	ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove, $t%d, $t%d", regIndex, blk.Adesc[stmt.Src[0].Val].Reg))
+					// } else {
+					// 	ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove, $t%d, $t%d", blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].Val].Reg))
+					// }
 				}
 			case "<":
 				// TODO Handle the case when the argument variables are not in registers

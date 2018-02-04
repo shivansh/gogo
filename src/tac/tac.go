@@ -25,26 +25,64 @@ type Blk struct {
 
 const RegLimit = 4
 
-func (blk Blk) GetReg(spillReg int) (retReg int) {
-	if len(blk.Rdesc) == RegLimit || len(blk.EmptyDesc) == 0 {
-		retReg = spillReg
-	} else {
-		// The following is a non-deterministic O(1) algorithm.
-		// for k, _ := range blk.EmptyDesc {
-		// 	retReg = k
-		// 	delete(blk.EmptyDesc, k)
-		// 	break
-		// }
+func (blk Blk) GetReg(mode int, dst string, regType int) (retReg int, retMem int, retVar string, isSpilled bool) {
+	// regType: 1 -> value register and 2 -> memory register
+	if mode == 1 {
+		// x = 1
+		// Check if there is an empty register
+		if len(blk.EmptyDesc) != 0 {
+			isSpilled = false
+			for i := 1; i <= RegLimit; i++ {
+				if blk.EmptyDesc[i] {
+					retReg = i
+					delete(blk.EmptyDesc, i)
+					break
+				}
+			}
+			// Update lookup tables
+			blk.Rdesc[retReg] = dst
+			if regType == 1 {
+				retMem = blk.Adesc[dst].Mem
+				blk.Adesc[dst] = AddrDesc{retReg, blk.Adesc[dst].Mem}
+			} else {
+				retMem = retReg
+				blk.Adesc[dst] = AddrDesc{blk.Adesc[dst].Reg, retReg}
+			}
+		} else {
+			// No empty register hence spill
+			isSpilled = true
+			for i := 1; i <= RegLimit; i++ {
+				if i == blk.Adesc[blk.Rdesc[i]].Mem {
+					continue
+				}
+				if _, ok := blk.Rdesc[i]; ok {
+					retReg = i
+					retMem = blk.Adesc[blk.Rdesc[i]].Mem
+					retVar = blk.Rdesc[i]
 
-		// The following is a deterministic O(RegLimit) algorithm.
-		for i := 1; i <= RegLimit; i++ {
-			if blk.EmptyDesc[i] {
-				retReg = i
-				delete(blk.EmptyDesc, i)
-				break
+					// Update Rdesc and Adesc
+					m := blk.Adesc[blk.Rdesc[i]]
+					delete(blk.Adesc, blk.Rdesc[i])
+					delete(blk.Rdesc, m.Reg)
+					delete(blk.Rdesc, m.Mem)
+					blk.EmptyDesc[m.Reg] = true
+					blk.EmptyDesc[m.Mem] = true
+
+					break
+				}
+			}
+			// Update the newly acquired register in the lookup tables
+			blk.Rdesc[retReg] = dst
+			if regType == 1 {
+				blk.Adesc[dst] = AddrDesc{retReg, blk.Adesc[dst].Mem}
+			} else {
+				blk.Adesc[dst] = AddrDesc{blk.Adesc[dst].Reg, retReg}
 			}
 		}
+	} else {
+		// x = y
 	}
+
 	return
 }
 
