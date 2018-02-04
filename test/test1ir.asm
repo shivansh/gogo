@@ -15,19 +15,18 @@ main:
 	sw $t2, ($t1)		; spilled v1 and freed {$t2, $t1}
 	la $t2, v3
 	li, $t1, 3		; v3 -> {reg: $t1, mem: $t2}
+	la $t2, v4
 	sw $t1, ($t2)		; spilled v3 and freed {$t1, $t2}
-	la $t1, v4
-	li, $t2, 4		; v4 -> {reg: $t2, mem: $t1}
-	sw $t2, ($t1)		; spilled v4 and freed {$t2, $t1}
-	la $t2, v5
-	li, $t1, 5		; v5 -> {reg: $t1, mem: $t2}
+	li, $t1, 4		; v4 -> {reg: $t1, mem: $t2}
+	la $t1, v5
+	li, $t2, 5		; v5 -> {reg: $t2, mem: $t1}
 	jlt, $t0, 5, unsat
-	move, $t4, $t0
 	j temp
 
 	; Store variables back into memory
-	sw $t1, ($t2)
+	sw $t2, ($t1)
 	sw $t4, ($t3)
+	sw $t1, ($t2)
 temp:
 	jlt, $t0, $t0, unsat
 
