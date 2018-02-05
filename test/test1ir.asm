@@ -4,36 +4,36 @@ v2:	.word	0
 v3:	.word	0
 v4:	.word	0
 v5:	.word	0
+v6:	.word	0
+v7:	.word	0
 
 	.text
 main:
-	la $t1, v1
-	li, $t2, -1		; v1 -> {reg: $t2, mem: $t1}
-	la $t3, v2
-	li, $t4, 2		; v2 -> {reg: $t4, mem: $t3}
-	li, $t2, -12
-	sw $t2, ($t1)		; spilled v1 and freed {$t2, $t1}
-	la $t2, v3
-	li, $t1, 3		; v3 -> {reg: $t1, mem: $t2}
-	la $t2, v4
-	sw $t1, ($t2)		; spilled v3 and freed {$t1, $t2}
-	li, $t1, 4		; v4 -> {reg: $t1, mem: $t2}
-	la $t1, v5
-	li, $t2, 5		; v5 -> {reg: $t2, mem: $t1}
-	jlt, $t0, 5, unsat
+	li $t1, -1		; v1 -> $t1
+	li $t2, 2		; v2 -> $t2
+	li $t1, -12		; v1 -> $t1
+	li $t3, 3		; v3 -> $t3
+	li $t4, 4		; v4 -> $t4
+	sw $t1, v1		; spilled v1, freed $t1
+	li $t1, 5		; v5 -> $t1
+	move $t1, $t4		; v5 -> $t1
+	add $t1, $t4, $t3	; v5 -> $t1
+	sw $t1, v5		; spilled v5, freed $t1
+	li $t1, 5		; v6 -> $t1
+	sw $t1, v6		; spilled v6, freed $t1
+	li $t1, 5		; v7 -> $t1
 	j temp
 
 	; Store variables back into memory
-	sw $t2, ($t1)
-	sw $t4, ($t3)
-	sw $t1, ($t2)
+	sw $t4, v4
+	sw $t1, v7
+	sw $t2, v2
+	sw $t3, v3
 temp:
-	jlt, $t0, $t0, unsat
 
 	; Store variables back into memory
 unsat:
-	la $t1, v4
-	li, $t2, 4		; v4 -> {reg: $t2, mem: $t1}
+	li $t1, 4		; v4 -> $t1
 
 	; Store variables back into memory
-	sw $t2, ($t1)
+	sw $t1, v4
