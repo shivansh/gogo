@@ -2,6 +2,7 @@ package tac
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"os"
 	"regexp"
@@ -24,6 +25,22 @@ type Stmt struct {
 type SrcVar struct {
 	Typ string
 	Val string
+}
+
+// Data section
+type DataSec struct {
+	// Stmts is a slice of statements which will be flushed
+	// into the data section of the generated assembly file.
+	Stmts []string
+	// Lookup keeps track of all the variables currently
+	// available in the data section.
+	Lookup map[string]bool
+}
+
+type TextSec struct {
+	// Stmts is a slice of statements which will be flushed
+	// into the text section of the generated assembly file.
+	Stmts []string
 }
 
 type Blk struct {
@@ -58,23 +75,20 @@ const RegLimit = 4
 //	* regType: There are two types of registers involved -
 //		- Type 1: Value register, contain value of a variable
 //		- Type 2: Address registers, contain memory address of a variable
+//	* ts: If a register had to be spilled when GetReg() was called, the text
+//	      segment should be updated with an equivalent statement (store-word).
 //
 // Return values:
-//	* retReg: The register index which can now be used for allocation.
-//	* isSpilled: Notifies if any register had to be spilled.
-//
-//	If a register was spilled when GetReg() was called, the following
-//	values indicate back to the caller the steps to take to write back
-//	the spilled values into memory.
-//		* retMem: the (register) memory index of the spilled register
-//		* retVar: the variable name of the spilled register
+//	* retReg: Register index which the caller can use for allocation.
 //
 // GetReg handles all the side-effects induced due to register allocation.
-func (blk Blk) GetReg(mode int, dst string, regType int) (retReg int, retMem int, retVar string, isSpilled bool) {
+func (blk Blk) GetReg(mode int, dst string, regType int, ts *TextSec) (retReg int) {
+	var retMem int
+	var retVar string
+
 	if mode == 1 {
 		// Check if there is an empty register.
 		if len(blk.EmptyDesc) != 0 {
-			isSpilled = false
 			for i := 1; i <= RegLimit; i++ {
 				if blk.EmptyDesc[i] {
 					retReg = i
@@ -85,15 +99,12 @@ func (blk Blk) GetReg(mode int, dst string, regType int) (retReg int, retMem int
 			// Update the lookup tables with info of the newly acquired register.
 			blk.Rdesc[retReg] = dst
 			if regType == 1 {
-				retMem = blk.Adesc[dst].Mem
 				blk.Adesc[dst] = AddrDesc{retReg, blk.Adesc[dst].Mem}
 			} else {
-				retMem = retReg
 				blk.Adesc[dst] = AddrDesc{blk.Adesc[dst].Reg, retReg}
 			}
 		} else {
 			// No empty register left, spill a (non-empty) register with smallest index.
-			isSpilled = true
 			for i := 1; i <= RegLimit; i++ {
 				if i == blk.Adesc[blk.Rdesc[i]].Mem {
 					continue
@@ -119,9 +130,12 @@ func (blk Blk) GetReg(mode int, dst string, regType int) (retReg int, retMem int
 			} else {
 				blk.Adesc[dst] = AddrDesc{blk.Adesc[dst].Reg, retReg}
 			}
+			// The register was spilled.
+			comment := fmt.Sprintf("; spilled %s and freed {$t%d, $t%d}", retVar, retReg, retMem)
+			ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, ($t%d)\t\t%s", retReg, retMem, comment))
 		}
 	} else {
-		// TODO: Implement mode-2
+		// TODO: Implement mode 2
 	}
 
 	return
@@ -142,7 +156,6 @@ func GenTAC(file *os.File) (tac Tac) {
 		for i := 0; i < len(record); i++ {
 			record[i] = strings.TrimSpace(record[i])
 		}
-
 		// A basic block starts:
 		//	* at label instruction
 		//	* after jump instruction
@@ -176,9 +189,9 @@ func GenTAC(file *os.File) (tac Tac) {
 			blk.Stmts = append(blk.Stmts, Stmt{record[1], record[2], sv})
 		}
 	}
-
+	// Push the last allocated basic block
 	blk.EmptyDesc = make(map[int]bool)
-	tac = append(tac, *blk) // push the last block
+	tac = append(tac, *blk)
 
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)

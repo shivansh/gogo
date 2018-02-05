@@ -6,22 +6,6 @@ import (
 	"gogo/src/tac"
 )
 
-// Data section
-type DataSec struct {
-	// Stmts is a slice of statements which will be flushed
-	// into the data section of the generated assembly file.
-	Stmts []string
-	// lookup keeps track of all the variables currently
-	// available in the data section.
-	lookup map[string]bool
-}
-
-type TextSec struct {
-	// Stmts is a slice of statements which will be flushed
-	// into the text section of the generated assembly file.
-	Stmts []string
-}
-
 type AddrDesc struct {
 	// The register value is represented as an integer
 	// and an equivalent representation in MIPS will be -
@@ -37,9 +21,9 @@ type AddrDesc struct {
 }
 
 func CodeGen(t tac.Tac) {
-	var ds DataSec
-	var ts TextSec
-	ds.lookup = make(map[string]bool)
+	var ds tac.DataSec
+	var ts tac.TextSec
+	ds.Lookup = make(map[string]bool)
 
 	// Define the assembler directives for data and text.
 	ds.Stmts = append(ds.Stmts, "\t.data")
@@ -54,8 +38,8 @@ func CodeGen(t tac.Tac) {
 		// assignment statement, update the DS for data section.
 		for _, stmt := range blk.Stmts {
 			if stmt.Op == "=" {
-				if !ds.lookup[stmt.Dst] {
-					ds.lookup[stmt.Dst] = true
+				if !ds.Lookup[stmt.Dst] {
+					ds.Lookup[stmt.Dst] = true
 					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.word\t0", stmt.Dst))
 				}
 				// TODO It should be made possible to identify the contents of a variable.
@@ -81,23 +65,9 @@ func CodeGen(t tac.Tac) {
 						//	  when spilling or at the end of the basic block.
 						// 	* The second register loads the value of the register from the
 						//	  memory address loaded in the previous step.
-						//
-						// Load variable's memory address into a register.
-						retReg, retMem, retVar, isSpilled := blk.GetReg(1, stmt.Dst, 2)
-						if isSpilled {
-							// The register was spilled.
-							comment := fmt.Sprintf("; spilled %s and freed {$t%d, $t%d}", retVar, retReg, retMem)
-							ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, ($t%d)\t\t%s", retReg, retMem, comment))
-						}
+						retReg := blk.GetReg(1, stmt.Dst, 2, &ts)
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", retReg, stmt.Dst))
-
-						// Load variable value from the address loaded in the previous step.
-						retReg, retMem, retVar, isSpilled = blk.GetReg(1, stmt.Dst, 1)
-						if isSpilled {
-							// The register was spilled.
-							comment := fmt.Sprintf("; spilled %s and freed {$t%d, $t%d}", retVar, retReg, retMem)
-							ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, ($t%d)\t\t%s", retReg, retMem, comment))
-						}
+						retReg = blk.GetReg(1, stmt.Dst, 1, &ts)
 						comment := fmt.Sprintf("; %s -> {reg: $t%d, mem: $t%d}", stmt.Dst, retReg, blk.Adesc[blk.Rdesc[retReg]].Mem)
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli, $t%d, %s\t\t%s", retReg, stmt.Src[0].Val, comment))
 					} else {
