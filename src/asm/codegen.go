@@ -2,14 +2,14 @@ package asm
 
 import (
 	"fmt"
-
 	"gogo/src/tac"
+	"strings"
 )
 
 type AddrDesc struct {
 	// The register value is represented as an integer
 	// and an equivalent representation in MIPS will be -
-	//	$tr  ; where r is the value of reg
+	//	$tr  ; r is the value of reg
 	// For a variable which are not stored in any register,
 	// the value of reg will be -1 for it.
 	reg int
@@ -32,7 +32,6 @@ func CodeGen(t tac.Tac) {
 	for _, blk := range t {
 		blk.Rdesc = make(map[int]string)
 		blk.Adesc = make(map[string]tac.AddrDesc)
-
 		// Update data section data structures. For this, make a single
 		// pass through the entire three-address code and for each
 		// assignment statement, update the DS for data section.
@@ -56,33 +55,22 @@ func CodeGen(t tac.Tac) {
 		for _, stmt := range blk.Stmts {
 			switch stmt.Op {
 			case "=":
-				if stmt.Src[0].Typ == "int" {
-					if blk.Adesc[stmt.Dst].Reg == 0 {
-						// When loading a variable from memory, two registers are required -
-						//	* The first register loads the memory address of the variable. This
-						//	  address serves as a reference where the variable value (which will
-						// 	  be loaded in a separate register in the next step) is stored back
-						//	  when spilling or at the end of the basic block.
-						// 	* The second register loads the value of the register from the
-						//	  memory address loaded in the previous step.
-						retReg := blk.GetReg(1, stmt.Dst, 2, &ts)
-						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", retReg, stmt.Dst))
-						retReg = blk.GetReg(1, stmt.Dst, 1, &ts)
-						comment := fmt.Sprintf("; %s -> {reg: $t%d, mem: $t%d}", stmt.Dst, retReg, blk.Adesc[blk.Rdesc[retReg]].Mem)
-						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli, $t%d, %s\t\t%s", retReg, stmt.Src[0].Val, comment))
-					} else {
-						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli, $t%d, %s", blk.Adesc[stmt.Dst].Reg, stmt.Src[0].Val))
-					}
+				blk.GetReg(stmt, &ts)
+				comment := fmt.Sprintf("; %s -> $t%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
+				if strings.Compare(stmt.Src[0].Typ, "int") == 0 {
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli $t%d, %s\t\t%s", blk.Adesc[stmt.Dst].Reg, stmt.Src[0].Val, comment))
 				} else {
-					// TODO Handle mode 2
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove $t%d, $t%d\t\t%s", blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].Val].Reg, comment))
 				}
-			case "<":
-				// TODO Handle the case when the argument variables are not in registers
-				if stmt.Src[0].Typ == "int" {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tjlt, $t%d, %s, %s", blk.Adesc[stmt.Dst].Reg, stmt.Src[0].Val, stmt.Src[1].Val))
+			case "+":
+				blk.GetReg(stmt, &ts)
+				comment := fmt.Sprintf("; %s -> $t%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
+				if strings.Compare(stmt.Src[1].Typ, "int") == 0 {
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\taddi $t%d, $t%d, %s\t\t%s",
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].Val], stmt.Src[1].Val, comment))
 				} else {
-					ts.Stmts = append(ts.Stmts,
-						fmt.Sprintf("\tjlt, $t%d, $t%d, %s", blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].Val].Reg, stmt.Src[1].Val))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tadd $t%d, $t%d, $t%d\t%s",
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].Val].Reg, blk.Adesc[stmt.Src[1].Val].Reg, comment))
 				}
 			case "label":
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("%s:", stmt.Dst))
@@ -93,13 +81,11 @@ func CodeGen(t tac.Tac) {
 			}
 		}
 
-		// Store variables back into memory for the previous basic block
+		// Store filled registers back into memory at the end of basic block.
 		ts.Stmts = append(ts.Stmts, "\n\t; Store variables back into memory")
-
-		// Only store the variables which were loaded in the first place
-		for _, v := range blk.Adesc {
-			if v.Mem > 0 {
-				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, ($t%d)", v.Reg, v.Mem))
+		for k, v := range blk.Adesc {
+			if v.Reg > 0 {
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, %s", v.Reg, k))
 			}
 		}
 	}

@@ -5,12 +5,13 @@
 3, =, v3, 3
 3, =, v4, 4
 3, =, v5, 5
-4, <, v6, 5, unsat
-5, =, v2, v1
+3, =, v5, v4
+3, +, v5, v4, v3
+3, =, v6, 5
+3, =, v7, 5
 6, call, temp
 7, ret,
 8, label, temp
-9, <, v1, v2, unsat
 10, *, v1, 1
 11, label, unsat
 12, =, v4, 4

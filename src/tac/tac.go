@@ -68,77 +68,55 @@ const RegLimit = 4
 // Register allocator
 // ~~~~~~~~~~~~~~~~~~
 // Arguments:
-//	* mode: The allocator operates in two modes -
-//		- Mode 1: Handles expressions of the form "x = 1"
-//		- Mode 2: Handles expressions of the form "x = y"
-//	* dst: Destination variable name
-//	* regType: There are two types of registers involved -
-//		- Type 1: Value register, contain value of a variable
-//		- Type 2: Address registers, contain memory address of a variable
+//	* stmt: The allocator ensures that all the variables available in Stmt
+//		object has been allocated a register.
 //	* ts: If a register had to be spilled when GetReg() was called, the text
 //	      segment should be updated with an equivalent statement (store-word).
 //
-// Return values:
-//	* retReg: Register index which the caller can use for allocation.
-//
 // GetReg handles all the side-effects induced due to register allocation.
-func (blk Blk) GetReg(mode int, dst string, regType int, ts *TextSec) (retReg int) {
-	var retMem int
-	var retVar string
-
-	if mode == 1 {
-		// Check if there is an empty register.
-		if len(blk.EmptyDesc) != 0 {
-			for i := 1; i <= RegLimit; i++ {
-				if blk.EmptyDesc[i] {
-					retReg = i
-					delete(blk.EmptyDesc, i)
-					break
-				}
-			}
-			// Update the lookup tables with info of the newly acquired register.
-			blk.Rdesc[retReg] = dst
-			if regType == 1 {
-				blk.Adesc[dst] = AddrDesc{retReg, blk.Adesc[dst].Mem}
-			} else {
-				blk.Adesc[dst] = AddrDesc{blk.Adesc[dst].Reg, retReg}
-			}
-		} else {
-			// No empty register left, spill a (non-empty) register with smallest index.
-			for i := 1; i <= RegLimit; i++ {
-				if i == blk.Adesc[blk.Rdesc[i]].Mem {
-					continue
-				}
-				if _, ok := blk.Rdesc[i]; ok {
-					retReg = i
-					retMem = blk.Adesc[blk.Rdesc[i]].Mem
-					retVar = blk.Rdesc[i]
-					// Update the lookup tables with info of the spilled register.
-					m := blk.Adesc[blk.Rdesc[i]]
-					delete(blk.Adesc, blk.Rdesc[i])
-					delete(blk.Rdesc, m.Reg)
-					delete(blk.Rdesc, m.Mem)
-					blk.EmptyDesc[m.Reg] = true
-					blk.EmptyDesc[m.Mem] = true
-					break
-				}
-			}
-			// Update the lookup tables with info of the newly acquired register.
-			blk.Rdesc[retReg] = dst
-			if regType == 1 {
-				blk.Adesc[dst] = AddrDesc{retReg, blk.Adesc[dst].Mem}
-			} else {
-				blk.Adesc[dst] = AddrDesc{blk.Adesc[dst].Reg, retReg}
-			}
-			// The register was spilled.
-			comment := fmt.Sprintf("; spilled %s and freed {$t%d, $t%d}", retVar, retReg, retMem)
-			ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, ($t%d)\t\t%s", retReg, retMem, comment))
+func (blk Blk) GetReg(stmt Stmt, ts *TextSec) {
+	localVar := []string{stmt.Dst}
+	for _, v := range stmt.Src {
+		if strings.Compare(v.Typ, "string") == 0 {
+			localVar = append(localVar, v.Val)
 		}
-	} else {
-		// TODO: Implement mode 2
 	}
 
-	return
+	regMap := make(map[int]bool)
+	for _, v := range localVar {
+		if _, ok := blk.Adesc[v]; ok {
+			regMap[blk.Adesc[v].Reg] = true
+		}
+	}
+
+	var i int
+	for _, v := range localVar {
+		if _, ok := blk.Adesc[v]; !ok {
+			if len(blk.EmptyDesc) > 0 {
+				for i = 1; i <= RegLimit; i++ {
+					if blk.EmptyDesc[i] {
+						delete(blk.EmptyDesc, i)
+						break
+					}
+				}
+			} else {
+				// Spill a register.
+				// TODO: Replacing RegLimit with len(blk.Rdesc) should work too.
+				for i = 1; i <= RegLimit; i++ {
+					if !regMap[i] {
+						comment := fmt.Sprintf("; spilled %s, freed $t%d", blk.Rdesc[i], i)
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, %s\t\t%s", i, blk.Rdesc[i], comment))
+						delete(blk.Adesc, blk.Rdesc[i])
+						delete(blk.Rdesc, i)
+						break
+					}
+				}
+			}
+			blk.Rdesc[i] = v
+			blk.Adesc[v] = AddrDesc{i, blk.Adesc[v].Mem}
+			regMap[i] = true
+		}
+	}
 }
 
 // GenTAC generates the three-address code (in-memory) data structure
