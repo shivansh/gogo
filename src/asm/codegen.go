@@ -46,17 +46,7 @@ func CodeGen(t tac.Tac) {
 	ts.Stmts = append(ts.Stmts, "\t.text")
 
 	for _, blk := range t {
-		// Register descriptor:
-		//	* Keeps track of what is currently in each register.
-		//	* Initially all registers are empty.
 		blk.Rdesc = make(map[int]string)
-		// Address descriptor:
-		//	* Keeps track of location where current value of the
-		//	  name can be found at runtime.
-		//	* The location can be either one or a set of -
-		//		- register
-		//		- memory address
-		//		- stack (TODO)
 		blk.Adesc = make(map[string]tac.AddrDesc)
 
 		// Update data section data structures. For this, make a single
@@ -84,23 +74,28 @@ func CodeGen(t tac.Tac) {
 			case "=":
 				if stmt.Src[0].Typ == "int" {
 					if blk.Adesc[stmt.Dst].Reg == 0 {
+						// When loading a variable from memory, two registers are required -
+						//	* The first register loads the memory address of the variable. This
+						//	  address serves as a reference where the variable value (which will
+						// 	  be loaded in a separate register in the next step) is stored back
+						//	  when spilling or at the end of the basic block.
+						// 	* The second register loads the value of the register from the
+						//	  memory address loaded in the previous step.
+						//
+						// Load variable's memory address into a register.
 						retReg, retMem, retVar, isSpilled := blk.GetReg(1, stmt.Dst, 2)
 						if isSpilled {
-							// The register needs to be spilled.
-							comment := fmt.Sprintf("; spilled %s and freed {$t%d, $t%d}",
-								retVar, retReg, retMem)
-							ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, ($t%d)\t\t%s",
-								retReg, retMem, comment))
+							// The register was spilled.
+							comment := fmt.Sprintf("; spilled %s and freed {$t%d, $t%d}", retVar, retReg, retMem)
+							ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, ($t%d)\t\t%s", retReg, retMem, comment))
 						}
-
-						// Load variables from memory into registers
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", retReg, stmt.Dst))
 
+						// Load variable value from the address loaded in the previous step.
 						retReg, retMem, retVar, isSpilled = blk.GetReg(1, stmt.Dst, 1)
 						if isSpilled {
-							// The register needs to be spilled.
-							comment := fmt.Sprintf("; spilled %s and freed {$t%d, $t%d}",
-								retVar, retReg, retMem)
+							// The register was spilled.
+							comment := fmt.Sprintf("; spilled %s and freed {$t%d, $t%d}", retVar, retReg, retMem)
 							ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, ($t%d)\t\t%s", retReg, retMem, comment))
 						}
 						comment := fmt.Sprintf("; %s -> {reg: $t%d, mem: $t%d}", stmt.Dst, retReg, blk.Adesc[blk.Rdesc[retReg]].Mem)
@@ -109,22 +104,7 @@ func CodeGen(t tac.Tac) {
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli, $t%d, %s", blk.Adesc[stmt.Dst].Reg, stmt.Src[0].Val))
 					}
 				} else {
-					// if blk.Adesc[stmt.Dst].Reg == 0 {
-					// 	// By the current heuristic of register allocation, the register
-					// 	// which "might" be spilled is always first source variable.
-					// 	addrIndex := blk.GetReg(blk.Adesc[stmt.Src[0].Val].Reg)
-					// 	// Load variables from memory into registers
-					// 	addrIndex = blk.GetReg(blk.Adesc[stmt.Src[0].Val].Reg)
-					// 	ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", addrIndex, stmt.Dst))
-					// 	regIndex := blk.GetReg(blk.Adesc[stmt.Src[0].Val].Reg)
-					// 	ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, ($t%d)", regIndex, addrIndex))
-					// 	// Update lookup tables
-					// 	blk.Rdesc[regIndex] = stmt.Dst
-					// 	blk.Adesc[stmt.Dst] = tac.AddrDesc{regIndex, addrIndex}
-					// 	ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove, $t%d, $t%d", regIndex, blk.Adesc[stmt.Src[0].Val].Reg))
-					// } else {
-					// 	ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove, $t%d, $t%d", blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].Val].Reg))
-					// }
+					// TODO Handle mode 2
 				}
 			case "<":
 				// TODO Handle the case when the argument variables are not in registers
