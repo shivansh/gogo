@@ -29,7 +29,7 @@ make tac
 make gogo
 ```
 
-The three-address code (in-memory) data structure can be prepared via -
+The MIPS assembly can be generated via -
 ```
 bin/gogo test/test1.ir
 ```
