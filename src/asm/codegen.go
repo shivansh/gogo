@@ -1,8 +1,10 @@
 package asm
 
 import (
+	"container/heap"
 	"fmt"
 	"gogo/src/tac"
+	"strconv"
 	"strings"
 )
 
@@ -32,6 +34,26 @@ func CodeGen(t tac.Tac) {
 	for _, blk := range t {
 		blk.Rdesc = make(map[int]string)
 		blk.Adesc = make(map[string]tac.AddrDesc)
+		blk.Pq = make(tac.PriorityQueue, tac.RegLimit)
+		blk.Table = make([][]tac.UseInfo, len(blk.Stmts), len(blk.Stmts))
+		for i := 0; i < tac.RegLimit; i++ {
+			blk.Pq[i] = &tac.UseInfo{
+				Name:    strconv.Itoa(i + 1),
+				Nextuse: 1024,
+			}
+		}
+		heap.Init(&blk.Pq)
+
+		blk.GetUseInfo()
+
+		for _, v := range blk.Table {
+			for _, k := range v {
+				fmt.Printf("name: %s|nextuse: %d|\t", k.Name, k.Nextuse)
+			}
+			fmt.Printf("\n")
+		}
+		fmt.Printf("\n")
+
 		// Update data section data structures. For this, make a single
 		// pass through the entire three-address code and for each
 		// assignment statement, update the DS for data section.
