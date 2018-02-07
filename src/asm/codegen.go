@@ -39,20 +39,12 @@ func CodeGen(t tac.Tac) {
 		for i := 0; i < tac.RegLimit; i++ {
 			blk.Pq[i] = &tac.UseInfo{
 				Name:    strconv.Itoa(i + 1),
-				Nextuse: 1024,
+				Nextuse: tac.MaxInt,
 			}
 		}
+
 		heap.Init(&blk.Pq)
-
 		blk.GetUseInfo()
-
-		for _, v := range blk.Table {
-			for _, k := range v {
-				fmt.Printf("name: %s|nextuse: %d|\t", k.Name, k.Nextuse)
-			}
-			fmt.Printf("\n")
-		}
-		fmt.Printf("\n")
 
 		// Update data section data structures. For this, make a single
 		// pass through the entire three-address code and for each
@@ -69,15 +61,10 @@ func CodeGen(t tac.Tac) {
 			}
 		}
 
-		// Initialize all registers to be empty at the starting of basic block.
-		for i := 1; i <= tac.RegLimit; i++ {
-			blk.EmptyDesc[i] = true
-		}
-
 		for _, stmt := range blk.Stmts {
 			switch stmt.Op {
 			case "=":
-				blk.GetReg(stmt, &ts)
+				blk.GetReg(&stmt, &ts)
 				comment := fmt.Sprintf("; %s -> $t%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				if strings.Compare(stmt.Src[0].Typ, "int") == 0 {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli $t%d, %s\t\t%s", blk.Adesc[stmt.Dst].Reg, stmt.Src[0].Val, comment))
@@ -85,7 +72,7 @@ func CodeGen(t tac.Tac) {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove $t%d, $t%d\t\t%s", blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].Val].Reg, comment))
 				}
 			case "+":
-				blk.GetReg(stmt, &ts)
+				blk.GetReg(&stmt, &ts)
 				comment := fmt.Sprintf("; %s -> $t%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				if strings.Compare(stmt.Src[1].Typ, "int") == 0 {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\taddi $t%d, $t%d, %s\t\t%s",
@@ -105,10 +92,8 @@ func CodeGen(t tac.Tac) {
 
 		// Store filled registers back into memory at the end of basic block.
 		ts.Stmts = append(ts.Stmts, "\n\t; Store variables back into memory")
-		for k, v := range blk.Adesc {
-			if v.Reg > 0 {
-				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, %s", v.Reg, k))
-			}
+		for k, v := range blk.Rdesc {
+			ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, %s", k, v))
 		}
 	}
 
