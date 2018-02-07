@@ -48,8 +48,7 @@ type TextSec struct {
 
 type UseInfo struct {
 	Name    string // name of the register in case of priority queue and variable in case of table
-	Nextuse int    // 1024 if dead
-	Index   int
+	Nextuse int    // MaxInt if dead
 }
 
 type PriorityQueue []*UseInfo
@@ -67,10 +66,9 @@ type Blk struct {
 	// Register descriptor:
 	//	* Keeps track of what is currently in each register.
 	//	* Initially all registers are empty.
-	Rdesc     map[int]string
-	EmptyDesc map[int]bool
-	Table     [][]UseInfo
-	Pq        PriorityQueue
+	Rdesc map[int]string
+	Table [][]UseInfo
+	Pq    PriorityQueue
 }
 
 func (pq PriorityQueue) Len() int { return len(pq) }
@@ -82,14 +80,10 @@ func (pq PriorityQueue) Less(i, j int) bool {
 
 func (pq PriorityQueue) Swap(i, j int) {
 	pq[i], pq[j] = pq[j], pq[i]
-	pq[i].Index = i
-	pq[j].Index = j
 }
 
 func (pq *PriorityQueue) Push(x interface{}) {
-	n := len(*pq)
 	item := x.(*UseInfo)
-	item.Index = n
 	*pq = append(*pq, item)
 }
 
@@ -97,16 +91,8 @@ func (pq *PriorityQueue) Pop() interface{} {
 	old := *pq
 	n := len(old)
 	item := old[n-1]
-	item.Index = -1 // for safety
 	*pq = old[0 : n-1]
 	return item
-}
-
-// update modifies the nextuse and value of an Item in the queue.
-func (pq *PriorityQueue) update(item *UseInfo, name string, nextuse int) {
-	item.Name = name
-	item.Nextuse = nextuse
-	heap.Fix(pq, item.Index)
 }
 
 // RegLimit determines the upper bound on the number of free registers at any
@@ -114,160 +100,117 @@ func (pq *PriorityQueue) update(item *UseInfo, name string, nextuse int) {
 // Currently, for testing purposes the value is set "too" low.
 const RegLimit = 4
 
+// Variables which are dead have their next-use set to MaxInt.
+const MaxInt = int(^uint(0) >> 1)
+
 // Register allocator
 // ~~~~~~~~~~~~~~~~~~
 // Arguments:
 //	* stmt: The allocator ensures that all the variables available in Stmt
-//		object has been allocated a register.
+//		object have been allocated a register.
 //	* ts: If a register had to be spilled when GetReg() was called, the text
 //	      segment should be updated with an equivalent statement (store-word).
 //
 // GetReg handles all the side-effects induced due to register allocation.
-func (blk Blk) GetReg(stmt Stmt, ts *TextSec) {
-	localVar := []string{stmt.Dst}
+func (blk Blk) GetReg(stmt *Stmt, ts *TextSec) {
+	// allocReg is a slice of all the register DS which are popped
+	// from the heap and have been assigned a variable's data. These
+	// DS are updated with the newly assigned variable's next-use info
+	// and after all the variables (x, y, z) are assigned a register,
+	// all entities in allocReg are pushed back into the heap. This
+	// ensures that the source variables' registers don't spill each other.
+	var allocReg []*UseInfo
+	var srcVars []string
+
+	// Collect all source "variables".
 	for _, v := range stmt.Src {
 		if strings.Compare(v.Typ, "string") == 0 {
-			localVar = append(localVar, v.Val)
+			srcVars = append(srcVars, v.Val)
 		}
 	}
-
-	regMap := make(map[int]bool)
-	for _, v := range localVar {
-		if _, ok := blk.Adesc[v]; ok {
-			regMap[blk.Adesc[v].Reg] = true
-		}
-	}
-
-	var i int
-	for _, v := range localVar {
-		if _, ok := blk.Adesc[v]; !ok {
-			if len(blk.EmptyDesc) > 0 {
-				for i = 1; i <= RegLimit; i++ {
-					if blk.EmptyDesc[i] {
-						// evaluate nextuse from table
-						var nu int
-						for _, l := range blk.Table[stmt.line] {
-							if strings.Compare(v, l.Name) == 0 {
-								nu = l.Nextuse
-								break
-							}
-						}
-						fmt.Printf("[Allocate]\treg: %d ; use: %d\n", i, nu)
-						ui := &UseInfo{
-							Name:    strconv.Itoa(i),
-							Nextuse: nu,
-						}
-						blk.Pq.update(ui, ui.Name, nu)
-						// Update lookup tables
-						delete(blk.EmptyDesc, i)
-						blk.Rdesc[i] = v
-						blk.Adesc[v] = AddrDesc{i, blk.Adesc[v].Mem}
-						break
-					}
-				}
-			} else {
-				// Spill a register.
-				// TODO: Replacing RegLimit with len(blk.Rdesc) should work too.
-				// get max element from heap
-				item := heap.Pop(&blk.Pq).(*UseInfo)
-				// Don't spill the source variable registers until dst is assigned
-				// In case a src variable register was popped, store it in a slice and insert it at the end.
-				var itemslice []*UseInfo
-				regname, _ := strconv.Atoi(item.Name)
-				validItemFound := false
-
-				for !validItemFound {
-					for _, l := range blk.Table[stmt.line] {
-						if strings.Compare(l.Name, blk.Rdesc[regname]) == 0 {
-							// collect the source variables and push them afterwards.
-							itemslice = append(itemslice, item)
-							fmt.Printf("[Avoid spill]\t%d\n", regname)
-							item = heap.Pop(&blk.Pq).(*UseInfo)
-							regname, _ = strconv.Atoi(item.Name)
-							validItemFound = false
-						} else {
-							validItemFound = true
-						}
-					}
-				}
-
-				iname, _ := strconv.Atoi(item.Name)
-				comment := fmt.Sprintf("; spilled %s, freed $t%s", blk.Rdesc[iname], item.Name)
-				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%s, %s\t\t%s", item.Name, blk.Rdesc[iname], comment))
-				delete(blk.Adesc, blk.Rdesc[iname])
-				delete(blk.Rdesc, iname)
-				blk.Rdesc[iname] = v
-				blk.Adesc[v] = AddrDesc{iname, blk.Adesc[v].Mem}
-
-				var nu int
-				for _, l := range blk.Table[stmt.line] {
-					if strings.Compare(v, l.Name) == 0 {
-						nu = l.Nextuse
-						break
-					}
-				}
-				// TODO push back into heap with updated priority
-				ui := &UseInfo{
-					Name:    strconv.Itoa(iname),
-					Nextuse: nu,
-				}
-				heap.Push(&blk.Pq, ui)
-				fmt.Printf("[NextUse]\treg: %d ; use: %d\n", iname, nu)
-				for _, sliceitems := range itemslice {
-					heap.Push(&blk.Pq, sliceitems)
-				}
+	// Allocate registers to source variables.
+	for _, v := range srcVars {
+		if _, hasReg := blk.Adesc[v]; !hasReg {
+			item := heap.Pop(&blk.Pq).(*UseInfo) // element with highest next-use
+			reg, _ := strconv.Atoi(item.Name)
+			if _, ok := blk.Rdesc[reg]; ok {
+				comment := fmt.Sprintf("; spilled %s, freed $t%s", blk.Rdesc[reg], item.Name)
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%s, %s\t\t%s", item.Name, blk.Rdesc[reg], comment))
 			}
+			nu := blk.FindNextUse(stmt.line, v)
+			ui := &UseInfo{
+				Name:    strconv.Itoa(reg),
+				Nextuse: nu,
+			}
+			allocReg = append(allocReg, ui)
+			// Update lookup tables.
+			delete(blk.Adesc, blk.Rdesc[reg])
+			delete(blk.Rdesc, reg)
+			blk.Rdesc[reg] = v
+			blk.Adesc[v] = AddrDesc{reg, blk.Adesc[v].Mem}
 		}
 	}
 
-	for _, v := range localVar {
-		var nu int
-		for _, y := range blk.Table[stmt.line] {
-			if strings.Compare(y.Name, v) == 0 {
-				nu = y.Nextuse
-				break
-			}
+	// Allocate register to the destination variable.
+	if _, hasReg := blk.Adesc[stmt.Dst]; !hasReg {
+		item := heap.Pop(&blk.Pq).(*UseInfo) // Heap element with highest next-use
+		reg, _ := strconv.Atoi(item.Name)
+		if _, ok := blk.Rdesc[reg]; ok {
+			comment := fmt.Sprintf("; spilled %s, freed $t%s", blk.Rdesc[reg], item.Name)
+			ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%s, %s\t\t%s", item.Name, blk.Rdesc[reg], comment))
 		}
+		// Update lookup tables.
+		blk.Rdesc[reg] = stmt.Dst
+		blk.Adesc[stmt.Dst] = AddrDesc{reg, blk.Adesc[stmt.Dst].Mem}
+		nu := blk.FindNextUse(stmt.line, stmt.Dst)
 		ui := &UseInfo{
-			Name:    strconv.Itoa(blk.Adesc[v].Reg),
+			Name:    strconv.Itoa(reg),
 			Nextuse: nu,
 		}
-		blk.Pq.update(ui, ui.Name, nu)
-		fmt.Printf("[Update]\treg: %d ; use: %d\n", blk.Adesc[v].Reg, nu)
+		allocReg = append(allocReg, ui)
+	}
+
+	// Push the items with updated priorities back into heap.
+	for _, sliceitems := range allocReg {
+		heap.Push(&blk.Pq, sliceitems)
 	}
 }
 
 // Next use info evaluation
 // ~~~~~~~~~~~~~~~~~~~~~~~~
 func (blk Blk) GetUseInfo() {
-	// table to track next use info
+	// Symbol table to track next use information.
 	liveness := make(map[string]int)
-
+	// Traverse the statements from bottom-up, while updating the
+	// symbol table (declared above) using the following algorithm -
+	// 	Step 1: attach to i'th line information in symbol table about
+	// 		variables x, y and z.
+	// 	Step 2: mark x as dead and no next use in symbol table.
+	// 	Step 3: set y and z to be live and set next use to i in symbol table.
 	for i := len(blk.Stmts) - 1; i >= 0; i-- {
 		// TODO continue if op == label ;
 		if strings.Compare(blk.Stmts[i].Op, "label") == 0 {
 			continue
 		}
-
 		s := []string{blk.Stmts[i].Dst}
 		for _, v := range blk.Stmts[i].Src {
 			if strings.Compare(v.Typ, "string") == 0 {
 				s = append(s, v.Val)
 			}
 		}
+		// Step 1
 		for _, v := range s {
-			// step 1 : attach to line i info abt vars
 			if _, ok := liveness[v]; !ok {
-				liveness[v] = 1024
+				liveness[v] = MaxInt
 			}
-			blk.Table[i] = append(blk.Table[i], UseInfo{v, liveness[v], len(blk.Stmts) - 1 - i})
+			blk.Table[i] = append(blk.Table[i], UseInfo{v, liveness[v]})
 		}
-		// step 2 : update liveness info
+		// Step 2
+		liveness[s[0]] = MaxInt
+		// Step 3
 		for _, v := range blk.Stmts[i].Src {
 			liveness[v.Val] = i
 		}
-		// step 3: kill dst
-		liveness[s[0]] = 1024
 	}
 }
 
@@ -295,7 +238,6 @@ func GenTAC(file *os.File) (tac Tac) {
 		switch record[1] {
 		case "label":
 			if blk != nil {
-				blk.EmptyDesc = make(map[int]bool)
 				tac = append(tac, *blk) // end the previous block
 			}
 			blk = new(Blk) // start a new block
@@ -303,7 +245,6 @@ func GenTAC(file *os.File) (tac Tac) {
 			line, _ := strconv.Atoi(record[0])
 			blk.Stmts = append(blk.Stmts, Stmt{line, record[1], record[2], []SrcVar{}})
 		case "jmp":
-			blk.EmptyDesc = make(map[int]bool)
 			tac = append(tac, *blk) // end the previous block
 			blk = new(Blk)          // start a new block
 			fallthrough             // move into next section to update blk.Src
@@ -322,7 +263,6 @@ func GenTAC(file *os.File) (tac Tac) {
 		}
 	}
 	// Push the last allocated basic block
-	blk.EmptyDesc = make(map[int]bool)
 	tac = append(tac, *blk)
 
 	if err := scanner.Err(); err != nil {
@@ -330,4 +270,13 @@ func GenTAC(file *os.File) (tac Tac) {
 	}
 
 	return
+}
+
+func (blk Blk) FindNextUse(line int, name string) int {
+	for _, v := range blk.Table[line] {
+		if strings.Compare(v.Name, name) == 0 {
+			return v.Nextuse
+		}
+	}
+	return MaxInt
 }
