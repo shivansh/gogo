@@ -4,6 +4,7 @@ v2:	.word	0
 v3:	.word	0
 v4:	.word	0
 v5:	.word	0
+v6:	.word	0
 
 	.text
 main:
