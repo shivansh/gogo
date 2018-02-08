@@ -17,6 +17,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	t := tac.GenTAC(file)
-	asm.CodeGen(t)
+	asm.CodeGen(tac.GenTAC(file))
+	file.Close()
 }

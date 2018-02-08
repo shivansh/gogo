@@ -5,20 +5,35 @@ v3:	.word	0
 v4:	.word	0
 v5:	.word	0
 v6:	.word	0
+v7:	.word	0
 
 	.text
 main:
-	li $t1, 1		; v1 -> $t1
+	li $t1, -1		; v1 -> $t1
 	li $t4, 2		; v2 -> $t4
-	move $t3, $t4		; v3 -> $t3
-	move $t2, $t4		; v4 -> $t2
-	sw $t2, v4		; spilled v4, freed $t2
-	move $t2, $t3		; v5 -> $t2
+	li $t1, -12		; v1 -> $t1
 	sw $t1, v1		; spilled v1, freed $t1
-	add $t1, $t2, $t1	; v6 -> $t1
+	li $t1, 3		; v3 -> $t1
+	sw $t4, v2		; spilled v2, freed $t4
+	li $t4, 4		; v4 -> $t4
+	li $t3, 5		; v5 -> $t3
+	move $t3, $t4		; v5 -> $t3
+	add $t3, $t4, $t1	; v5 -> $t3
+	li $t2, 5		; v6 -> $t2
+	sw $t3, v5		; spilled v5, freed $t3
+	li $t3, 5		; v7 -> $t3
+	j temp
 
 	; Store variables back into memory
-	sw $t1, v6
-	sw $t4, v2
-	sw $t3, v3
-	sw $t2, v5
+	sw $t1, v3
+	sw $t4, v4
+	sw $t3, v7
+	sw $t2, v6
+temp:
+
+	; Store variables back into memory
+unsat:
+	li $t1, 4		; v4 -> $t1
+
+	; Store variables back into memory
+	sw $t1, v4
