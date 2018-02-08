@@ -3,9 +3,10 @@ package asm
 import (
 	"container/heap"
 	"fmt"
-	"gogo/src/tac"
 	"strconv"
 	"strings"
+
+	"gogo/src/tac"
 )
 
 type AddrDesc struct {
@@ -35,22 +36,21 @@ func CodeGen(t tac.Tac) {
 		blk.Rdesc = make(map[int]string)
 		blk.Adesc = make(map[string]tac.AddrDesc)
 		blk.Pq = make(tac.PriorityQueue, tac.RegLimit)
-		blk.Table = make([][]tac.UseInfo, len(blk.Stmts), len(blk.Stmts))
+		blk.NextUseTab = make([][]tac.UseInfo, len(blk.Stmts), len(blk.Stmts))
 		for i := 0; i < tac.RegLimit; i++ {
 			blk.Pq[i] = &tac.UseInfo{
 				Name:    strconv.Itoa(i + 1),
 				Nextuse: tac.MaxInt,
 			}
 		}
-
 		heap.Init(&blk.Pq)
-		blk.GetUseInfo()
-
+		blk.EvalNextUseInfo()
 		// Update data section data structures. For this, make a single
 		// pass through the entire three-address code and for each
 		// assignment statement, update the DS for data section.
 		for _, stmt := range blk.Stmts {
-			if stmt.Op == "=" {
+			switch stmt.Op {
+			case "=", "+":
 				if !ds.Lookup[stmt.Dst] {
 					ds.Lookup[stmt.Dst] = true
 					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.word\t0", stmt.Dst))
@@ -83,9 +83,7 @@ func CodeGen(t tac.Tac) {
 				}
 			case "label":
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("%s:", stmt.Dst))
-			case "call":
-				fallthrough
-			case "jump":
+			case "jump", "call":
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tj %s", stmt.Dst))
 			}
 		}

@@ -66,9 +66,9 @@ type Blk struct {
 	// Register descriptor:
 	//	* Keeps track of what is currently in each register.
 	//	* Initially all registers are empty.
-	Rdesc map[int]string
-	Table [][]UseInfo
-	Pq    PriorityQueue
+	Rdesc      map[int]string
+	NextUseTab [][]UseInfo
+	Pq         PriorityQueue
 }
 
 func (pq PriorityQueue) Len() int { return len(pq) }
@@ -128,8 +128,10 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec) {
 			srcVars = append(srcVars, v.Val)
 		}
 	}
-	// Allocate registers to source variables.
-	for _, v := range srcVars {
+	srcVars = append(srcVars, stmt.Dst)
+
+	// Allocate registers to source variables first and then to dst variable.
+	for k, v := range srcVars {
 		if _, hasReg := blk.Adesc[v]; !hasReg {
 			item := heap.Pop(&blk.Pq).(*UseInfo) // element with highest next-use
 			reg, _ := strconv.Atoi(item.Name)
@@ -137,58 +139,35 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec) {
 				comment := fmt.Sprintf("; spilled %s, freed $t%s", blk.Rdesc[reg], item.Name)
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%s, %s\t\t%s", item.Name, blk.Rdesc[reg], comment))
 			}
-			nu := blk.FindNextUse(stmt.line, v)
-			ui := &UseInfo{
-				Name:    strconv.Itoa(reg),
-				Nextuse: nu,
+			allocReg = append(allocReg, &UseInfo{strconv.Itoa(reg), blk.FindNextUse(stmt.line, v)})
+			if k < 2 {
+				delete(blk.Adesc, blk.Rdesc[reg])
+				delete(blk.Rdesc, reg)
 			}
-			allocReg = append(allocReg, ui)
-			// Update lookup tables.
-			delete(blk.Adesc, blk.Rdesc[reg])
-			delete(blk.Rdesc, reg)
 			blk.Rdesc[reg] = v
 			blk.Adesc[v] = AddrDesc{reg, blk.Adesc[v].Mem}
 		}
 	}
 
-	// Allocate register to the destination variable.
-	if _, hasReg := blk.Adesc[stmt.Dst]; !hasReg {
-		item := heap.Pop(&blk.Pq).(*UseInfo) // Heap element with highest next-use
-		reg, _ := strconv.Atoi(item.Name)
-		if _, ok := blk.Rdesc[reg]; ok {
-			comment := fmt.Sprintf("; spilled %s, freed $t%s", blk.Rdesc[reg], item.Name)
-			ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%s, %s\t\t%s", item.Name, blk.Rdesc[reg], comment))
-		}
-		// Update lookup tables.
-		blk.Rdesc[reg] = stmt.Dst
-		blk.Adesc[stmt.Dst] = AddrDesc{reg, blk.Adesc[stmt.Dst].Mem}
-		nu := blk.FindNextUse(stmt.line, stmt.Dst)
-		ui := &UseInfo{
-			Name:    strconv.Itoa(reg),
-			Nextuse: nu,
-		}
-		allocReg = append(allocReg, ui)
-	}
-
 	// Push the items with updated priorities back into heap.
-	for _, sliceitems := range allocReg {
-		heap.Push(&blk.Pq, sliceitems)
+	for _, v := range allocReg {
+		heap.Push(&blk.Pq, v)
 	}
 }
 
 // Next use info evaluation
 // ~~~~~~~~~~~~~~~~~~~~~~~~
-func (blk Blk) GetUseInfo() {
-	// Symbol table to track next use information.
-	liveness := make(map[string]int)
-	// Traverse the statements from bottom-up, while updating the
-	// symbol table (declared above) using the following algorithm -
-	// 	Step 1: attach to i'th line information in symbol table about
-	// 		variables x, y and z.
-	// 	Step 2: mark x as dead and no next use in symbol table.
-	// 	Step 3: set y and z to be live and set next use to i in symbol table.
+// Traverse the statements in a basic block from bottom-up, while updating
+// the next use symbol table using the following algorithm (x = y op z) -
+// 	Step 1: attach to i'th line in NextUseTab information currently
+// 		in symbol table (nuSymTab) about variables x, y and z.
+// 	Step 2: mark x as dead and no next use in nuSymTab.
+// 	Step 3: mark y and z to be live and set their next use to i in nuSymTab.
+func (blk Blk) EvalNextUseInfo() {
+	// nuSymTab is a symbol table to track next use
+	// information corresponding to all the variables.
+	nuSymTab := make(map[string]int)
 	for i := len(blk.Stmts) - 1; i >= 0; i-- {
-		// TODO continue if op == label ;
 		if strings.Compare(blk.Stmts[i].Op, "label") == 0 {
 			continue
 		}
@@ -200,16 +179,16 @@ func (blk Blk) GetUseInfo() {
 		}
 		// Step 1
 		for _, v := range s {
-			if _, ok := liveness[v]; !ok {
-				liveness[v] = MaxInt
+			if _, ok := nuSymTab[v]; !ok {
+				nuSymTab[v] = MaxInt
 			}
-			blk.Table[i] = append(blk.Table[i], UseInfo{v, liveness[v]})
+			blk.NextUseTab[i] = append(blk.NextUseTab[i], UseInfo{v, nuSymTab[v]})
 		}
 		// Step 2
-		liveness[s[0]] = MaxInt
+		nuSymTab[s[0]] = MaxInt
 		// Step 3
 		for _, v := range blk.Stmts[i].Src {
-			liveness[v.Val] = i
+			nuSymTab[v.Val] = i
 		}
 	}
 }
@@ -272,8 +251,10 @@ func GenTAC(file *os.File) (tac Tac) {
 	return
 }
 
+// FindNextUse returns the next use information corresponding to
+// a variable "name" available in line number "line" of the table.
 func (blk Blk) FindNextUse(line int, name string) int {
-	for _, v := range blk.Table[line] {
+	for _, v := range blk.NextUseTab[line] {
 		if strings.Compare(v.Name, name) == 0 {
 			return v.Nextuse
 		}
