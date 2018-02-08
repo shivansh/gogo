@@ -12,7 +12,7 @@ all:
 	make tac
 	make gogo
 
-.PHONY: gentoken clean
+.PHONY: gentoken tac gogo clean test
 
 deps:
 	gocc -o $(SRC) $(SRC)/lang.bnf
@@ -26,6 +26,9 @@ tac: $(SRC)/tac/tac.go
 
 gogo: $(SRC)/main.go
 	go build $(GCFLAGS) -o $(BIN)/gogo $(SRC)/main.go
+
+test:
+	scripts/run-tests.sh
 
 clean:
 	rm -rf $(CLEANDIR)
