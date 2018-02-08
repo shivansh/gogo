@@ -9,7 +9,7 @@ import (
 	"gogo/src/tac"
 )
 
-type AddrDesc struct {
+type Addr struct {
 	// The register value is represented as an integer
 	// and an equivalent representation in MIPS will be -
 	//	$tr  ; r is the value of reg
@@ -34,7 +34,7 @@ func CodeGen(t tac.Tac) {
 
 	for _, blk := range t {
 		blk.Rdesc = make(map[int]string)
-		blk.Adesc = make(map[string]tac.AddrDesc)
+		blk.Adesc = make(map[string]tac.Addr)
 		blk.Pq = make(tac.PriorityQueue, tac.RegLimit)
 		blk.NextUseTab = make([][]tac.UseInfo, len(blk.Stmts), len(blk.Stmts))
 		for i := 0; i < tac.RegLimit; i++ {
@@ -67,9 +67,11 @@ func CodeGen(t tac.Tac) {
 				blk.GetReg(&stmt, &ts)
 				comment := fmt.Sprintf("; %s -> $t%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				if strings.Compare(stmt.Src[0].Typ, "int") == 0 {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli $t%d, %s\t\t%s", blk.Adesc[stmt.Dst].Reg, stmt.Src[0].Val, comment))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli $t%d, %s\t\t%s",
+						blk.Adesc[stmt.Dst].Reg, stmt.Src[0].Val, comment))
 				} else {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove $t%d, $t%d\t\t%s", blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].Val].Reg, comment))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove $t%d, $t%d\t\t%s",
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].Val].Reg, comment))
 				}
 			case "+":
 				blk.GetReg(&stmt, &ts)

@@ -13,7 +13,7 @@ import (
 
 type Tac []Blk
 
-type AddrDesc struct {
+type Addr struct {
 	Reg int
 	Mem int
 }
@@ -62,7 +62,7 @@ type Blk struct {
 	//		- register
 	//		- memory address
 	//		- stack (TODO)
-	Adesc map[string]AddrDesc
+	Adesc map[string]Addr
 	// Register descriptor:
 	//	* Keeps track of what is currently in each register.
 	//	* Initially all registers are empty.
@@ -122,7 +122,8 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec) {
 	var allocReg []*UseInfo
 	var srcVars []string
 
-	// Collect all source "variables".
+	// Collect all "variables" available in stmt. Register allocation is first
+	// done for the source variables and then for the destination variable.
 	for _, v := range stmt.Src {
 		if strings.Compare(v.Typ, "string") == 0 {
 			srcVars = append(srcVars, v.Val)
@@ -130,7 +131,6 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec) {
 	}
 	srcVars = append(srcVars, stmt.Dst)
 
-	// Allocate registers to source variables first and then to dst variable.
 	for k, v := range srcVars {
 		if _, hasReg := blk.Adesc[v]; !hasReg {
 			item := heap.Pop(&blk.Pq).(*UseInfo) // element with highest next-use
@@ -145,18 +145,18 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec) {
 				delete(blk.Rdesc, reg)
 			}
 			blk.Rdesc[reg] = v
-			blk.Adesc[v] = AddrDesc{reg, blk.Adesc[v].Mem}
+			blk.Adesc[v] = Addr{reg, blk.Adesc[v].Mem}
 		}
 	}
 
-	// Push the items with updated priorities back into heap.
+	// Push the popped items with updated priorities back into heap.
 	for _, v := range allocReg {
 		heap.Push(&blk.Pq, v)
 	}
 }
 
-// Next use info evaluation
-// ~~~~~~~~~~~~~~~~~~~~~~~~
+// Next-use allocation heuristic
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Traverse the statements in a basic block from bottom-up, while updating
 // the next use symbol table using the following algorithm (x = y op z) -
 // 	Step 1: attach to i'th line in NextUseTab information currently
@@ -199,6 +199,7 @@ func (blk Blk) EvalNextUseInfo() {
 // 	<line-number, operation, destination-variable, source-variable(s)>
 func GenTAC(file *os.File) (tac Tac) {
 	var blk *Blk = nil
+	var line int
 	re := regexp.MustCompile("(^-?[0-9]*$)") // integers
 	scanner := bufio.NewScanner(file)
 
@@ -221,12 +222,14 @@ func GenTAC(file *os.File) (tac Tac) {
 			}
 			blk = new(Blk) // start a new block
 			// label statement is the part of the newly created block
-			line, _ := strconv.Atoi(record[0])
+			line = 0
 			blk.Stmts = append(blk.Stmts, Stmt{line, record[1], record[2], []SrcVar{}})
+			line++
 		case "jmp":
 			tac = append(tac, *blk) // end the previous block
 			blk = new(Blk)          // start a new block
-			fallthrough             // move into next section to update blk.Src
+			line = 0
+			fallthrough // move into next section to update blk.Src
 		default:
 			// Prepare a slice of source variables.
 			var sv []SrcVar
@@ -237,8 +240,8 @@ func GenTAC(file *os.File) (tac Tac) {
 				}
 				sv = append(sv, SrcVar{typ, record[i]})
 			}
-			line, _ := strconv.Atoi(record[0])
 			blk.Stmts = append(blk.Stmts, Stmt{line, record[1], record[2], sv})
+			line++
 		}
 	}
 	// Push the last allocated basic block
