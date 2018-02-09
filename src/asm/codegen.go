@@ -65,7 +65,7 @@ func CodeGen(t tac.Tac) {
 			switch stmt.Op {
 			case "=":
 				blk.GetReg(&stmt, &ts)
-				comment := fmt.Sprintf("; %s -> $t%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
+				comment := fmt.Sprintf("%c %s -> $t%d", tac.CommentLit, stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				if strings.Compare(stmt.Src[0].Typ, "int") == 0 {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli $t%d, %s\t\t%s",
 						blk.Adesc[stmt.Dst].Reg, stmt.Src[0].Val, comment))
@@ -75,7 +75,7 @@ func CodeGen(t tac.Tac) {
 				}
 			case "+":
 				blk.GetReg(&stmt, &ts)
-				comment := fmt.Sprintf("; %s -> $t%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
+				comment := fmt.Sprintf("%c %s -> $t%d", tac.CommentLit, stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				if strings.Compare(stmt.Src[1].Typ, "int") == 0 {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\taddi $t%d, $t%d, %s\t\t%s",
 						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].Val], stmt.Src[1].Val, comment))
@@ -87,13 +87,21 @@ func CodeGen(t tac.Tac) {
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("%s:", stmt.Dst))
 			case "jump", "call":
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tj %s", stmt.Dst))
+			case "#":
+				if stmt.Line == 0 {
+					ds.Stmts = append([]string{fmt.Sprintf("%c %s\n", tac.CommentLit, stmt.Dst)}, ds.Stmts...)
+				} else {
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\t%c %s", tac.CommentLit, stmt.Dst))
+				}
 			}
 		}
 
-		// Store filled registers back into memory at the end of basic block.
-		ts.Stmts = append(ts.Stmts, "\n\t; Store variables back into memory")
-		for k, v := range blk.Rdesc {
-			ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, %s", k, v))
+		// Store non-empty registers back into memory at the end of basic block.
+		if len(blk.Rdesc) > 0 {
+			ts.Stmts = append(ts.Stmts, fmt.Sprintf("\n\t%c Store variables back into memory", tac.CommentLit))
+			for k, v := range blk.Rdesc {
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, %s", k, v))
+			}
 		}
 	}
 
