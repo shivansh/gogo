@@ -25,9 +25,13 @@ type Stmt struct {
 	Src  []*SymInfo
 }
 
+type Union interface {
+	IntVal() int
+	StrVal() string
+}
+
 type SymInfo struct {
-	Typ string
-	Val string
+	U Union
 }
 
 // Data section
@@ -71,6 +75,9 @@ type Blk struct {
 	Pq         PriorityQueue
 }
 
+type I32 int
+type Str string
+
 const (
 	// RegLimit determines the upper bound on the number of free registers at any
 	// given instant supported by the concerned architecture (MIPS in this case).
@@ -81,6 +88,26 @@ const (
 	// CommentLit is MIPS character sequence for comment initialization.
 	CommentLit = ';' // can be '#' or ';'
 )
+
+func (U I32) IntVal() int {
+	return int(U)
+}
+
+func (U I32) StrVal() string {
+	return strconv.Itoa(U.IntVal())
+}
+
+func (U Str) IntVal() (i int) {
+	i, err := strconv.Atoi(U.StrVal())
+	if err != nil {
+		log.Fatal(err)
+	}
+	return
+}
+
+func (U Str) StrVal() string {
+	return string(U)
+}
 
 func (pq PriorityQueue) Len() int { return len(pq) }
 
@@ -129,8 +156,9 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec) {
 	// Collect all "variables" available in stmt. Register allocation is first
 	// done for the source variables and then for the destination variable.
 	for _, v := range stmt.Src {
-		if strings.Compare(v.Typ, "string") == 0 {
-			srcVars = append(srcVars, v.Val)
+		switch v := v.U.(type) {
+		case Str:
+			srcVars = append(srcVars, v.StrVal())
 		}
 	}
 	srcVars = append(srcVars, stmt.Dst)
@@ -177,8 +205,9 @@ func (blk Blk) EvalNextUseInfo() {
 		}
 		s := []string{blk.Stmts[i].Dst}
 		for _, v := range blk.Stmts[i].Src {
-			if strings.Compare(v.Typ, "string") == 0 {
-				s = append(s, v.Val)
+			switch v := v.U.(type) {
+			case Str:
+				s = append(s, v.StrVal())
 			}
 		}
 		// Step 1
@@ -192,7 +221,7 @@ func (blk Blk) EvalNextUseInfo() {
 		nuSymTab[s[0]] = MaxInt
 		// Step 3
 		for _, v := range blk.Stmts[i].Src {
-			nuSymTab[v.Val] = i
+			nuSymTab[v.U.StrVal()] = i
 		}
 	}
 }
@@ -201,12 +230,20 @@ func (blk Blk) EvalNextUseInfo() {
 // from the input file. The format of each statement in the input file
 // is a tuple of the form -
 // 	<line-number, operation, destination-variable, source-variable(s)>
+//
+// The three-address code is a collection of basic block data structures,
+// which are identified while reading the IR file as per following rules -
+// 	A basic block starts:
+//		* at label instruction
+//		* after jump instruction
+// 	and ends:
+//		* before label instruction
+//		* at jump instruction
 func GenTAC(file *os.File) (tac Tac) {
-	// var blk *Blk = nil
 	blk := new(Blk)
-	var line int
-	re := regexp.MustCompile("(^-?[0-9]*$)") // integers
 	scanner := bufio.NewScanner(file)
+	re := regexp.MustCompile("(^-?[0-9]*$)") // integers
+	line := 0
 
 	for scanner.Scan() {
 		record := strings.Split(scanner.Text(), ",")
@@ -214,12 +251,6 @@ func GenTAC(file *os.File) (tac Tac) {
 		for i := 0; i < len(record); i++ {
 			record[i] = strings.TrimSpace(record[i])
 		}
-		// A basic block starts:
-		//	* at label instruction
-		//	* after jump instruction
-		// and ends:
-		//	* before label instruction
-		//	* at jump instruction
 		switch record[1] {
 		case "label":
 			// label statement is part of the newly created block.
@@ -239,11 +270,15 @@ func GenTAC(file *os.File) (tac Tac) {
 			// Prepare a slice of source variables.
 			var sv []*SymInfo
 			for i := 3; i < len(record); i++ {
-				var typ string = "string"
 				if re.MatchString(record[i]) {
-					typ = "int"
+					v, err := strconv.Atoi(record[i])
+					if err != nil {
+						log.Fatal(err)
+					}
+					sv = append(sv, &SymInfo{I32(v)})
+				} else {
+					sv = append(sv, &SymInfo{Str(record[i])})
 				}
-				sv = append(sv, &SymInfo{typ, record[i]})
 			}
 			blk.Stmts = append(blk.Stmts, Stmt{line, record[1], record[2], sv})
 			line++
