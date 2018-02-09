@@ -1,3 +1,5 @@
+; Test to demonstrate register spilling via next-use heuristic.
+
 	.data
 v1:	.word	0
 v2:	.word	0
@@ -30,8 +32,10 @@ main:
 	sw $t3, v7
 	sw $t2, v6
 temp:
+	li $t1, 1		; v1 -> $t1
 
 	; Store variables back into memory
+	sw $t1, v1
 unsat:
 	li $t1, 4		; v4 -> $t1
 

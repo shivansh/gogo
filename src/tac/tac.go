@@ -19,13 +19,13 @@ type Addr struct {
 }
 
 type Stmt struct {
-	line int
+	Line int
 	Op   string
 	Dst  string
-	Src  []SrcVar
+	Src  []*SymInfo
 }
 
-type SrcVar struct {
+type SymInfo struct {
 	Typ string
 	Val string
 }
@@ -71,10 +71,21 @@ type Blk struct {
 	Pq         PriorityQueue
 }
 
+const (
+	// RegLimit determines the upper bound on the number of free registers at any
+	// given instant supported by the concerned architecture (MIPS in this case).
+	// Currently, for testing purposes the value is set "too" low.
+	RegLimit = 4
+	// Variables which are dead have their next-use set to MaxInt.
+	MaxInt = int(^uint(0) >> 1)
+	// CommentLit is MIPS character sequence for comment initialization.
+	CommentLit = ';' // can be '#' or ';'
+)
+
 func (pq PriorityQueue) Len() int { return len(pq) }
 
 func (pq PriorityQueue) Less(i, j int) bool {
-	// We want Pop to give us the highest, not lowest, nextuse so we use greater than here.
+	// We want Pop to give us the highest nextuse.
 	return pq[i].Nextuse > pq[j].Nextuse
 }
 
@@ -95,14 +106,6 @@ func (pq *PriorityQueue) Pop() interface{} {
 	return item
 }
 
-// RegLimit determines the upper bound on the number of free registers at any
-// given instant supported by the concerned architecture (MIPS in this case).
-// Currently, for testing purposes the value is set "too" low.
-const RegLimit = 4
-
-// Variables which are dead have their next-use set to MaxInt.
-const MaxInt = int(^uint(0) >> 1)
-
 // Register allocator
 // ~~~~~~~~~~~~~~~~~~
 // Arguments:
@@ -111,14 +114,15 @@ const MaxInt = int(^uint(0) >> 1)
 //	* ts: If a register had to be spilled when GetReg() was called, the text
 //	      segment should be updated with an equivalent statement (store-word).
 //
-// GetReg handles all the side-effects induced due to register allocation.
+// GetReg handles all the side-effects induced due to register allocation, namely -
+//	* Updating lookup tables.
+//	* Additional instructions resulting due to register spilling.
 func (blk Blk) GetReg(stmt *Stmt, ts *TextSec) {
-	// allocReg is a slice of all the register DS which are popped
-	// from the heap and have been assigned a variable's data. These
-	// DS are updated with the newly assigned variable's next-use info
-	// and after all the variables (x, y, z) are assigned a register,
-	// all entities in allocReg are pushed back into the heap. This
-	// ensures that the source variables' registers don't spill each other.
+	// allocReg is a slice of all the register DS which are popped from the heap
+	// and have been assigned a variable's data. These DS are updated with the
+	// newly assigned variable's next-use info and after all the variables (x,y,z)
+	// are assigned a register, all entities in allocReg are pushed back into the
+	// heap. This ensures that the source variables' registers don't spill each other.
 	var allocReg []*UseInfo
 	var srcVars []string
 
@@ -136,10 +140,10 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec) {
 			item := heap.Pop(&blk.Pq).(*UseInfo) // element with highest next-use
 			reg, _ := strconv.Atoi(item.Name)
 			if _, ok := blk.Rdesc[reg]; ok {
-				comment := fmt.Sprintf("; spilled %s, freed $t%s", blk.Rdesc[reg], item.Name)
+				comment := fmt.Sprintf("%c spilled %s, freed $t%s", CommentLit, blk.Rdesc[reg], item.Name)
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%s, %s\t\t%s", item.Name, blk.Rdesc[reg], comment))
 			}
-			allocReg = append(allocReg, &UseInfo{strconv.Itoa(reg), blk.FindNextUse(stmt.line, v)})
+			allocReg = append(allocReg, &UseInfo{strconv.Itoa(reg), blk.FindNextUse(stmt.Line, v)})
 			if k < 2 {
 				delete(blk.Adesc, blk.Rdesc[reg])
 				delete(blk.Rdesc, reg)
@@ -198,7 +202,8 @@ func (blk Blk) EvalNextUseInfo() {
 // is a tuple of the form -
 // 	<line-number, operation, destination-variable, source-variable(s)>
 func GenTAC(file *os.File) (tac Tac) {
-	var blk *Blk = nil
+	// var blk *Blk = nil
+	blk := new(Blk)
 	var line int
 	re := regexp.MustCompile("(^-?[0-9]*$)") // integers
 	scanner := bufio.NewScanner(file)
@@ -217,13 +222,13 @@ func GenTAC(file *os.File) (tac Tac) {
 		//	* at jump instruction
 		switch record[1] {
 		case "label":
+			// label statement is part of the newly created block.
 			if blk != nil {
 				tac = append(tac, *blk) // end the previous block
 			}
 			blk = new(Blk) // start a new block
-			// label statement is the part of the newly created block
 			line = 0
-			blk.Stmts = append(blk.Stmts, Stmt{line, record[1], record[2], []SrcVar{}})
+			blk.Stmts = append(blk.Stmts, Stmt{line, record[1], record[2], []*SymInfo{}})
 			line++
 		case "jmp":
 			tac = append(tac, *blk) // end the previous block
@@ -232,13 +237,13 @@ func GenTAC(file *os.File) (tac Tac) {
 			fallthrough // move into next section to update blk.Src
 		default:
 			// Prepare a slice of source variables.
-			var sv []SrcVar
+			var sv []*SymInfo
 			for i := 3; i < len(record); i++ {
 				var typ string = "string"
 				if re.MatchString(record[i]) {
 					typ = "int"
 				}
-				sv = append(sv, SrcVar{typ, record[i]})
+				sv = append(sv, &SymInfo{typ, record[i]})
 			}
 			blk.Stmts = append(blk.Stmts, Stmt{line, record[1], record[2], sv})
 			line++
@@ -246,11 +251,9 @@ func GenTAC(file *os.File) (tac Tac) {
 	}
 	// Push the last allocated basic block
 	tac = append(tac, *blk)
-
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
-
 	return
 }
 
