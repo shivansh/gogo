@@ -3,8 +3,8 @@ package asm
 import (
 	"container/heap"
 	"fmt"
+	"log"
 	"strconv"
-	"strings"
 
 	"gogo/src/tac"
 )
@@ -24,8 +24,8 @@ type Addr struct {
 }
 
 func CodeGen(t tac.Tac) {
-	var ds tac.DataSec
-	var ts tac.TextSec
+	ds := new(tac.DataSec)
+	ts := new(tac.TextSec)
 	ds.Lookup = make(map[string]bool)
 
 	// Define the assembler directives for data and text.
@@ -64,24 +64,30 @@ func CodeGen(t tac.Tac) {
 		for _, stmt := range blk.Stmts {
 			switch stmt.Op {
 			case "=":
-				blk.GetReg(&stmt, &ts)
+				blk.GetReg(&stmt, ts)
 				comment := fmt.Sprintf("%c %s -> $t%d", tac.CommentLit, stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				if strings.Compare(stmt.Src[0].Typ, "int") == 0 {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli $t%d, %s\t\t%s",
-						blk.Adesc[stmt.Dst].Reg, stmt.Src[0].Val, comment))
-				} else {
+				switch v := stmt.Src[0].U.(type) {
+				case tac.I32:
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli $t%d, %d\t\t%s",
+						blk.Adesc[stmt.Dst].Reg, v, comment))
+				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove $t%d, $t%d\t\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].Val].Reg, comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+				default:
+					log.Fatal("Unknown type %T\n", v)
 				}
 			case "+":
-				blk.GetReg(&stmt, &ts)
+				blk.GetReg(&stmt, ts)
 				comment := fmt.Sprintf("%c %s -> $t%d", tac.CommentLit, stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				if strings.Compare(stmt.Src[1].Typ, "int") == 0 {
+				switch v := stmt.Src[1].U.(type) {
+				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\taddi $t%d, $t%d, %s\t\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].Val], stmt.Src[1].Val, comment))
-				} else {
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()], v, comment))
+				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tadd $t%d, $t%d, $t%d\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].Val].Reg, blk.Adesc[stmt.Src[1].Val].Reg, comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+				default:
+					log.Fatal("Unknown type %T\n", v)
 				}
 			case "label":
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("%s:", stmt.Dst))
@@ -104,7 +110,6 @@ func CodeGen(t tac.Tac) {
 			}
 		}
 	}
-
 	ds.Stmts = append(ds.Stmts, "") // data section terminator
 
 	for _, s := range ds.Stmts {
