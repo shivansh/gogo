@@ -4,7 +4,6 @@ import (
 	"container/heap"
 	"fmt"
 	"log"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -31,11 +30,10 @@ func CodeGen(t tac.Tac) {
 	ds.Lookup = make(map[string]bool)
 	funcName := ""
 	exitStmt := ""
-	re := regexp.MustCompile("(^-?[0-9]*$)") // integers
 
 	// Define the assembler directives for data and text.
 	ds.Stmts = append(ds.Stmts, "\t.data")
-	ts.Stmts = append(ts.Stmts, "\t.text\n\t.globl main\n\t.ent main")
+	ts.Stmts = append(ts.Stmts, "\t.text")
 
 	for _, blk := range t {
 		blk.Rdesc = make(map[int]string)
@@ -60,16 +58,17 @@ func CodeGen(t tac.Tac) {
 		// assignment statement, update the DS for data section.
 		for _, stmt := range blk.Stmts {
 			switch stmt.Op {
-			case "label", "func", "ret":
-				continue
+			case "label", "func", "ret", "call", "#":
+				break
+			default:
+				if !ds.Lookup[stmt.Dst] {
+					ds.Lookup[stmt.Dst] = true
+					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.word\t0", stmt.Dst))
+				}
+				// TODO It should be made possible to identify the contents of a variable.
+				// For e.g. strings should be defined as following in MIPS -
+				// 	str:	.byte	'a','b'
 			}
-			if !ds.Lookup[stmt.Dst] {
-				ds.Lookup[stmt.Dst] = true
-				ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.word\t0", stmt.Dst))
-			}
-			// TODO It should be made possible to identify the contents of a variable.
-			// For e.g. strings should be defined as following in MIPS -
-			// 	str:	.byte	'a','b'
 		}
 
 		for _, stmt := range blk.Stmts {
@@ -103,9 +102,12 @@ func CodeGen(t tac.Tac) {
 			case "label":
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("%s:", stmt.Dst))
 			case "func":
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\n\t.globl %s\n\t.ent %s", funcName, funcName))
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("%s:", stmt.Dst))
-			case "jump", "call":
+			case "jump":
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tj %s", stmt.Dst))
+			case "call":
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tjal %s", stmt.Dst))
 			case "#":
 				if stmt.Line == 0 {
 					ds.Stmts = append([]string{fmt.Sprintf("# %s\n", stmt.Dst)}, ds.Stmts...)
@@ -116,21 +118,38 @@ func CodeGen(t tac.Tac) {
 				if strings.Compare(funcName, "main") == 0 {
 					exitStmt = "\tli $v0, 10\n\tsyscall\n\t.end main"
 				} else {
-					exitStmt = ""
+					exitStmt = fmt.Sprintf("\n\tjr $ra\n\t.end %s", funcName)
 				}
 			case "printInt":
 				ts.Stmts = append(ts.Stmts, "\tli $v0, 1")
-				if re.MatchString(stmt.Dst) {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli $a0, %s", stmt.Dst))
-				} else {
+				switch v := stmt.Src[0].U.(type) {
+				case tac.I32:
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli $a0, %s", v.IntVal()))
+				case tac.Str:
 					blk.GetReg(&stmt, ts)
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove $a0, $t%d", blk.Adesc[stmt.Dst].Reg))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove $a0, $t%d", blk.Adesc[v.StrVal()].Reg))
 				}
 				ts.Stmts = append(ts.Stmts, "\tsyscall")
 			case "scanInt":
 				ts.Stmts = append(ts.Stmts, "\tli $v0, 5\n\tsyscall")
 				blk.GetReg(&stmt, ts)
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove $t%d, $v0", blk.Adesc[stmt.Dst].Reg))
+			}
+
+			// In case on of the src variable's register was allocated to dst in GetReg(),
+			// the src variable's lookup entry was temporarily marked. Find that variable
+			// if it exists and delete its entry.
+			if _, ok := blk.Adesc[stmt.Dst]; ok && strings.Compare(stmt.Op, "printInt") != 0 {
+				for _, v := range stmt.Src {
+					switch v := v.U.(type) {
+					case tac.Str:
+						if blk.Adesc[v.StrVal()].Reg == blk.Adesc[stmt.Dst].Reg && strings.Compare(v.StrVal(), stmt.Dst) != 0 {
+							// delete lookup entry of v
+							delete(blk.Adesc, v.StrVal())
+							break
+						}
+					}
+				}
 			}
 		}
 
@@ -141,9 +160,7 @@ func CodeGen(t tac.Tac) {
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, %s", k, v))
 			}
 		}
-		if len(exitStmt) > 0 {
-			ts.Stmts = append(ts.Stmts, exitStmt)
-		}
+		ts.Stmts = append(ts.Stmts, exitStmt)
 
 	}
 	ds.Stmts = append(ds.Stmts, "") // data section terminator
