@@ -1,11 +1,11 @@
 # This test demonstrates register re-use when a variable is already loaded.
 
 	.data
-This test demonstrates register re-use when a variable is already loaded.:	.word	0
 v1:	.word	0
-Register for v1 should be re-used at this point.:	.word	0
 
 	.text
+
+
 	.globl main
 	.ent main
 main:
@@ -15,3 +15,6 @@ main:
 
 	# Store variables back into memory
 	sw $t1, v1
+	li $v0, 10
+	syscall
+	.end main

@@ -2,8 +2,10 @@
 1, =, v1, -1
 2, =, v2, 2
 3, scanInt, v3
-4, printInt, v3
-5, ret,
-6, func, temp
-7, =, v1, 1
-8, ret,
+4, call, temp
+5, printInt, v1, v1
+6, ret,
+7, func, temp
+8, =, v1, 1
+9, printInt, v1, v1
+10, ret,

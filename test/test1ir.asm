@@ -1,7 +1,6 @@
 # Test to demonstrate register spilling via next-use heuristic.
 
 	.data
-Test to demonstrate register spilling via next-use heuristic.:	.word	0
 v1:	.word	0
 v2:	.word	0
 v3:	.word	0
@@ -9,9 +8,10 @@ v4:	.word	0
 v5:	.word	0
 v6:	.word	0
 v7:	.word	0
-temp:	.word	0
 
 	.text
+
+
 	.globl main
 	.ent main
 main:
@@ -28,20 +28,32 @@ main:
 	li $t2, 5		# v6 -> $t2
 	sw $t3, v5		# spilled v5, freed $t3
 	li $t3, 5		# v7 -> $t3
-	j temp
+	jal temp
 
 	# Store variables back into memory
-	sw $t2, v6
 	sw $t1, v3
 	sw $t4, v4
 	sw $t3, v7
+	sw $t2, v6
+	li $v0, 10
+	syscall
+	.end main
+
+	.globl temp
+	.ent temp
 temp:
 	li $t1, 1		# v1 -> $t1
 
 	# Store variables back into memory
 	sw $t1, v1
+	li $v0, 10
+	syscall
+	.end main
 unsat:
 	li $t1, 4		# v4 -> $t1
 
 	# Store variables back into memory
 	sw $t1, v4
+
+	jr $ra
+	.end temp

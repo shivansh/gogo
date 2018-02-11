@@ -126,18 +126,30 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec) {
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%s, %s\t\t%s", item.Name, blk.Rdesc[reg], comment))
 			}
 			allocReg = append(allocReg, &UseInfo{strconv.Itoa(reg), blk.FindNextUse(stmt.Line, v)})
-			if k < 2 {
-				delete(blk.Adesc, blk.Rdesc[reg])
-				delete(blk.Rdesc, reg)
-			}
+			delete(blk.Adesc, blk.Rdesc[reg])
+			delete(blk.Rdesc, reg)
 			blk.Rdesc[reg] = v
 			blk.Adesc[v] = Addr{reg, blk.Adesc[v].Mem}
+			if k < len(srcVars)-1 {
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, %s", blk.Adesc[v].Reg, v))
+			}
 		}
 	}
 
 	// Push the popped items with updated priorities back into heap.
 	for _, v := range allocReg {
 		heap.Push(&blk.Pq, v)
+	}
+
+	// Check if any src variable is without a register. If there is,
+	// then temporarily mark the lookup table corresponding to it to
+	// ensure that the relevant statement is correctly inserted into
+	// the text segment data structure. Once that is done, this entry
+	// will be deleted by the caller.
+	for i := 0; i < len(srcVars)-1; i++ {
+		if _, ok := blk.Adesc[srcVars[i]]; !ok {
+			blk.Adesc[srcVars[i]] = Addr{blk.Adesc[stmt.Dst].Reg, 0}
+		}
 	}
 }
 
