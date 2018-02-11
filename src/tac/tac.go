@@ -85,53 +85,7 @@ const (
 	RegLimit = 4
 	// Variables which are dead have their next-use set to MaxInt.
 	MaxInt = int(^uint(0) >> 1)
-	// CommentLit is MIPS character sequence for comment initialization.
-	CommentLit = ';' // can be '#' or ';'
 )
-
-func (U I32) IntVal() int {
-	return int(U)
-}
-
-func (U I32) StrVal() string {
-	return strconv.Itoa(U.IntVal())
-}
-
-func (U Str) IntVal() (i int) {
-	i, err := strconv.Atoi(U.StrVal())
-	if err != nil {
-		log.Fatal(err)
-	}
-	return
-}
-
-func (U Str) StrVal() string {
-	return string(U)
-}
-
-func (pq PriorityQueue) Len() int { return len(pq) }
-
-func (pq PriorityQueue) Less(i, j int) bool {
-	// We want Pop to give us the highest nextuse.
-	return pq[i].Nextuse > pq[j].Nextuse
-}
-
-func (pq PriorityQueue) Swap(i, j int) {
-	pq[i], pq[j] = pq[j], pq[i]
-}
-
-func (pq *PriorityQueue) Push(x interface{}) {
-	item := x.(*UseInfo)
-	*pq = append(*pq, item)
-}
-
-func (pq *PriorityQueue) Pop() interface{} {
-	old := *pq
-	n := len(old)
-	item := old[n-1]
-	*pq = old[0 : n-1]
-	return item
-}
 
 // Register allocator
 // ~~~~~~~~~~~~~~~~~~
@@ -168,7 +122,7 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec) {
 			item := heap.Pop(&blk.Pq).(*UseInfo) // element with highest next-use
 			reg, _ := strconv.Atoi(item.Name)
 			if _, ok := blk.Rdesc[reg]; ok {
-				comment := fmt.Sprintf("%c spilled %s, freed $t%s", CommentLit, blk.Rdesc[reg], item.Name)
+				comment := fmt.Sprintf("# spilled %s, freed $t%s", blk.Rdesc[reg], item.Name)
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%s, %s\t\t%s", item.Name, blk.Rdesc[reg], comment))
 			}
 			allocReg = append(allocReg, &UseInfo{strconv.Itoa(reg), blk.FindNextUse(stmt.Line, v)})
@@ -200,7 +154,8 @@ func (blk Blk) EvalNextUseInfo() {
 	// information corresponding to all the variables.
 	nuSymTab := make(map[string]int)
 	for i := len(blk.Stmts) - 1; i >= 0; i-- {
-		if strings.Compare(blk.Stmts[i].Op, "label") == 0 {
+		switch blk.Stmts[i].Op {
+		case "label", "func":
 			continue
 		}
 		s := []string{blk.Stmts[i].Dst}
@@ -242,8 +197,8 @@ func (blk Blk) EvalNextUseInfo() {
 func GenTAC(file *os.File) (tac Tac) {
 	blk := new(Blk)
 	scanner := bufio.NewScanner(file)
-	re := regexp.MustCompile("(^-?[0-9]*$)") // integers
 	line := 0
+	re := regexp.MustCompile("(^-?[0-9]*$)") // integers
 
 	for scanner.Scan() {
 		record := strings.Split(scanner.Text(), ",")
@@ -254,6 +209,15 @@ func GenTAC(file *os.File) (tac Tac) {
 		switch record[1] {
 		case "label":
 			// label statement is part of the newly created block.
+			if blk != nil {
+				tac = append(tac, *blk) // end the previous block
+			}
+			blk = new(Blk) // start a new block
+			line = 0
+			blk.Stmts = append(blk.Stmts, Stmt{line, record[1], record[2], []*SymInfo{}})
+			line++
+		case "func":
+			// func statement is part of the newly created block.
 			if blk != nil {
 				tac = append(tac, *blk) // end the previous block
 			}
@@ -301,4 +265,48 @@ func (blk Blk) FindNextUse(line int, name string) int {
 		}
 	}
 	return MaxInt
+}
+
+func (U I32) IntVal() int {
+	return int(U)
+}
+
+func (U I32) StrVal() string {
+	return strconv.Itoa(U.IntVal())
+}
+
+func (U Str) IntVal() (i int) {
+	i, err := strconv.Atoi(U.StrVal())
+	if err != nil {
+		log.Fatal(err)
+	}
+	return
+}
+
+func (U Str) StrVal() string {
+	return string(U)
+}
+
+func (pq PriorityQueue) Len() int { return len(pq) }
+
+func (pq PriorityQueue) Less(i, j int) bool {
+	// We want Pop to give us the highest nextuse.
+	return pq[i].Nextuse > pq[j].Nextuse
+}
+
+func (pq PriorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+}
+
+func (pq *PriorityQueue) Push(x interface{}) {
+	item := x.(*UseInfo)
+	*pq = append(*pq, item)
+}
+
+func (pq *PriorityQueue) Pop() interface{} {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	*pq = old[0 : n-1]
+	return item
 }
