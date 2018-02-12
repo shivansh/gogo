@@ -1,0 +1,6 @@
+0, func, main
+1, decl, temp, 4
+2, =, temp[2], 4
+3, +, temp[1], temp[2], 2
+4, printInt, temp[1], temp[1]
+5, ret,

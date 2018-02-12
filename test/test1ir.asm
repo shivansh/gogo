@@ -39,10 +39,10 @@ main:
 	lw $t2, v6
 
 	# Store variables back into memory
+	sw $t2, v6
 	sw $t1, v3
 	sw $t4, v4
 	sw $t3, v7
-	sw $t2, v6
 	li $v0, 10
 	syscall
 	.end main
