@@ -115,7 +115,15 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec) {
 			srcVars = append(srcVars, v.StrVal())
 		}
 	}
-	srcVars = append(srcVars, stmt.Dst)
+	var lenSource int
+	switch stmt.Op {
+	case "bgt", "bge", "blt", "ble", "beq", "bne", "j" :
+		lenSource = len(srcVars) + 1
+		break
+	default :
+		srcVars = append(srcVars, stmt.Dst)
+		lenSource = len(srcVars)
+	}
 
 	for k, v := range srcVars {
 		if _, hasReg := blk.Adesc[v]; !hasReg {
@@ -130,7 +138,7 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec) {
 			delete(blk.Rdesc, reg)
 			blk.Rdesc[reg] = v
 			blk.Adesc[v] = Addr{reg, blk.Adesc[v].Mem}
-			if k < len(srcVars)-1 {
+			if k < lenSource - 1 {
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, %s", blk.Adesc[v].Reg, v))
 			}
 		}
@@ -237,7 +245,7 @@ func GenTAC(file *os.File) (tac Tac) {
 			line = 0
 			blk.Stmts = append(blk.Stmts, Stmt{line, record[1], record[2], []*SymInfo{}})
 			line++
-		case "jmp":
+		case "j", "bgt", "bge", "blt", "ble", "beq", "bne":
 			tac = append(tac, *blk) // end the previous block
 			blk = new(Blk)          // start a new block
 			line = 0

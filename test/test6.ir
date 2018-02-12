@@ -1,0 +1,17 @@
+0, func, main
+1, scanInt, n
+2, =, i, 0
+3, =, k, 0
+4, label, loop
+5, bge, exit, i, n
+6, rem, l, i, 2
+7, beq, skip, l, 1
+8, +, k, k, i
+9, +, i, i, 1
+10, j, loop
+11, label, skip
+12, +, i, i, 1
+13, j, loop
+14, label, exit
+15, printInt, k, k
+16, ret,

@@ -1,0 +1,18 @@
+0, func, main
+1, =, v7, 7
+2, =, v1, 1
+3, bgt, temp, v7, 1
+4, label, temp1
+4, =, v3, 3
+5, =, v4, 4
+6, +, v5, v1, v3
+7, printInt, v5, v5
+8, label, temp
+9, +, v1, v1, 4
+10, ble, temp1, v1, 13
+11, j, exit
+11, =, v1, 100
+12, label, exit
+13, =, v1, 105
+14, printInt, v1, v1
+15, ret,
