@@ -29,10 +29,10 @@ main:
 	syscall
 
 	# Store variables back into memory
-	sw $t1, v1
 	sw $t4, v2
 	sw $t3, v5
 	sw $t2, v6
+	sw $t1, v1
 	li $v0, 10
 	syscall
 	.end main
