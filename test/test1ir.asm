@@ -28,7 +28,15 @@ main:
 	li $t2, 5		# v6 -> $t2
 	sw $t3, v5		# spilled v5, freed $t3
 	li $t3, 5		# v7 -> $t3
+	sw $t1, v3
+	sw $t4, v4
+	sw $t3, v7
+	sw $t2, v6
 	jal temp
+	lw $t1, v3
+	lw $t4, v4
+	lw $t3, v7
+	lw $t2, v6
 
 	# Store variables back into memory
 	sw $t1, v3
@@ -51,6 +59,7 @@ temp:
 	.end main
 unsat:
 	li $t1, 4		# v4 -> $t1
+	lw $v0, v1
 
 	# Store variables back into memory
 	sw $t1, v4

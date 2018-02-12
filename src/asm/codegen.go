@@ -30,6 +30,7 @@ func CodeGen(t tac.Tac) {
 	ds.Lookup = make(map[string]bool)
 	funcName := ""
 	exitStmt := ""
+	callerSaved := []string{}
 
 	// Define the assembler directives for data and text.
 	ds.Stmts = append(ds.Stmts, "\t.data")
@@ -107,7 +108,15 @@ func CodeGen(t tac.Tac) {
 			case "jump":
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tj %s", stmt.Dst))
 			case "call":
+				for r, _ := range blk.Rdesc {
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, %s", r, blk.Rdesc[r]))
+					callerSaved = append(callerSaved, fmt.Sprintf("\tlw $t%d, %s", r, blk.Rdesc[r]))
+				}
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tjal %s", stmt.Dst))
+				ts.Stmts = append(ts.Stmts, callerSaved...)
+			case "store":
+				blk.GetReg(&stmt, ts)
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove $t%d, $v0", blk.Adesc[stmt.Dst].Reg))
 			case "#":
 				if stmt.Line == 0 {
 					ds.Stmts = append([]string{fmt.Sprintf("# %s\n", stmt.Dst)}, ds.Stmts...)
@@ -120,6 +129,16 @@ func CodeGen(t tac.Tac) {
 				} else {
 					exitStmt = fmt.Sprintf("\n\tjr $ra\n\t.end %s", funcName)
 				}
+				// Check if the variable which is to hold the return value has a register. If it does
+				// then move register's content to v0 else load value of that variable to v0 from memory.
+				if len(stmt.Dst) > 0 {
+					if _, ok := blk.Adesc[stmt.Dst]; ok {
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove $v0, $t%d", blk.Adesc[stmt.Dst].Reg))
+					} else {
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $v0, %s", stmt.Dst))
+					}
+				}
+
 			case "printInt":
 				ts.Stmts = append(ts.Stmts, "\tli $v0, 1")
 				switch v := stmt.Src[0].U.(type) {
