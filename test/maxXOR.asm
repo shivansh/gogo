@@ -1,8 +1,9 @@
-# Maximum XOR-value of at-most k-elements from 1 to n
+# Test to find maximum XOR-value of at-most k-elements from 1 to n
 
 	.data
 n:	.word	0
 k:	.word	0
+retVal:	.word	0
 x:	.word	0
 result:	.word	0
 
@@ -18,13 +19,32 @@ main:
 	li $v0, 5
 	syscall
 	move $t4, $v0
-	# x = log2(n) + 1
+	sw $t1, n
+	sw $t4, k
+	jal maxXOR
+	lw $t1, n
+	lw $t4, k
 	sw $t1, n		# spilled n, freed $t1
+	move $t1, $v0
+	li $v0, 1
+	move $a0, $t1
+	syscall
+
+	# Store variables back into memory
+	sw $t1, retVal
+	sw $t4, k
+	li $v0, 10
+	syscall
+	.end main
+
+	.globl maxXOR
+	.ent maxXOR
+maxXOR:
+	# x = log2(n) + 1
 	li $t1, 0		# x -> $t1
 
 	# Store variables back into memory
 	sw $t1, x
-	sw $t4, k
 
 while:
 	lw $t1, n
@@ -33,8 +53,8 @@ while:
 	addi $t4, $t4, 1	# x -> $t4
 
 	# Store variables back into memory
-	sw $t1, n
 	sw $t4, x
+	sw $t1, n
 
 	lw $t1, n
 	bgt $t1, 0, while		# while -> $t0
@@ -44,13 +64,11 @@ while:
 	lw $t1, x
 	sll $t4, $t4, $t1	# result -> $t4
 	sub $t4, $t4, 1		# result -> $t4
-	li $v0, 1
-	move $a0, $t4
-	syscall
+	move $v0, $t4
 
 	# Store variables back into memory
 	sw $t1, x
 	sw $t4, result
-	li $v0, 10
-	syscall
-	.end main
+
+	jr $ra
+	.end maxXOR
