@@ -1,0 +1,16 @@
+0, #, Maximum XOR-value of at-most k-elements from 1 to n
+0, func, main
+0, scanInt, n
+0, scanInt, k
+0, #, x = log2(n) + 1
+0, =, x, 0
+0, label, while
+0, >>, n, n, 1
+0, +, x, x, 1
+0, bgt, while, n, 0
+0, #, Return (2^x - 1)
+0, =, result, 1
+0, <<, result, result, x
+0, -, result, result, 1
+0, printInt, result, result
+0, ret,
