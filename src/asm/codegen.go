@@ -61,13 +61,18 @@ func CodeGen(t tac.Tac) {
 		// assignment statement, update the DS for data section.
 		for _, stmt := range blk.Stmts {
 			switch stmt.Op {
-			case "label", "func", "ret", "call", "#", "bgt", "bge", "blt", "ble", "beq", "bne", "j" :
+			case "label", "func", "ret", "call", "#", "bgt", "bge", "blt", "ble", "beq", "bne", "j":
 				break
 			default:
-				if strings.Compare(stmt.Op, "decl") == 0 && !ds.Lookup[stmt.Dst]{
+				if strings.Compare(stmt.Op, "decl") == 0 && !ds.Lookup[stmt.Dst] {
 					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.space\t%d", stmt.Dst, 4*stmt.Src[0].U.IntVal()))
 					ds.Lookup[stmt.Dst] = true
 					as[stmt.Dst] = true
+					break
+				}
+				if strings.Compare(stmt.Op, "declStr") == 0 {
+					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.asciiz %s", stmt.Dst, stmt.Src[0].U.StrVal()))
+					ds.Lookup[stmt.Dst] = true
 					break
 				}
 				if !ds.Lookup[stmt.Dst] {
@@ -104,7 +109,7 @@ func CodeGen(t tac.Tac) {
 						blk.Adesc[stmt.Dst].Reg, 4*stmt.Src[1].U.IntVal(), blk.Adesc[stmt.Src[0].U.StrVal()].Reg, comment))
 				case tac.Str:
 					comment := fmt.Sprintf("# Multiplying iterator by 4")
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsll $s2, $t%d, 2\t%s", blk.Adesc[v.StrVal()].Reg,comment))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsll $s2, $t%d, 2\t%s", blk.Adesc[v.StrVal()].Reg, comment))
 					comment = fmt.Sprintf("#Assigning value to the variable from array")
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, %s($s2)\t\t%s",
 						blk.Adesc[stmt.Dst].Reg, stmt.Src[0].U.StrVal(), comment))
@@ -126,19 +131,19 @@ func CodeGen(t tac.Tac) {
 							blk.Adesc[stmt.Src[2].U.StrVal()].Reg, 4*stmt.Src[1].U.IntVal(), blk.Adesc[stmt.Src[0].U.StrVal()].Reg, comment))
 					}
 				case tac.Str:
-					switch stmt.Src[2].U.(type){
+					switch stmt.Src[2].U.(type) {
 					case tac.I32:
 						comment := fmt.Sprintf("# Storing const index into $s1")
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli $s1, %d \t%s", stmt.Src[2].U.IntVal(), comment))
 						comment = fmt.Sprintf("# Multiplying iterator by 4")
-						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsll $s2, $t%d, 2\t%s", blk.Adesc[stmt.Src[1].U.StrVal()].Reg,comment))
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsll $s2, $t%d, 2\t%s", blk.Adesc[stmt.Src[1].U.StrVal()].Reg, comment))
 						comment = fmt.Sprintf("#Assigning variable to the array")
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $s1, %s($s2)\t\t%s",
 							stmt.Src[0].U.StrVal(), comment))
 
 					case tac.Str:
 						comment := fmt.Sprintf("# Multiplying iterator by 4")
-						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsll $s2, $t%d, 2\t%s", blk.Adesc[stmt.Src[1].U.StrVal()].Reg,comment))
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsll $s2, $t%d, 2\t%s", blk.Adesc[stmt.Src[1].U.StrVal()].Reg, comment))
 						comment = fmt.Sprintf("#Assigning variable to the array")
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, %s($s2)\t\t%s",
 							blk.Adesc[stmt.Src[2].U.StrVal()].Reg, stmt.Src[0].U.StrVal(), comment))
@@ -196,7 +201,7 @@ func CodeGen(t tac.Tac) {
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
-			case "rem" :
+			case "rem":
 				blk.GetReg(&stmt, ts, as)
 				comment := fmt.Sprintf("# %s -> $t%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -287,7 +292,7 @@ func CodeGen(t tac.Tac) {
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
-			case ">>" :
+			case ">>":
 				blk.GetReg(&stmt, ts, as)
 				comment := fmt.Sprintf("# %s -> $t%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -300,7 +305,7 @@ func CodeGen(t tac.Tac) {
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
-			case "<<" :
+			case "<<":
 				blk.GetReg(&stmt, ts, as)
 				comment := fmt.Sprintf("# %s -> $t%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -366,6 +371,8 @@ func CodeGen(t tac.Tac) {
 				ts.Stmts = append(ts.Stmts, "\tli $v0, 5\n\tsyscall")
 				blk.GetReg(&stmt, ts, as)
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove $t%d, $v0", blk.Adesc[stmt.Dst].Reg))
+			case "printStr":
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli $v0, 4\n\tla $a0, %s\n\tsyscall", stmt.Dst))
 			}
 
 			// In case on of the src variable's register was allocated to dst in GetReg(),
@@ -389,7 +396,7 @@ func CodeGen(t tac.Tac) {
 		if len(blk.Rdesc) > 0 {
 			ts.Stmts = append(ts.Stmts, fmt.Sprintf("\n\t# Store variables back into memory"))
 			for k, v := range blk.Rdesc {
-				if !as[v]{
+				if !as[v] {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, %s", k, v))
 				}
 			}

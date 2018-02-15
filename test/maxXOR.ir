@@ -1,0 +1,26 @@
+0, #, Test to find maximum XOR-value of at-most k-elements from 1 to n
+0, func, main
+0, declStr, nStr, "Enter n: "
+0, printStr, nStr
+0, scanInt, n
+0, declStr, k_str, "Enter k: "
+0, printStr, k_str
+0, scanInt, k
+0, call, maxXOR
+0, store, retVal
+0, declStr, str, "Maximum XOR-value: "
+0, printStr, str
+0, printInt, retVal, retVal
+0, ret,
+0, func, maxXOR
+0, #, x = log2(n) + 1
+0, =, x, 0
+0, label, while
+0, >>, n, n, 1
+0, +, x, x, 1
+0, bgt, while, n, 0
+0, #, Return (2^x - 1)
+0, =, result, 1
+0, <<, result, result, x
+0, -, result, result, 1
+0, ret, result
