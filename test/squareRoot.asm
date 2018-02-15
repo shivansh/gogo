@@ -1,12 +1,14 @@
 # Test to find square root (floor value) of a number
 
 	.data
+nStr:	.asciiz "Enter n: "
 x:	.word	0
 ans:	.word	0
 start:	.word	0
 end:	.word	0
 mid:	.word	0
 temp:	.word	0
+str:	.asciiz "Square root of n: "
 
 	.text
 
@@ -14,6 +16,9 @@ temp:	.word	0
 	.globl main
 	.ent main
 main:
+	li $v0, 4
+	la $a0, nStr
+	syscall
 	li $v0, 5
 	syscall
 	move $t1, $v0
@@ -48,18 +53,18 @@ while:
 	# x is a perfect square
 
 	# Store variables back into memory
-	sw $t3, mid
-	sw $t2, temp
 	sw $t1, start
 	sw $t4, end
+	sw $t3, mid
+	sw $t2, temp
 
 	lw $t1, temp
 	lw $t4, x
 	beq $t1, $t4, perfectSquare		# perfectSquare -> $t0
 
 	# Store variables back into memory
-	sw $t1, temp
 	sw $t4, x
+	sw $t1, temp
 
 	lw $t1, temp
 	lw $t4, x
@@ -90,9 +95,9 @@ ifBranch:
 	move $t3, $t1		# ans -> $t3
 
 	# Store variables back into memory
+	sw $t3, ans
 	sw $t1, mid
 	sw $t4, start
-	sw $t3, ans
 
 	lw $t1, start
 	lw $t4, end
@@ -109,10 +114,13 @@ perfectSquare:
 	move $t4, $t1		# ans -> $t4
 
 	# Store variables back into memory
-	sw $t1, mid
 	sw $t4, ans
+	sw $t1, mid
 
 exit:
+	li $v0, 4
+	la $a0, str
+	syscall
 	li $v0, 1
 	lw $t1, ans
 	move $a0, $t1

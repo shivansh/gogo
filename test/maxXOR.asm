@@ -1,9 +1,12 @@
 # Test to find maximum XOR-value of at-most k-elements from 1 to n
 
 	.data
+nStr:	.asciiz "Enter n: "
 n:	.word	0
+k_str:	.asciiz "Enter k: "
 k:	.word	0
 retVal:	.word	0
+str:	.asciiz "Maximum XOR-value: "
 x:	.word	0
 result:	.word	0
 
@@ -13,9 +16,15 @@ result:	.word	0
 	.globl main
 	.ent main
 main:
+	li $v0, 4
+	la $a0, nStr
+	syscall
 	li $v0, 5
 	syscall
 	move $t1, $v0
+	li $v0, 4
+	la $a0, k_str
+	syscall
 	li $v0, 5
 	syscall
 	move $t4, $v0
@@ -26,6 +35,9 @@ main:
 	lw $t4, k
 	sw $t1, n		# spilled n, freed $t1
 	move $t1, $v0
+	li $v0, 4
+	la $a0, str
+	syscall
 	li $v0, 1
 	move $a0, $t1
 	syscall
@@ -53,8 +65,8 @@ while:
 	addi $t4, $t4, 1	# x -> $t4
 
 	# Store variables back into memory
-	sw $t4, x
 	sw $t1, n
+	sw $t4, x
 
 	lw $t1, n
 	bgt $t1, 0, while		# while -> $t0

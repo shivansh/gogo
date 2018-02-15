@@ -1,10 +1,19 @@
-0, #, Test to find logarithm (base 2) of a number
+0, #, Test to find floor value of logarithm (base 2 and base 10) of a number
 0, func, main
+0, declStr, nStr, "Enter n: "
+0, printStr, nStr
 0, scanInt, n
 0, =, i, -1
 0, label, while
 0, >>, n, n, 1
 0, +, i, i, 1
 0, bgt, while, n, 0
+0, declStr, base2Str, "log2(n): "
+0, printStr, base2Str
+0, printInt, i, i
+0, declStr, base10Str, "\nlog10(n): "
+0, printStr, base10Str
+0, #, Ideally, 3 should be log2(10) = 3.32
+0, /, i, i, 3
 0, printInt, i, i
 0, ret,
