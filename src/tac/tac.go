@@ -2,7 +2,6 @@ package tac
 
 import (
 	"bufio"
-	"bytes"
 	"container/heap"
 	"fmt"
 	"log"
@@ -78,10 +77,6 @@ type Blk struct {
 
 type I32 int
 type Str string
-type Arr struct {
-	Name  string
-	Index int
-}
 
 const (
 	// RegLimit determines the upper bound on the number of free registers at any
@@ -111,7 +106,6 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec) {
 	// heap. This ensures that the source variables' registers don't spill each other.
 	var allocReg []*UseInfo
 	var srcVars []string
-	arrRe := regexp.MustCompile("(\\[*\\])$") // array elements e.g. arr[2]
 
 	// Collect all "variables" available in stmt. Register allocation is first
 	// done for the source variables and then for the destination variable.
@@ -119,69 +113,33 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec) {
 		switch v := v.U.(type) {
 		case Str:
 			srcVars = append(srcVars, v.StrVal())
-		case Arr:
-			srcVars = append(srcVars, v.FullName())
 		}
 	}
 	var lenSource int
 	switch stmt.Op {
-	case "bgt", "bge", "blt", "ble", "beq", "bne", "j":
+	case "bgt", "bge", "blt", "ble", "beq", "bne", "j" :
 		lenSource = len(srcVars) + 1
 		break
-	default:
+	default :
 		srcVars = append(srcVars, stmt.Dst)
 		lenSource = len(srcVars)
 	}
 
 	for k, v := range srcVars {
-		if arrRe.MatchString(v) {
-			if _, hasReg := blk.Adesc[v]; !hasReg {
-				item := heap.Pop(&blk.Pq).(*UseInfo) // element with highest next-use
-				reg, _ := strconv.Atoi(item.Name)
-				if _, ok := blk.Rdesc[reg]; ok {
-					comment := fmt.Sprintf("# spilled %s, freed $t%s", blk.Rdesc[reg], item.Name)
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%s, %s\t\t%s", item.Name, blk.Rdesc[reg], comment))
-				}
-				allocReg = append(allocReg, &UseInfo{strconv.Itoa(reg), blk.FindNextUse(stmt.Line, v)})
-				delete(blk.Adesc, blk.Rdesc[reg])
-				delete(blk.Rdesc, reg)
-				blk.Rdesc[reg] = v
-				blk.Adesc[v] = Addr{reg, blk.Adesc[v].Mem}
-
-				if k == 0 {
-					item := heap.Pop(&blk.Pq).(*UseInfo) // element with highest next-use
-					reg, _ := strconv.Atoi(item.Name)
-					if _, ok := blk.Rdesc[reg]; ok {
-						comment := fmt.Sprintf("# spilled %s, freed $t%s", blk.Rdesc[reg], item.Name)
-						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%s, %s\t\t%s", item.Name, blk.Rdesc[reg], comment))
-					}
-					allocReg = append(allocReg, &UseInfo{strconv.Itoa(reg), blk.FindNextUse(stmt.Line, v)})
-					delete(blk.Adesc, blk.Rdesc[reg])
-					delete(blk.Rdesc, reg)
-					blk.Rdesc[reg] = v
-					blk.Adesc[v] = Addr{blk.Adesc[v].Reg, reg}
-					a := GetArrayInfo(v)
-					blk.Rdesc[reg] = a.Name
-					blk.Adesc[a.Name] = Addr{blk.Adesc[a.Name].Reg, reg}
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", reg, a.Name))
-				}
+		if _, hasReg := blk.Adesc[v]; !hasReg {
+			item := heap.Pop(&blk.Pq).(*UseInfo) // element with highest next-use
+			reg, _ := strconv.Atoi(item.Name)
+			if _, ok := blk.Rdesc[reg]; ok {
+				comment := fmt.Sprintf("# spilled %s, freed $t%s", blk.Rdesc[reg], item.Name)
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%s, %s\t\t%s", item.Name, blk.Rdesc[reg], comment))
 			}
-		} else {
-			if _, hasReg := blk.Adesc[v]; !hasReg {
-				item := heap.Pop(&blk.Pq).(*UseInfo) // element with highest next-use
-				reg, _ := strconv.Atoi(item.Name)
-				if _, ok := blk.Rdesc[reg]; ok {
-					comment := fmt.Sprintf("# spilled %s, freed $t%s", blk.Rdesc[reg], item.Name)
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%s, %s\t\t%s", item.Name, blk.Rdesc[reg], comment))
-				}
-				allocReg = append(allocReg, &UseInfo{strconv.Itoa(reg), blk.FindNextUse(stmt.Line, v)})
-				delete(blk.Adesc, blk.Rdesc[reg])
-				delete(blk.Rdesc, reg)
-				blk.Rdesc[reg] = v
-				blk.Adesc[v] = Addr{reg, blk.Adesc[v].Mem}
-				if k < lenSource-1 {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, %s", blk.Adesc[v].Reg, v))
-				}
+			allocReg = append(allocReg, &UseInfo{strconv.Itoa(reg), blk.FindNextUse(stmt.Line, v)})
+			delete(blk.Adesc, blk.Rdesc[reg])
+			delete(blk.Rdesc, reg)
+			blk.Rdesc[reg] = v
+			blk.Adesc[v] = Addr{reg, blk.Adesc[v].Mem}
+			if k < lenSource - 1 {
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, %s", blk.Adesc[v].Reg, v))
 			}
 		}
 	}
@@ -225,9 +183,6 @@ func (blk Blk) EvalNextUseInfo() {
 			switch v := v.U.(type) {
 			case Str:
 				s = append(s, v.StrVal())
-			case Arr:
-				s = append(s, v.FullName())
-				// fmt.Printf("FullName: %s\n", v.FullName())
 			}
 		}
 		// Step 1
@@ -263,8 +218,7 @@ func GenTAC(file *os.File) (tac Tac) {
 	blk := new(Blk)
 	scanner := bufio.NewScanner(file)
 	line := 0
-	re := regexp.MustCompile("(^-?[0-9]*$)")  // integers
-	arrRe := regexp.MustCompile("(\\[*\\])$") // array elements e.g. arr[2]
+	re := regexp.MustCompile("(^-?[0-9]*$)") // integers
 
 	for scanner.Scan() {
 		record := strings.Split(scanner.Text(), ",")
@@ -300,11 +254,7 @@ func GenTAC(file *os.File) (tac Tac) {
 			// Prepare a slice of source variables.
 			var sv []*SymInfo
 			for i := 3; i < len(record); i++ {
-				if arrRe.MatchString(record[i]) {
-					// fmt.Println("Found array type")
-					arr := GetArrayInfo(record[i])
-					sv = append(sv, &SymInfo{Arr(arr)}) // TODO Check this!!
-				} else if re.MatchString(record[i]) {
+				if re.MatchString(record[i]) {
 					v, err := strconv.Atoi(record[i])
 					if err != nil {
 						log.Fatal(err)
@@ -323,24 +273,6 @@ func GenTAC(file *os.File) (tac Tac) {
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
-	return
-}
-
-func GetArrayInfo(arr string) (a Arr) {
-	var name string
-	var index int
-	var buffer bytes.Buffer
-	for i := 0; i < len(arr); i++ {
-		if arr[i] == '[' {
-			name = buffer.String()
-			buffer.Reset()
-		} else if arr[i] == ']' {
-			index, _ = strconv.Atoi(buffer.String())
-		} else {
-			buffer.WriteByte(arr[i])
-		}
-	}
-	a = Arr{name, index}
 	return
 }
 
@@ -373,24 +305,6 @@ func (U Str) IntVal() (i int) {
 
 func (U Str) StrVal() string {
 	return string(U)
-}
-
-func (U Arr) IntVal() int {
-	return U.Index
-}
-
-func (U Arr) StrVal() string {
-	return U.Name
-}
-
-func (U Arr) FullName() string {
-	var buffer bytes.Buffer
-	i := strconv.Itoa(U.Index)
-	buffer.WriteString(U.StrVal())
-	buffer.WriteRune('[')
-	buffer.WriteString(i)
-	buffer.WriteRune(']')
-	return buffer.String()
 }
 
 func (pq PriorityQueue) Len() int { return len(pq) }

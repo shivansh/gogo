@@ -16,11 +16,11 @@ main:
 	syscall
 	sw $t1, v1		# spilled v1, freed $t1
 	move $t1, $v0
-	sw $t1, v3
 	sw $t4, v2
+	sw $t1, v3
 	jal temp
-	lw $t1, v3
 	lw $t4, v2
+	lw $t1, v3
 	sw $t4, v2		# spilled v2, freed $t4
 	move $t4, $v0
 	li $v0, 1
