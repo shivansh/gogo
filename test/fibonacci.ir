@@ -1,9 +1,13 @@
 0, #, Test to find n'th fibonacci number
 0, func, main
+0, declStr, nStr, "Enter n: "
+0, printStr, nStr
 0, scanInt, n
 0, =, i, 0
 0, call, fib
 0, store, retVal
+0, declStr, str, "n'th fibonacci number: "
+0, printStr, str
 0, printInt, retVal, retVal
 0, ret,
 0, func, fib

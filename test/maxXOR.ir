@@ -1,9 +1,15 @@
 0, #, Test to find maximum XOR-value of at-most k-elements from 1 to n
 0, func, main
+0, declStr, nStr, "Enter n: "
+0, printStr, nStr
 0, scanInt, n
+0, declStr, k_str, "Enter k: "
+0, printStr, k_str
 0, scanInt, k
 0, call, maxXOR
 0, store, retVal
+0, declStr, str, "Maximum XOR-value: "
+0, printStr, str
 0, printInt, retVal, retVal
 0, ret,
 0, func, maxXOR

@@ -1,5 +1,7 @@
 0, #, Test to find square root (floor value) of a number
 0, func, main
+0, declStr, nStr, "Enter n: "
+0, printStr, nStr
 0, scanInt, x
 0, =, ans, x
 0, beq, exit, x, 0
@@ -25,5 +27,7 @@
 0, label, perfectSquare
 0, =, ans, mid
 0, label, exit
+0, declStr, str, "Square root of n: "
+0, printStr, str
 0, printInt, ans, ans
 0, ret,
