@@ -1,0 +1,25 @@
+0, #, Test to find n'th fibonacci number
+0, func, main
+0, declStr, nStr, "Enter n: "
+0, printStr, nStr
+0, scanInt, n
+0, =, i, 0
+0, call, fib
+0, store, retVal
+0, declStr, str, "n'th fibonacci number: "
+0, printStr, str
+0, printInt, retVal, retVal
+0, ret,
+0, func, fib
+0, =, first, 1
+0, =, second, 1
+0, -, n, n, 2
+0, label, loop
+0, ble, exit, n, 0
+0, =, temp, second
+0, +, second, second, first
+0, =, first, temp
+0, -, n, n, 1
+0, j, loop
+0, label, exit
+0, ret, second

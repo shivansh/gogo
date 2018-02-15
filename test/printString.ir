@@ -1,0 +1,5 @@
+0, #, Test to declare and print a string
+0, func, main
+0, declStr, str, "Hello World!"
+0, printStr, str
+0, ret,
