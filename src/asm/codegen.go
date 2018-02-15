@@ -30,7 +30,6 @@ func CodeGen(t tac.Tac) {
 	ts := new(tac.TextSec)
 	ds.Lookup = make(map[string]bool)
 	funcName := ""
-	// exitStmt := ""
 	callerSaved := []string{}
 
 	// Define the assembler directives for data and text.
@@ -394,7 +393,7 @@ func CodeGen(t tac.Tac) {
 
 		// Store non-empty registers back into memory at the end of basic block.
 		if len(blk.Rdesc) > 0 {
-			ts.Stmts = append(ts.Stmts, fmt.Sprintf("\n\t# Store variables back into memory"))
+			ts.Stmts = append(ts.Stmts, fmt.Sprintf("\t# Store variables back into memory"))
 			for k, v := range blk.Rdesc {
 				if !as[v] {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, %s", k, v))
