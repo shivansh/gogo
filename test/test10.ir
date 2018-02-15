@@ -1,0 +1,20 @@
+0, #, Test to demonstrate function call
+0, func, main
+1, scanInt, n
+2, =, i, 0
+3, =, first, 0
+4, =, second, 1
+5, call, fib
+6, store, return
+7, ret,
+8, func, fib
+9, label, loop
+10, bgt, exit, i, n
+11, =, temp, second
+12, +, second, second, first
+13, =, first, temp
+14, +, i, i, 1
+15, j, loop
+16, label, exit
+17, printInt, second, second
+18, ret, second

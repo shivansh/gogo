@@ -98,7 +98,7 @@ const (
 // GetReg handles all the side-effects induced due to register allocation, namely -
 //	* Updating lookup tables.
 //	* Additional instructions resulting due to register spilling.
-func (blk Blk) GetReg(stmt *Stmt, ts *TextSec) {
+func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, as map[string]bool) {
 	// allocReg is a slice of all the register DS which are popped from the heap
 	// and have been assigned a variable's data. These DS are updated with the
 	// newly assigned variable's next-use info and after all the variables (x,y,z)
@@ -129,7 +129,7 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec) {
 		if _, hasReg := blk.Adesc[v]; !hasReg {
 			item := heap.Pop(&blk.Pq).(*UseInfo) // element with highest next-use
 			reg, _ := strconv.Atoi(item.Name)
-			if _, ok := blk.Rdesc[reg]; ok {
+			if _, ok := blk.Rdesc[reg]; ok && !as[blk.Rdesc[reg]] {
 				comment := fmt.Sprintf("# spilled %s, freed $t%s", blk.Rdesc[reg], item.Name)
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%s, %s\t\t%s", item.Name, blk.Rdesc[reg], comment))
 			}
@@ -139,7 +139,11 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec) {
 			blk.Rdesc[reg] = v
 			blk.Adesc[v] = Addr{reg, blk.Adesc[v].Mem}
 			if k < lenSource - 1 {
-				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, %s", blk.Adesc[v].Reg, v))
+				if !as[v] {
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, %s", blk.Adesc[v].Reg, v))
+				} else {
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", blk.Adesc[v].Reg, v))
+				}
 			}
 		}
 	}
