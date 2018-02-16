@@ -19,9 +19,10 @@ runIRTests() {
 	( cd "$srcDir" && make gogo )
     fi
 
-    for f in "$testDir"/*.ir; do
-	testName=$(echo "$f" | sed -E 's/.(.)(.)$/\1\2/') # Remove last '.'
-	rm -f "$testName"
+    for f in "$testDir/ir"/*.ir; do
+	# Remove everything after and including the last '.'
+	testName=$(echo "$f" | sed -E 's/(.*)\.(.*)/\1/')
+	rm -f "$testName.asm"
 	"$binDir/gogo" "$f" > "$testName.asm"
     done
 }

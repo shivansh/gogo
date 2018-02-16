@@ -17,7 +17,6 @@ main:
 	syscall
 	move $t1, $v0
 	li $t4, 0		# count -> $t4
-
 	# Store variables back into memory
 	sw $t1, n
 	sw $t4, count
@@ -28,8 +27,7 @@ while:
 	ble $t1, 0, exit		# exit -> $t0
 	div $t1, $t1, 10		# n -> $t1
 	lw $t4, count
-	addi $t4, $t4, 1	# count -> $t4
-
+	addi $t4, $t4, 1		# count -> $t4
 	# Store variables back into memory
 	sw $t1, n
 	sw $t4, count
@@ -44,7 +42,6 @@ exit:
 	lw $t1, count
 	move $a0, $t1
 	syscall
-
 	# Store variables back into memory
 	sw $t1, count
 	li $v0, 10

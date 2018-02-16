@@ -23,14 +23,12 @@ main:
 	syscall
 	move $t1, $v0
 	move $t4, $t1		# ans -> $t4
-
 	# Store variables back into memory
-	sw $t1, x
 	sw $t4, ans
+	sw $t1, x
 
 	lw $t1, x
 	beq $t1, 0, exit		# exit -> $t0
-
 	# Store variables back into memory
 	sw $t1, x
 
@@ -38,11 +36,10 @@ main:
 	beq $t1, 1, exit		# exit -> $t0
 	li $t4, 1		# start -> $t4
 	move $t3, $t1		# end -> $t3
-
 	# Store variables back into memory
-	sw $t1, x
 	sw $t4, start
 	sw $t3, end
+	sw $t1, x
 
 while:
 	lw $t1, start
@@ -51,7 +48,6 @@ while:
 	srl $t3, $t3, 1		# mid -> $t3
 	mul $t2, $t3, $t3	# temp -> $t2
 	# x is a perfect square
-
 	# Store variables back into memory
 	sw $t1, start
 	sw $t4, end
@@ -61,10 +57,9 @@ while:
 	lw $t1, temp
 	lw $t4, x
 	beq $t1, $t4, perfectSquare		# perfectSquare -> $t0
-
 	# Store variables back into memory
-	sw $t4, x
 	sw $t1, temp
+	sw $t4, x
 
 	lw $t1, temp
 	lw $t4, x
@@ -73,7 +68,6 @@ while:
 	lw $t3, mid
 	sw $t4, x		# spilled x, freed $t4
 	sub $t4, $t3, 1		# end -> $t4
-
 	# Store variables back into memory
 	sw $t1, temp
 	sw $t4, end
@@ -82,7 +76,6 @@ while:
 	lw $t1, start
 	lw $t4, end
 	ble $t1, $t4, while		# while -> $t0
-
 	# Store variables back into memory
 	sw $t1, start
 	sw $t4, end
@@ -91,9 +84,8 @@ while:
 
 ifBranch:
 	lw $t1, mid
-	addi $t4, $t1, 1	# start -> $t4
+	addi $t4, $t1, 1		# start -> $t4
 	move $t3, $t1		# ans -> $t3
-
 	# Store variables back into memory
 	sw $t3, ans
 	sw $t1, mid
@@ -102,7 +94,6 @@ ifBranch:
 	lw $t1, start
 	lw $t4, end
 	ble $t1, $t4, while		# while -> $t0
-
 	# Store variables back into memory
 	sw $t1, start
 	sw $t4, end
@@ -112,10 +103,9 @@ ifBranch:
 perfectSquare:
 	lw $t1, mid
 	move $t4, $t1		# ans -> $t4
-
 	# Store variables back into memory
-	sw $t4, ans
 	sw $t1, mid
+	sw $t4, ans
 
 exit:
 	li $v0, 4
@@ -125,7 +115,6 @@ exit:
 	lw $t1, ans
 	move $a0, $t1
 	syscall
-
 	# Store variables back into memory
 	sw $t1, ans
 	li $v0, 10

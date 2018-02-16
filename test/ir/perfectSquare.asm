@@ -20,17 +20,15 @@ main:
 	syscall
 	move $t1, $v0
 	li $t4, 1		# i -> $t4
-
 	# Store variables back into memory
-	sw $t4, i
 	sw $t1, n
+	sw $t4, i
 
 loop:
 	lw $t1, n
 	lw $t4, i
 	sub $t1, $t1, $t4	# n -> $t1
-	addi $t4, $t4, 2	# i -> $t4
-
+	addi $t4, $t4, 2		# i -> $t4
 	# Store variables back into memory
 	sw $t1, n
 	sw $t4, i
@@ -40,7 +38,6 @@ loop:
 	li $v0, 4
 	la $a0, isStr
 	syscall
-
 	# Store variables back into memory
 	sw $t1, n
 
@@ -52,7 +49,6 @@ loop:
 	li $v0, 4
 	la $a0, notStr
 	syscall
-
 	# Store variables back into memory
 	sw $t1, n
 

@@ -3,8 +3,8 @@
 0, declStr, nStr, "Enter n: "
 0, printStr, nStr
 0, scanInt, n
-0, declStr, k_str, "Enter k: "
-0, printStr, k_str
+0, declStr, kStr, "Enter k: "
+0, printStr, kStr
 0, scanInt, k
 0, call, maxXOR
 0, store, retVal

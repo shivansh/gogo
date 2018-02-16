@@ -32,6 +32,7 @@ type Union interface {
 
 type SymInfo struct {
 	U Union
+	// TODO: scoping info should go here.
 }
 
 // Data section
@@ -98,7 +99,7 @@ const (
 // GetReg handles all the side-effects induced due to register allocation, namely -
 //	* Updating lookup tables.
 //	* Additional instructions resulting due to register spilling.
-func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, as map[string]bool) {
+func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 	// allocReg is a slice of all the register DS which are popped from the heap
 	// and have been assigned a variable's data. These DS are updated with the
 	// newly assigned variable's next-use info and after all the variables (x,y,z)
@@ -117,10 +118,10 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, as map[string]bool) {
 	}
 	var lenSource int
 	switch stmt.Op {
-	case "bgt", "bge", "blt", "ble", "beq", "bne", "j" :
+	case "bgt", "bge", "blt", "ble", "beq", "bne", "j":
 		lenSource = len(srcVars) + 1
 		break
-	default :
+	default:
 		srcVars = append(srcVars, stmt.Dst)
 		lenSource = len(srcVars)
 	}
@@ -129,7 +130,7 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, as map[string]bool) {
 		if _, hasReg := blk.Adesc[v]; !hasReg {
 			item := heap.Pop(&blk.Pq).(*UseInfo) // element with highest next-use
 			reg, _ := strconv.Atoi(item.Name)
-			if _, ok := blk.Rdesc[reg]; ok && !as[blk.Rdesc[reg]] {
+			if _, ok := blk.Rdesc[reg]; ok && !arrLookup[blk.Rdesc[reg]] {
 				comment := fmt.Sprintf("# spilled %s, freed $t%s", blk.Rdesc[reg], item.Name)
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%s, %s\t\t%s", item.Name, blk.Rdesc[reg], comment))
 			}
@@ -138,8 +139,8 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, as map[string]bool) {
 			delete(blk.Rdesc, reg)
 			blk.Rdesc[reg] = v
 			blk.Adesc[v] = Addr{reg, blk.Adesc[v].Mem}
-			if k < lenSource - 1 {
-				if !as[v] {
+			if k < lenSource-1 {
+				if !arrLookup[v] {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, %s", blk.Adesc[v].Reg, v))
 				} else {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", blk.Adesc[v].Reg, v))
