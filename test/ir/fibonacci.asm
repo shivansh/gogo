@@ -36,7 +36,6 @@ main:
 	li $v0, 1
 	move $a0, $t1
 	syscall
-
 	# Store variables back into memory
 	sw $t1, retVal
 	sw $t4, i
@@ -52,7 +51,6 @@ fib:
 	sw $t1, first		# spilled first, freed $t1
 	lw $t1, n
 	sub $t1, $t1, 2		# n -> $t1
-
 	# Store variables back into memory
 	sw $t1, n
 	sw $t4, second
@@ -67,12 +65,11 @@ loop:
 	add $t4, $t4, $t2	# second -> $t4
 	move $t2, $t3		# first -> $t2
 	sub $t1, $t1, 1		# n -> $t1
-
 	# Store variables back into memory
-	sw $t1, n
-	sw $t4, second
 	sw $t3, temp
 	sw $t2, first
+	sw $t1, n
+	sw $t4, second
 
 	j loop
 

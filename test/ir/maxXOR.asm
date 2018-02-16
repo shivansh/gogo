@@ -3,7 +3,7 @@
 	.data
 nStr:	.asciiz "Enter n: "
 n:	.word	0
-k_str:	.asciiz "Enter k: "
+kStr:	.asciiz "Enter k: "
 k:	.word	0
 retVal:	.word	0
 str:	.asciiz "Maximum XOR-value: "
@@ -23,7 +23,7 @@ main:
 	syscall
 	move $t1, $v0
 	li $v0, 4
-	la $a0, k_str
+	la $a0, kStr
 	syscall
 	li $v0, 5
 	syscall
@@ -41,7 +41,6 @@ main:
 	li $v0, 1
 	move $a0, $t1
 	syscall
-
 	# Store variables back into memory
 	sw $t1, retVal
 	sw $t4, k
@@ -54,7 +53,6 @@ main:
 maxXOR:
 	# x = log2(n) + 1
 	li $t1, 0		# x -> $t1
-
 	# Store variables back into memory
 	sw $t1, x
 
@@ -62,8 +60,7 @@ while:
 	lw $t1, n
 	srl $t1, $t1, 1		# n -> $t1
 	lw $t4, x
-	addi $t4, $t4, 1	# x -> $t4
-
+	addi $t4, $t4, 1		# x -> $t4
 	# Store variables back into memory
 	sw $t1, n
 	sw $t4, x
@@ -77,7 +74,6 @@ while:
 	sll $t4, $t4, $t1	# result -> $t4
 	sub $t4, $t4, 1		# result -> $t4
 	move $v0, $t4
-
 	# Store variables back into memory
 	sw $t1, x
 	sw $t4, result

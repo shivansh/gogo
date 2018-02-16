@@ -23,7 +23,6 @@ main:
 	li $t4, 0		# i -> $t4
 	sw $t1, n		# spilled n, freed $t1
 	li $t1, 0		# k -> $t1
-
 	# Store variables back into memory
 	sw $t1, k
 	sw $t4, i
@@ -34,7 +33,6 @@ loop:
 	lw $t4, n
 	bge $t1, $t4, exit		# exit -> $t0
 	rem $t3, $t1, 2		# l -> $t3
-
 	# Store variables back into memory
 	sw $t1, i
 	sw $t4, n
@@ -46,8 +44,7 @@ loop:
 	sw $t1, l		# spilled l, freed $t1
 	lw $t1, i
 	add $t4, $t4, $t1	# k -> $t4
-	addi $t1, $t1, 1	# i -> $t1
-
+	addi $t1, $t1, 1		# i -> $t1
 	# Store variables back into memory
 	sw $t1, i
 	sw $t4, k
@@ -56,8 +53,7 @@ loop:
 
 skip:
 	lw $t1, i
-	addi $t1, $t1, 1	# i -> $t1
-
+	addi $t1, $t1, 1		# i -> $t1
 	# Store variables back into memory
 	sw $t1, i
 
@@ -71,7 +67,6 @@ exit:
 	lw $t1, k
 	move $a0, $t1
 	syscall
-
 	# Store variables back into memory
 	sw $t1, k
 	li $v0, 10
