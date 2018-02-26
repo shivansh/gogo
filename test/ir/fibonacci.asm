@@ -66,10 +66,10 @@ loop:
 	move $t2, $t3		# first -> $t2
 	sub $t1, $t1, 1		# n -> $t1
 	# Store variables back into memory
-	sw $t3, temp
-	sw $t2, first
 	sw $t1, n
 	sw $t4, second
+	sw $t3, temp
+	sw $t2, first
 
 	j loop
 

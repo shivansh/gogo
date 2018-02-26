@@ -1,33 +1,33 @@
-0, #, Test to find square root (floor value) of a number
-0, func, main
-0, declStr, nStr, "Enter n: "
-0, printStr, nStr
-0, scanInt, x
-0, =, ans, x
-0, beq, exit, x, 0
-0, beq, exit, x, 1
-0, =, start, 1
-0, =, end, x
-0, label, while
-0, +, mid, start, end
-0, >>, mid, mid, 1
-0, *, temp, mid, mid
-0, #, x is a perfect square
-0, beq, perfectSquare, temp, x
-0, blt, ifBranch, temp, x
-0, #, else branch
-0, -, end, mid, 1
-0, ble, while, start, end
-0, j, exit
-0, label, ifBranch
-0, +, start, mid, 1
-0, =, ans, mid
-0, ble, while, start, end
-0, j, exit
-0, label, perfectSquare
-0, =, ans, mid
-0, label, exit
-0, declStr, str, "Square root of n: "
-0, printStr, str
-0, printInt, ans, ans
-0, ret,
+#, Test to find square root (floor value) of a number
+func, main
+declStr, nStr, "Enter n: "
+printStr, nStr
+scanInt, x
+=, ans, x
+beq, exit, x, 0
+beq, exit, x, 1
+=, start, 1
+=, end, x
+label, while
++, mid, start, end
+>>, mid, mid, 1
+*, temp, mid, mid
+#, x is a perfect square
+beq, perfectSquare, temp, x
+blt, ifBranch, temp, x
+#, else branch
+-, end, mid, 1
+ble, while, start, end
+j, exit
+label, ifBranch
++, start, mid, 1
+=, ans, mid
+ble, while, start, end
+j, exit
+label, perfectSquare
+=, ans, mid
+label, exit
+declStr, str, "Square root of n: "
+printStr, str
+printInt, ans, ans
+ret,

@@ -107,6 +107,7 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 	// heap. This ensures that the source variables' registers don't spill each other.
 	var allocReg []*UseInfo
 	var srcVars []string
+	var lenSource int
 
 	// Collect all "variables" available in stmt. Register allocation is first
 	// done for the source variables and then for the destination variable.
@@ -116,7 +117,6 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 			srcVars = append(srcVars, v.StrVal())
 		}
 	}
-	var lenSource int
 	switch stmt.Op {
 	case "bgt", "bge", "blt", "ble", "beq", "bne", "j":
 		lenSource = len(srcVars) + 1
@@ -223,7 +223,7 @@ func GenTAC(file *os.File) (tac Tac) {
 	blk := new(Blk)
 	scanner := bufio.NewScanner(file)
 	line := 0
-	re := regexp.MustCompile("(^-?[0-9]*$)") // integers
+	re := regexp.MustCompile("(^-?[0-9]+$)") // integers
 
 	for scanner.Scan() {
 		record := strings.Split(scanner.Text(), ",")
@@ -231,7 +231,7 @@ func GenTAC(file *os.File) (tac Tac) {
 		for i := 0; i < len(record); i++ {
 			record[i] = strings.TrimSpace(record[i])
 		}
-		switch record[1] {
+		switch record[0] {
 		case "label":
 			// label statement is part of the newly created block.
 			if blk != nil {
@@ -239,7 +239,7 @@ func GenTAC(file *os.File) (tac Tac) {
 			}
 			blk = new(Blk) // start a new block
 			line = 0
-			blk.Stmts = append(blk.Stmts, Stmt{line, record[1], record[2], []*SymInfo{}})
+			blk.Stmts = append(blk.Stmts, Stmt{line, record[0], record[1], []*SymInfo{}})
 			line++
 		case "func":
 			// func statement is part of the newly created block.
@@ -248,7 +248,7 @@ func GenTAC(file *os.File) (tac Tac) {
 			}
 			blk = new(Blk) // start a new block
 			line = 0
-			blk.Stmts = append(blk.Stmts, Stmt{line, record[1], record[2], []*SymInfo{}})
+			blk.Stmts = append(blk.Stmts, Stmt{line, record[0], record[1], []*SymInfo{}})
 			line++
 		case "j", "bgt", "bge", "blt", "ble", "beq", "bne":
 			tac = append(tac, *blk) // end the previous block
@@ -258,10 +258,11 @@ func GenTAC(file *os.File) (tac Tac) {
 		default:
 			// Prepare a slice of source variables.
 			var sv []*SymInfo
-			for i := 3; i < len(record); i++ {
+			for i := 2; i < len(record); i++ {
 				if re.MatchString(record[i]) {
 					v, err := strconv.Atoi(record[i])
 					if err != nil {
+						fmt.Println(record[i])
 						log.Fatal(err)
 					}
 					sv = append(sv, &SymInfo{I32(v)})
@@ -269,7 +270,7 @@ func GenTAC(file *os.File) (tac Tac) {
 					sv = append(sv, &SymInfo{Str(record[i])})
 				}
 			}
-			blk.Stmts = append(blk.Stmts, Stmt{line, record[1], record[2], sv})
+			blk.Stmts = append(blk.Stmts, Stmt{line, record[0], record[1], sv})
 			line++
 		}
 	}

@@ -24,8 +24,8 @@ main:
 	move $t1, $v0
 	move $t4, $t1		# ans -> $t4
 	# Store variables back into memory
-	sw $t4, ans
 	sw $t1, x
+	sw $t4, ans
 
 	lw $t1, x
 	beq $t1, 0, exit		# exit -> $t0
@@ -87,9 +87,9 @@ ifBranch:
 	addi $t4, $t1, 1		# start -> $t4
 	move $t3, $t1		# ans -> $t3
 	# Store variables back into memory
+	sw $t4, start
 	sw $t3, ans
 	sw $t1, mid
-	sw $t4, start
 
 	lw $t1, start
 	lw $t4, end
@@ -104,8 +104,8 @@ perfectSquare:
 	lw $t1, mid
 	move $t4, $t1		# ans -> $t4
 	# Store variables back into memory
-	sw $t1, mid
 	sw $t4, ans
+	sw $t1, mid
 
 exit:
 	li $v0, 4

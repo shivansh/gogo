@@ -113,8 +113,8 @@ labelCoef:
 	lw $t4, k
 	addi $t4, $t4, 1		# k -> $t4
 	# Store variables back into memory
-	sw $t1, coef
 	sw $t4, k
+	sw $t1, coef
 
 	j innerFor
 

@@ -1,19 +1,19 @@
-0, #, Test to demonstrate register spilling via next-use heuristic.
-1, func, main,
-2, =, v1, -1
-3, =, v2, 2
-4, =, v1, -12
-5, =, v3, 3
-6, =, v4, 4
-7, =, v5, 5
-8, =, v5, v4
-9, +, v5, v4, v3
-10, =, v6, 5
-11, =, v7, 5
-12, call, temp
-13, ret,
-14, func, temp
-15, =, v1, 1
-16, label, unsat
-17, =, v4, 4
-18, ret, v1
+#, Test to demonstrate register spilling via next-use heuristic.
+func, main,
+=, v1, -1
+=, v2, 2
+=, v1, -12
+=, v3, 3
+=, v4, 4
+=, v5, 5
+=, v5, v4
++, v5, v4, v3
+=, v6, 5
+=, v7, 5
+call, temp
+ret,
+func, temp
+=, v1, 1
+label, unsat
+=, v4, 4
+ret, v1

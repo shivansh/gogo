@@ -28,11 +28,11 @@ main:
 	li $v0, 5
 	syscall
 	move $t4, $v0
-	sw $t1, n
 	sw $t4, k
+	sw $t1, n
 	jal maxXOR
-	lw $t1, n
 	lw $t4, k
+	lw $t1, n
 	sw $t1, n		# spilled n, freed $t1
 	move $t1, $v0
 	li $v0, 4
@@ -62,8 +62,8 @@ while:
 	lw $t4, x
 	addi $t4, $t4, 1		# x -> $t4
 	# Store variables back into memory
-	sw $t1, n
 	sw $t4, x
+	sw $t1, n
 
 	lw $t1, n
 	bgt $t1, 0, while		# while -> $t0

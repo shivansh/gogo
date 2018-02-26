@@ -1,42 +1,42 @@
-0, func, main
-0, declStr, twoSpc, "  "
-0, declStr, threeSpc, "   "
-0, declStr, newline, "\n"
-0, declStr, str, "Enter number of rows: "
-0, printStr, str
-0, scanInt, rows
-0, =, coef, 1
-0, =, i, 0
-0, label, outerFor
-0, bge, exit, i, rows
-0, =, space, 1
-0, label, spcFor
-0, -, temp, rows, i
-0, =, k, 0
-0, bgt, innerFor, space, temp
-0, printStr, twoSpc
-0, +, space, space, 1
-0, j, spcFor
-0, =, k, 0
-0, label, innerFor
-0, bgt, endLine, k, i
-0, beq, labelIf, k, 0
-0, beq, labelIf, i, 0
-0, -, temp, i, k
-0, +, temp, temp, 1
-0, *, coef, coef, temp
-0, /, coef, coef, k
-0, j, labelCoef
-0, label, labelIf
-0, =, coef, 1
-0, label, labelCoef
-0, printStr, threeSpc
-0, printInt, coef, coef
-0, +, k, k, 1
-0, j, innerFor
-0, label, endLine
-0, printStr, newline
-0, +, i, i, 1
-0, j, outerFor
-0, label, exit
-0, ret,
+func, main
+declStr, twoSpc, "  "
+declStr, threeSpc, "   "
+declStr, newline, "\n"
+declStr, str, "Enter number of rows: "
+printStr, str
+scanInt, rows
+=, coef, 1
+=, i, 0
+label, outerFor
+bge, exit, i, rows
+=, space, 1
+label, spcFor
+-, temp, rows, i
+=, k, 0
+bgt, innerFor, space, temp
+printStr, twoSpc
++, space, space, 1
+j, spcFor
+=, k, 0
+label, innerFor
+bgt, endLine, k, i
+beq, labelIf, k, 0
+beq, labelIf, i, 0
+-, temp, i, k
++, temp, temp, 1
+*, coef, coef, temp
+/, coef, coef, k
+j, labelCoef
+label, labelIf
+=, coef, 1
+label, labelCoef
+printStr, threeSpc
+printInt, coef, coef
++, k, k, 1
+j, innerFor
+label, endLine
+printStr, newline
++, i, i, 1
+j, outerFor
+label, exit
+ret,
