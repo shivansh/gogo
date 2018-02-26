@@ -1,46 +1,46 @@
-0, func, main
-1, decl, a, 10
-2, decl, sum, 10
-3, =, i, 0
-3, label, loop1
-4, bge, exit1, i, 10
-5, scanInt, v
-6, into, a, a, i, v
-7, +, i, i, 1
-8, j, loop1
-9, label, exit1
-9, from, v, a, 0
-10, into, sum, sum, 0, v
-11, =, i, 1
-11, label, loop2
-12, bge, exit2, i, 10
-13, -, v1, i, 1
-14, bge, branch1, v, 0
-15, from, v, a, i
-16, into, sum, sum, i, v
-17, +, i, i, 1
-17, j, loop2
-18, label, branch1
-19, from, v, a, i
-20, -, v1, i, 1
-21, from, v2, sum, v1
-22, +, v, v, v2
-23, into, sum, sum, i, v
-24, +, i, i, 1
-25, j, loop2
-25, label, exit2
-26, from, maxsum, sum , 0
-27, =, i, 1
-28, label, loop3
-29, bge, exit3, i, 10
-30, from, v, sum, i
-31, bge, branch2, maxsum, v
-32, =, maxsum, v
-33, +, i, i, 1
-34, j, loop3
-35, label, branch2
-36, +, i, i, 1
-37, j, loop3
-38, label, exit3
-39, printInt, maxsum, maxsum
-40, ret, 
+func, main
+decl, a, 10
+decl, sum, 10
+=, i, 0
+label, loop1
+bge, exit1, i, 10
+scanInt, v
+into, a, a, i, v
++, i, i, 1
+j, loop1
+label, exit1
+from, v, a, 0
+into, sum, sum, 0, v
+=, i, 1
+label, loop2
+bge, exit2, i, 10
+-, v1, i, 1
+bge, branch1, v, 0
+from, v, a, i
+into, sum, sum, i, v
++, i, i, 1
+j, loop2
+label, branch1
+from, v, a, i
+-, v1, i, 1
+from, v2, sum, v1
++, v, v, v2
+into, sum, sum, i, v
++, i, i, 1
+j, loop2
+label, exit2
+from, maxsum, sum , 0
+=, i, 1
+label, loop3
+bge, exit3, i, 10
+from, v, sum, i
+bge, branch2, maxsum, v
+=, maxsum, v
++, i, i, 1
+j, loop3
+label, branch2
++, i, i, 1
+j, loop3
+label, exit3
+printInt, maxsum, maxsum
+ret,

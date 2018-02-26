@@ -385,7 +385,6 @@ func CodeGen(t tac.Tac) {
 					case tac.Str:
 						if blk.Adesc[v.StrVal()].Reg == blk.Adesc[stmt.Dst].Reg && strings.Compare(v.StrVal(), stmt.Dst) != 0 {
 							delete(blk.Adesc, v.StrVal())
-							break // TODO: a no-op break ?
 						}
 					}
 				}

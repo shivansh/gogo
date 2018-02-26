@@ -1,22 +1,22 @@
-0, #, Test to find sum of all even numbers less than n
-0, func, main
-0, declStr, nStr, "Enter n: "
-0, printStr, nStr
-1, scanInt, n
-2, =, i, 0
-3, =, k, 0
-4, label, loop
-5, bge, exit, i, n
-6, rem, l, i, 2
-7, beq, skip, l, 1
-8, +, k, k, i
-9, +, i, i, 1
-10, j, loop
-11, label, skip
-12, +, i, i, 1
-13, j, loop
-14, label, exit
-0, declStr, str, "Sum of all even numbers less than n: "
-0, printStr, str
-15, printInt, k, k
-16, ret,
+#, Test to find sum of all even numbers less than n
+func, main
+declStr, nStr, "Enter n: "
+printStr, nStr
+scanInt, n
+=, i, 0
+=, k, 0
+label, loop
+bge, exit, i, n
+rem, l, i, 2
+beq, skip, l, 1
++, k, k, i
++, i, i, 1
+j, loop
+label, skip
++, i, i, 1
+j, loop
+label, exit
+declStr, str, "Sum of all even numbers less than n: "
+printStr, str
+printInt, k, k
+ret,
