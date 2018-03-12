@@ -99,11 +99,27 @@ runeLit  : '\'' [ '\\' ] [ . ] '\'' ;
 
 <<
 import(
-	"gogo/src/token"
-	"gogo/src/util"
+        "fmt"
 )
 >>
 
 // https://github.com/goccmack/gocc/issues/59
-Type      : identifier | "(" identifier ")" ;
-ArrayType : "[" intLit "]" Type ;
+// TODO: Fix these.
+// Type      : identifier | "(" identifier ")" ;
+// ArrayType : "[" intLit "]" Type ;
+
+Start : SourceFile << func() (Attrib, error) {
+        fmt.Println("SourceFile");
+        return nil, nil} () >>
+        ;
+
+SourceFile : PackageClause terminator ;
+
+PackageClause : "package" PackageName << func() (Attrib, error) {
+        fmt.Println("\"package\" PackageName");
+        return nil, nil} () >>
+        ;
+PackageName : identifier  << func() (Attrib, error) {
+        fmt.Println("identifier");
+        return nil, nil} () >>
+        ;

@@ -1,8 +1,7 @@
 CC=        go
 BIN=       ./bin
 SRC=       ./src
-GOCCDIR=   errors lexer parser token util
-CLEANDIR=  $(addprefix $(SRC)/, $(GOCCDIR))
+CLEANDIR=  ./tmp
 GCFLAGS=   -ldflags "-w"
 DEBUGFLAGS=-gcflags "-N -l"
 
@@ -15,7 +14,8 @@ all:
 .PHONY: gentoken tac gogo clean test
 
 deps:
-	gocc -o $(SRC) $(SRC)/lang.bnf
+	mkdir -p tmp
+	gocc -o tmp $(SRC)/lang.bnf
 
 gentoken: $(SRC)/gentoken/gentoken.go
 	make deps
@@ -26,6 +26,10 @@ tac: $(SRC)/tac/tac.go
 
 gogo: $(SRC)/main.go
 	go build $(GCFLAGS) -o $(BIN)/gogo $(SRC)/main.go
+
+parser: $(SRC)/parser/read_parser.go $(SRC)/parser/test_parser.go
+	go run $(SRC)/parser/productions.go | tac > $(SRC)/parser/output.txt
+	go run $(SRC)/parser/gen_html.go > $(SRC)/parser/output.html
 
 test:
 	scripts/run-tests.sh
