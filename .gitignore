@@ -1,2 +1,4 @@
 # Ignore executables
 bin
+# Ignore generated files
+LR1_conflicts.txt

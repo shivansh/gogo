@@ -9,8 +9,8 @@ import (
 	"log"
 	"os"
 
-	"gogo/src/lexer"
-	"gogo/src/token"
+	"gogo/tmp/lexer"
+	"gogo/tmp/token"
 )
 
 func PrintTokens() {
