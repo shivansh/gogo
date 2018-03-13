@@ -29,21 +29,24 @@ func GenHTML(file *os.File) {
 	stmt := record
 	fmt.Printf("<b><u>%s</u></b><br>\n", stmt[0])
 	for scanner.Scan() {
-		record := strings.Split(scanner.Text(), " ")
+		record = strings.Split(scanner.Text(), " ")
 		for i := 0; i < len(record); i++ {
 			record[i] = strings.TrimSpace(record[i])
 		}
 		index := FindNonTerminal(stmt)
 		// Insert all entries of record into stmt at index'th position.
-		stmt = append(stmt, record[1:]...)
-		copy(stmt[index+len(record):], stmt[index+len(record)-1:])
-		for k, v := range record {
-			stmt[index+k] = v
+		temp := []string{}
+		if index != -1 {
+			temp = append(temp, stmt[0:index]...)
+			temp = append(temp, record...)
+			temp = append(temp, stmt[index+1:]...)
+			stmt = []string{}
+			stmt = append(stmt, temp...)
 		}
 		index = FindNonTerminal(stmt)
 		for k, v := range stmt {
 			if k == index {
-				fmt.Printf("<b><u>%s</u></b>", v)
+				fmt.Printf("<b><u>%s</u></b> ", v)
 			} else {
 				fmt.Printf("%s ", v)
 			}

@@ -1,3 +1,14 @@
 SourceFile
+PackageClause terminator RepeatImportDecl
+ImportDecl terminator RepeatImportDecl
+empty
+"import" "(" RepeatImportSpec ")"
+ImportSpec terminator RepeatImportSpec
+ImportSpec terminator RepeatImportSpec
+empty
+ImportPath
+stringLit
+ImportPath
+stringLit
 "package" PackageName
 identifier

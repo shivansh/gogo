@@ -1,3 +1,14 @@
 <b><u>SourceFile</u></b><br>
-"package" <b><u>PackageName</u></b><br>
-"package" identifier <br>
+PackageClause terminator <b><u>RepeatImportDecl</u></b> <br>
+PackageClause terminator ImportDecl terminator <b><u>RepeatImportDecl</u></b> <br>
+PackageClause terminator <b><u>ImportDecl</u></b> terminator empty <br>
+PackageClause terminator "import" "(" <b><u>RepeatImportSpec</u></b> ")" terminator empty <br>
+PackageClause terminator "import" "(" ImportSpec terminator <b><u>RepeatImportSpec</u></b> ")" terminator empty <br>
+PackageClause terminator "import" "(" ImportSpec terminator ImportSpec terminator <b><u>RepeatImportSpec</u></b> ")" terminator empty <br>
+PackageClause terminator "import" "(" ImportSpec terminator <b><u>ImportSpec</u></b> terminator empty ")" terminator empty <br>
+PackageClause terminator "import" "(" ImportSpec terminator <b><u>ImportPath</u></b> terminator empty ")" terminator empty <br>
+PackageClause terminator "import" "(" <b><u>ImportSpec</u></b> terminator stringLit terminator empty ")" terminator empty <br>
+PackageClause terminator "import" "(" <b><u>ImportPath</u></b> terminator stringLit terminator empty ")" terminator empty <br>
+<b><u>PackageClause</u></b> terminator "import" "(" stringLit terminator stringLit terminator empty ")" terminator empty <br>
+"package" <b><u>PackageName</u></b> terminator "import" "(" stringLit terminator stringLit terminator empty ")" terminator empty <br>
+"package" identifier terminator "import" "(" stringLit terminator stringLit terminator empty ")" terminator empty <br>
