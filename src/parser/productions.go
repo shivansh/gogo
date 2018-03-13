@@ -9,6 +9,10 @@ import (
 
 func main() {
 	stmt := `package main
+	import (
+		"fmt"
+		"os"
+	)
 	`
 	s := lexer.NewLexer([]byte(stmt))
 	p := parser.NewParser()

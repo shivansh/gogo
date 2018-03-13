@@ -108,18 +108,94 @@ import(
 // Type      : identifier | "(" identifier ")" ;
 // ArrayType : "[" intLit "]" Type ;
 
+// SourceFile = PackageClause ";" { ImportDecl ";" } { TopLevelDecl ";" } .
 Start : SourceFile << func() (Attrib, error) {
         fmt.Println("SourceFile");
         return nil, nil} () >>
         ;
 
-SourceFile : PackageClause terminator ;
+SourceFile : PackageClause terminator RepeatImportDecl
+                << func() (Attrib, error) {
+                        fmt.Println("PackageClause terminator RepeatImportDecl");
+                        return nil, nil
+                } () >>
+                ;
 
-PackageClause : "package" PackageName << func() (Attrib, error) {
-        fmt.Println("\"package\" PackageName");
-        return nil, nil} () >>
-        ;
-PackageName : identifier  << func() (Attrib, error) {
-        fmt.Println("identifier");
-        return nil, nil} () >>
-        ;
+RepeatImportDecl : ImportDecl terminator RepeatImportDecl
+                << func() (Attrib, error) {
+                        fmt.Println("ImportDecl terminator RepeatImportDecl");
+                        return nil, nil
+                } () >>
+                 | empty
+                << func() (Attrib, error) {
+                        fmt.Println("empty");
+                        return nil, nil
+                } () >>
+                 ;
+
+// ImportDecl       = "import" ( ImportSpec | "(" { ImportSpec ";" } ")" ) .
+// ImportSpec       = [ "." | PackageName ] ImportPath .
+// ImportPath       = string_lit .
+
+ImportDecl : "import" ImportSpec
+                << func() (Attrib, error) {
+                        fmt.Println("\"import\" ImportSpec");
+                        return nil, nil
+                } () >>
+           | "import" "(" RepeatImportSpec ")"
+                << func() (Attrib, error) {
+                        fmt.Println("\"import\" \"(\" RepeatImportSpec \")\"");
+                        return nil, nil
+                } () >>
+           ;
+
+RepeatImportSpec : ImportSpec terminator RepeatImportSpec
+                    << func() (Attrib, error) {
+                            fmt.Println("ImportSpec terminator RepeatImportSpec");
+                            return nil, nil
+                    } () >>
+                 | empty
+                    << func() (Attrib, error) {
+                            fmt.Println("empty");
+                            return nil, nil
+                    } () >>
+                 | terminator RepeatImportSpec
+                 ;
+
+ImportSpec : ImportPath
+                << func() (Attrib, error) {
+                        fmt.Println("ImportPath");
+                        return nil, nil
+                } () >>
+           | "." ImportPath
+                << func() (Attrib, error) {
+                        fmt.Println("\".\" ImportPath");
+                        return nil, nil
+                } () >>
+           | PackageName ImportPath
+                << func() (Attrib, error) {
+                        fmt.Println("PackageName ImportPath");
+                        return nil, nil
+                } () >>
+           ;
+
+ImportPath : stringLit
+              << func() (Attrib, error) {
+                    fmt.Println("stringLit");
+                    return nil, nil
+              } () >>
+              ;
+
+PackageClause : "package" PackageName
+                << func() (Attrib, error) {
+                        fmt.Println("\"package\" PackageName");
+                        return nil, nil
+                } () >>
+             ;
+
+PackageName : identifier
+                << func() (Attrib, error) {
+                        fmt.Println("identifier");
+                        return nil, nil
+                } () >>
+            ;

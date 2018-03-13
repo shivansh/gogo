@@ -13,7 +13,7 @@ all:
 
 .PHONY: gentoken tac gogo clean test
 
-deps:
+deps: $(SRC)/lang.bnf
 	mkdir -p tmp
 	gocc -o tmp $(SRC)/lang.bnf
 
@@ -27,7 +27,7 @@ tac: $(SRC)/tac/tac.go
 gogo: $(SRC)/main.go
 	go build $(GCFLAGS) -o $(BIN)/gogo $(SRC)/main.go
 
-parser: $(SRC)/parser/read_parser.go $(SRC)/parser/test_parser.go
+parser: $(SRC)/parser/gen_html.go $(SRC)/parser/productions.go
 	go run $(SRC)/parser/productions.go | tac > $(SRC)/parser/output.txt
 	go run $(SRC)/parser/gen_html.go > $(SRC)/parser/output.html
 
