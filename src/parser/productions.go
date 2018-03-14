@@ -13,6 +13,7 @@ func main() {
 		"fmt"
 		"os"
 	)
+	func main(x, y int) {bob}
 	`
 	s := lexer.NewLexer([]byte(stmt))
 	p := parser.NewParser()
