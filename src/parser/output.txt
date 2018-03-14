@@ -1,26 +1,100 @@
 SourceFile
 PackageClause terminator RepeatImportDecl TopLevelDecl
-FunctionDecl
-kwdFunc FunctionName Signature FunctionBody
-Block
-"{" RepeatTerminator StatementList "}" RepeatTerminator
+TopLevelDecl RepeatTopLevelDecl
+TopLevelDecl RepeatTopLevelDecl
+TopLevelDecl RepeatTopLevelDecl
+empty
+FunctionDecl RepeatTerminator
 terminator RepeatTerminator
 empty
+kwdFunc FunctionName Signature FunctionBody
+Block
+"{" RepeatTerminator StatementList "}"
 Statement RepeatTerminator StatementList
 empty
+terminator RepeatTerminator
 empty
-bob
+Declaration
+ConstDecl
+kwdConst ConstSpec terminator
+IdentifierList Type "=" ExpressionList
+Expression
+UnaryExpr
+PrimaryExpr
+Operand
+Literal
+BasicLit
+intLit
+type
+identifier
+terminator RepeatTerminator
 empty
 Parameters
-"(" ParameterList ")"
-ParameterDecl RepeatParameterDecl
+"( RepeatTerminator )"
 empty
-IdentifierList Type
+identifier
+FunctionDecl RepeatTerminator
+terminator RepeatTerminator
+empty
+kwdFunc FunctionName Signature FunctionBody
+Block
+"{" RepeatTerminator StatementList "}"
+Statement RepeatTerminator StatementList
+Statement RepeatTerminator StatementList
+empty
+terminator RepeatTerminator
+empty
+Declaration
+ConstDecl
+kwdConst ConstSpec terminator
+IdentifierList Type "=" ExpressionList
+Expression
+UnaryExpr
+PrimaryExpr
+Operand
+Literal
+BasicLit
+intLit
 type
-identifier "," IdentifierList
 identifier
+terminator RepeatTerminator
+empty
+Declaration
+ConstDecl
+kwdConst ConstSpec terminator
+IdentifierList Type "=" ExpressionList
+Expression
+UnaryExpr
+PrimaryExpr
+Operand
+Literal
+BasicLit
+intLit
+type
 identifier
-ImportDecl terminator RepeatImportDecl
+terminator RepeatTerminator
+empty
+Parameters
+"( RepeatTerminator )"
+empty
+identifier
+Declaration RepeatTerminator
+terminator RepeatTerminator
+empty
+ConstDecl
+kwdConst ConstSpec terminator
+IdentifierList Type "=" ExpressionList
+Expression
+UnaryExpr
+PrimaryExpr
+Operand
+Literal
+BasicLit
+intLit
+type
+identifier
+ImportDecl terminator RepeatTerminator RepeatImportDecl
+empty
 empty
 kwdImport "(" RepeatImportSpec ")"
 terminator RepeatImportSpec
