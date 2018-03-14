@@ -15,7 +15,7 @@ all:
 
 deps: $(SRC)/lang.bnf
 	mkdir -p tmp
-	gocc -o tmp $(SRC)/lang.bnf
+	gocc -a -v -o tmp $(SRC)/lang.bnf
 
 gentoken: $(SRC)/gentoken/gentoken.go
 	make deps

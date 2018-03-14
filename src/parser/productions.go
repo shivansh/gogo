@@ -13,7 +13,14 @@ func main() {
 		"fmt"
 		"os"
 	)
-	func main(x, y int) {bob}
+	const x int = 8
+	func temp() {
+		const z int = 10
+		const w int = 11
+	}
+	func main() {
+		const a int = 1
+	}
 	`
 	s := lexer.NewLexer([]byte(stmt))
 	p := parser.NewParser()
