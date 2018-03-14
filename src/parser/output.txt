@@ -1,6 +1,5 @@
 SourceFile
-PackageClause terminator RepeatImportDecl TopLevelDecl
-TopLevelDecl RepeatTopLevelDecl
+PackageClause terminator RepeatImportDecl RepeatTopLevelDecl
 TopLevelDecl RepeatTopLevelDecl
 TopLevelDecl RepeatTopLevelDecl
 empty
@@ -12,51 +11,6 @@ Block
 "{" RepeatTerminator StatementList "}"
 Statement RepeatTerminator StatementList
 empty
-terminator RepeatTerminator
-empty
-Declaration
-ConstDecl
-kwdConst ConstSpec terminator
-IdentifierList Type "=" ExpressionList
-Expression
-UnaryExpr
-PrimaryExpr
-Operand
-Literal
-BasicLit
-intLit
-type
-identifier
-terminator RepeatTerminator
-empty
-Parameters
-"( RepeatTerminator )"
-empty
-identifier
-FunctionDecl RepeatTerminator
-terminator RepeatTerminator
-empty
-kwdFunc FunctionName Signature FunctionBody
-Block
-"{" RepeatTerminator StatementList "}"
-Statement RepeatTerminator StatementList
-Statement RepeatTerminator StatementList
-empty
-terminator RepeatTerminator
-empty
-Declaration
-ConstDecl
-kwdConst ConstSpec terminator
-IdentifierList Type "=" ExpressionList
-Expression
-UnaryExpr
-PrimaryExpr
-Operand
-Literal
-BasicLit
-intLit
-type
-identifier
 terminator RepeatTerminator
 empty
 Declaration
@@ -91,7 +45,18 @@ Operand
 Literal
 BasicLit
 intLit
+TypeLit
+ArrayType
+"[" ArrayLength "]" ElementType
+Type
 type
+Expression
+UnaryExpr
+PrimaryExpr
+Operand
+Literal
+BasicLit
+intLit
 identifier
 ImportDecl terminator RepeatTerminator RepeatImportDecl
 empty
