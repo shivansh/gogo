@@ -231,7 +231,6 @@ TopLevelDecl : Declaration RepeatTerminator
                       return nil, nil
                 } () >>
                 ;
-// ----------------------------------------------------------------------------------------------------------------------------------------
 
 // Declaration   = ConstDecl | TypeDecl | VarDecl .
 Declaration : ConstDecl
@@ -466,8 +465,6 @@ Arguments : "(" ")"
                       return nil, nil
                 } () >>
           ;
-
-// -------------------------------------------------------------------------------------------------------------------------
 
 // FunctionDecl = "func" FunctionName Signature [ FunctionBody ] .
 // FunctionName = identifier .
@@ -813,4 +810,29 @@ Statement : Declaration
                       fmt.Println("Declaration");
                       return nil, nil
                 } () >>
+          | LabeledStmt
+                << func() (Attrib, error) {
+                      fmt.Println("LabeledStmt");
+                      return nil, nil
+                } () >>
+          | Block
+                << func() (Attrib, error) {
+                      fmt.Println("Block");
+                      return nil, nil
+                } () >>
           ;
+
+// LabeledStmt = Label ":" Statement .
+// Label       = identifier .
+LabeledStmt : Label ":" RepeatTerminator Statement
+                << func() (Attrib, error) {
+                      fmt.Println("Label \":\" RepeatTerminator Statement");
+                      return nil, nil
+                } () >>
+            ;
+Label : identifier
+                << func() (Attrib, error) {
+                      fmt.Println("identifier");
+                      return nil, nil
+                } () >>
+      ;

@@ -15,6 +15,10 @@ func main() {
 	)
 	const x [2]int = 2
 	func main() {
+		{
+			const b int = 2
+		}
+	End:
 		const a int = 1
 	}
 	`
