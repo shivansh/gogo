@@ -117,7 +117,7 @@ Start : SourceFile << func() (Attrib, error) {
 // NewTerm : terminator RepeatTerminator ;
 SourceFile : PackageClause terminator RepeatImportDecl RepeatTopLevelDecl
                 << func() (Attrib, error) {
-                        fmt.Println("PackageClause terminator RepeatImportDecl TopLevelDecl");
+                        fmt.Println("PackageClause terminator RepeatImportDecl RepeatTopLevelDecl");
                         return nil, nil
                 } () >>
                 ;
@@ -573,12 +573,174 @@ ParameterDecl : IdentifierList Type
 // TypeLit   = ArrayType | StructType | PointerType | FunctionType | InterfaceType |
 // 	    SliceType | MapType | ChannelType .
 //
+
 Type : type
         << func() (Attrib, error) {
               fmt.Println("type");
               return nil, nil
         } () >>
+      | TypeLit
+        << func() (Attrib, error) {
+              fmt.Println("TypeLit");
+              return nil, nil
+        } () >>
+      | "(" Type ")"
+        << func() (Attrib, error) {
+              fmt.Println("\"(\" Type \")\"");
+              return nil, nil
+        } () >>
      ;
+
+TypeLit : ArrayType
+        << func() (Attrib, error) {
+              fmt.Println("ArrayType");
+              return nil, nil
+        } () >>
+        | StructType
+        << func() (Attrib, error) {
+              fmt.Println("StructType");
+              return nil, nil
+        } () >>
+        | PointerType
+        << func() (Attrib, error) {
+              fmt.Println("PointerType");
+              return nil, nil
+        } () >>
+        | FunctionType
+        << func() (Attrib, error) {
+              fmt.Println("FunctionType");
+              return nil, nil
+        } () >>
+        | SliceType
+        << func() (Attrib, error) {
+              fmt.Println("SliceType");
+              return nil, nil
+        } () >>
+        ;
+
+// ArrayType   = "[" ArrayLength "]" ElementType .
+// ArrayLength = Expression .
+// ElementType = Type .
+ArrayType : "[" ArrayLength "]" ElementType
+            << func() (Attrib, error) {
+                  fmt.Println("\"[\" ArrayLength \"]\" ElementType");
+                  return nil, nil
+            } () >>
+            ;
+ArrayLength : Expression
+            << func() (Attrib, error) {
+                  fmt.Println("Expression");
+                  return nil, nil
+            } () >>
+            ;
+ElementType : Type
+            << func() (Attrib, error) {
+                  fmt.Println("Type");
+                  return nil, nil
+            } () >>
+            ;
+
+// StructType    = kwdStruct "{" { FieldDecl ";" } "}" .
+// FieldDecl     = (IdentifierList Type | EmbeddedField) [ Tag ] .
+// EmbeddedField = [ "*" ] TypeName .
+// Tag           = string_lit .
+StructType : kwdStruct RepeatTerminator "{" RepeatTerminator RepeatFieldDecl "}"
+            << func() (Attrib, error) {
+                  fmt.Println("kwdStruct RepeatTerminator \"{\" RepeatTerminator RepeatFieldDecl \"}\"");
+                  return nil, nil
+            } () >>
+           ;
+
+RepeatFieldDecl : FieldDecl terminator RepeatTerminator RepeatFieldDecl
+                << func() (Attrib, error) {
+                      fmt.Println("FieldDecl terminator RepeatTerminator RepeatFieldDecl");
+                      return nil, nil
+                } () >>
+                | empty
+                << func() (Attrib, error) {
+                      fmt.Println("empty");
+                      return nil, nil
+                } () >>
+                ;
+
+FieldDecl : IdentifierList Type
+                << func() (Attrib, error) {
+                      fmt.Println("IdentifierList Type");
+                      return nil, nil
+                } () >>
+          | IdentifierList Type Tag
+                << func() (Attrib, error) {
+                      fmt.Println("IdentifierList Type Tag");
+                      return nil, nil
+                } () >>
+          | EmbeddedField
+                << func() (Attrib, error) {
+                      fmt.Println("EmbeddedField");
+                      return nil, nil
+                } () >>
+          | EmbeddedField Tag
+                << func() (Attrib, error) {
+                      fmt.Println("EmbeddedField Tag");
+                      return nil, nil
+                } () >>
+          ;
+
+EmbeddedField : type
+                << func() (Attrib, error) {
+                      fmt.Println("type");
+                      return nil, nil
+                } () >>
+              | "*" type
+                << func() (Attrib, error) {
+                      fmt.Println("\"*\" type");
+                      return nil, nil
+                } () >>
+              ;
+Tag : stringLit
+                << func() (Attrib, error) {
+                      fmt.Println("stringLit");
+                      return nil, nil
+                } () >>
+    ;
+
+// PointerType = "*" BaseType .
+// BaseType    = Type .
+
+PointerType : "*" BaseType
+                << func() (Attrib, error) {
+                      fmt.Println("\"*\" BaseType");
+                      return nil, nil
+                } () >>
+            ;
+
+BaseType : Type
+                << func() (Attrib, error) {
+                      fmt.Println("Type");
+                      return nil, nil
+                } () >>
+         ;
+
+// FunctionType   = "func" Signature .
+// Signature      = Parameters [ Result ] .
+// Result         = Parameters | Type .
+// Parameters     = "(" [ ParameterList [ "," ] ] ")" .
+// ParameterList  = ParameterDecl { "," ParameterDecl } .
+// ParameterDecl  = [ IdentifierList ] [ "..." ] Type .
+
+FunctionType : kwdFunc Signature
+                << func() (Attrib, error) {
+                      fmt.Println("kwdFunc Signature");
+                      return nil, nil
+                } () >>
+             ;
+
+// SliceType = "[" "]" ElementType .
+SliceType : "[" "]" ElementType
+                << func() (Attrib, error) {
+                      fmt.Println("\"[\" \"]\"ElementType");
+                      return nil, nil
+                } () >>
+          ;
 
 // TODO
 // IdentifierList = identifier { "," identifier } .

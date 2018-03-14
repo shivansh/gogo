@@ -13,11 +13,7 @@ func main() {
 		"fmt"
 		"os"
 	)
-	const x int = 8
-	func temp() {
-		const z int = 10
-		const w int = 11
-	}
+	const x [2]int = 2
 	func main() {
 		const a int = 1
 	}
