@@ -28,7 +28,7 @@ gogo: $(SRC)/main.go
 	go build $(GCFLAGS) -o $(BIN)/gogo $(SRC)/main.go
 
 parser: $(SRC)/parser/gen_html.go $(SRC)/parser/productions.go
-	go run $(SRC)/parser/productions.go | tac > $(SRC)/parser/output.txt
+	go run $(SRC)/parser/productions.go | tac > $(SRC)/parser/output.txt && \
 	go run $(SRC)/parser/gen_html.go > $(SRC)/parser/output.html
 
 test:

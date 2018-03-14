@@ -47,7 +47,7 @@ func GenHTML(file *os.File) {
 		for k, v := range stmt {
 			if k == index {
 				fmt.Printf("<b><u>%s</u></b> ", v)
-			} else {
+			} else if strings.Compare(v, "empty") != 0 {
 				fmt.Printf("%s ", v)
 			}
 		}

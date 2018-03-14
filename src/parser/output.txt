@@ -1,8 +1,29 @@
 SourceFile
-PackageClause terminator RepeatImportDecl
+PackageClause terminator RepeatImportDecl TopLevelDecl
+FunctionDecl
+kwdFunc FunctionName Signature FunctionBody
+Block
+"{" RepeatTerminator StatementList "}" RepeatTerminator
+terminator RepeatTerminator
+empty
+Statement RepeatTerminator StatementList
+empty
+empty
+bob
+empty
+Parameters
+"(" ParameterList ")"
+ParameterDecl RepeatParameterDecl
+empty
+IdentifierList Type
+type
+identifier "," IdentifierList
+identifier
+identifier
 ImportDecl terminator RepeatImportDecl
 empty
-"import" "(" RepeatImportSpec ")"
+kwdImport "(" RepeatImportSpec ")"
+terminator RepeatImportSpec
 ImportSpec terminator RepeatImportSpec
 ImportSpec terminator RepeatImportSpec
 empty
