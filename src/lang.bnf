@@ -305,6 +305,21 @@ Expression : UnaryExpr
                 fmt.Println("UnaryExpr");
                 return nil, nil
           } () >>
+           | Expression binaryOp Expression
+          << func() (Attrib, error) {
+                fmt.Println("Expression binaryOp Expression");
+                return nil, nil
+          } () >>
+          // Since PointerType defines "*" to be a token, expressions
+          // like `y = x * 2` will not be parsed because parser will
+          // expect a "binaryOp" token but the parser will return a
+          // "*" token. To avoid such ambiguity the following (extra)
+          // rule is introduced.
+          | Expression "*" Expression
+          << func() (Attrib, error) {
+                fmt.Println("Expression binaryOp Expression");
+                return nil, nil
+          } () >>
            ;
 
 // UnaryExpr  = PrimaryExpr | unary_op UnaryExpr .
@@ -321,14 +336,14 @@ UnaryExpr : PrimaryExpr
           ;
 
 // PrimaryExpr =
-// 	Operand |
-// 	Conversion |
-// 	MethodExpr |
-// 	PrimaryExpr Selector |
-// 	PrimaryExpr Index |
-// 	PrimaryExpr Slice |
-// 	PrimaryExpr TypeAssertion |
-// 	PrimaryExpr Arguments .
+//  Operand |
+//  Conversion |
+//  MethodExpr |
+//  PrimaryExpr Selector |
+//  PrimaryExpr Index |
+//  PrimaryExpr Slice |
+//  PrimaryExpr TypeAssertion |
+//  PrimaryExpr Arguments .
 PrimaryExpr : Operand
           << func() (Attrib, error) {
                 fmt.Println("Operand");
@@ -568,7 +583,7 @@ ParameterDecl : IdentifierList Type
 // Type      = TypeName | TypeLit | "(" Type ")" .
 // TypeName  = identifier | QualifiedIdent .
 // TypeLit   = ArrayType | StructType | PointerType | FunctionType | InterfaceType |
-// 	    SliceType | MapType | ChannelType .
+//         SliceType | MapType | ChannelType .
 //
 
 Type : type
@@ -815,6 +830,11 @@ Statement : Declaration
                       fmt.Println("LabeledStmt");
                       return nil, nil
                 } () >>
+          | SimpleStmt
+                << func() (Attrib, error) {
+                      fmt.Println("SimpleStmt");
+                      return nil, nil
+                } () >>
           | Block
                 << func() (Attrib, error) {
                       fmt.Println("Block");
@@ -830,6 +850,70 @@ LabeledStmt : Label ":" RepeatTerminator Statement
                       return nil, nil
                 } () >>
             ;
+
+// SimpleStmt = EmptyStmt | ExpressionStmt | SendStmt | IncDecStmt | Assignment | ShortVarDecl .
+// EmptyStmt = .
+// ExpressionStmt = Expression .
+// IncDecStmt = Expression ( "++" | "--" ) .
+// Assignment = ExpressionList assign_op ExpressionList .
+// assign_op = [ add_op | mul_op ] "=" .
+// ShortVarDecl = IdentifierList ":=" ExpressionList .
+SimpleStmt : ExpressionStmt
+                << func() (Attrib, error) {
+                      fmt.Println("ExpressionStmt");
+                      return nil, nil
+                } () >>
+           | IncDecStmt
+                 << func() (Attrib, error) {
+                       fmt.Println("IncDecStmt");
+                       return nil, nil
+                 } () >>
+           | Assignment
+               << func() (Attrib, error) {
+                     fmt.Println("Assignment");
+                     return nil, nil
+               } () >>
+           | ShortVarDecl
+               << func() (Attrib, error) {
+                     fmt.Println("ShortVarDecl");
+                     return nil, nil
+               } () >>
+           // | EmptyStmt
+           ;
+// EmptyStmt :
+ExpressionStmt : Expression
+                << func() (Attrib, error) {
+                      fmt.Println("Expression");
+                      return nil, nil
+                } () >>
+               ;
+
+IncDecStmt : Expression "++"
+                << func() (Attrib, error) {
+                      fmt.Println("Expression \"++\"");
+                      return nil, nil
+                } () >>
+           | Expression "--"
+                << func() (Attrib, error) {
+                      fmt.Println("Expression \"--\"");
+                      return nil, nil
+                } () >>
+           ;
+
+Assignment : ExpressionList assignOp ExpressionList
+                << func() (Attrib, error) {
+                      fmt.Println("ExpressionList assignOp ExpressionList");
+                      return nil, nil
+                } () >>
+           ;
+
+ShortVarDecl : IdentifierList ":=" ExpressionList
+                << func() (Attrib, error) {
+                      fmt.Println("IdentifierList \":=\" ExpressionList");
+                      return nil, nil
+                } () >>
+             ;
+
 Label : identifier
                 << func() (Attrib, error) {
                       fmt.Println("identifier");

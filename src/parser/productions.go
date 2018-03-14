@@ -10,18 +10,21 @@ import (
 func main() {
 	stmt := `package main
 	import (
-		"fmt"
-		"os"
+	"fmt"
+	"os"
 	)
-	const x [2]int = 2
 	func main() {
-		{
-			const b int = 2
-		}
+	const b int = 2
+	x := 4
+	x++
+	{
+	const z = y * 2
+	}
 	End:
-		const a int = 1
+	const a int = 1
 	}
 	`
+
 	s := lexer.NewLexer([]byte(stmt))
 	p := parser.NewParser()
 	_, err := p.Parse(s)
