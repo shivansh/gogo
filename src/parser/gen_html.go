@@ -29,7 +29,8 @@ func GenHTML(file *os.File) {
 	stmt := record
 	fmt.Printf("<b><u>%s</u></b><br>\n", stmt[0])
 	for scanner.Scan() {
-		record = strings.Split(scanner.Text(), " ")
+		s := scanner.Text()
+		record = strings.Split(s, " ")
 		for i := 0; i < len(record); i++ {
 			record[i] = strings.TrimSpace(record[i])
 		}

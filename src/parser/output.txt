@@ -1,7 +1,6 @@
 SourceFile
 PackageClause terminator RepeatImportDecl RepeatTopLevelDecl
 TopLevelDecl RepeatTopLevelDecl
-TopLevelDecl RepeatTopLevelDecl
 empty
 FunctionDecl RepeatTerminator
 terminator RepeatTerminator
@@ -10,33 +9,6 @@ kwdFunc FunctionName Signature FunctionBody
 Block
 "{" RepeatTerminator StatementList "}"
 Statement RepeatTerminator StatementList
-Statement RepeatTerminator StatementList
-empty
-terminator RepeatTerminator
-empty
-LabeledStmt
-Label ":" RepeatTerminator Statement
-Declaration
-ConstDecl
-kwdConst ConstSpec terminator
-IdentifierList Type "=" ExpressionList
-Expression
-UnaryExpr
-PrimaryExpr
-Operand
-Literal
-BasicLit
-intLit
-type
-identifier
-terminator RepeatTerminator
-empty
-identifier
-terminator RepeatTerminator
-empty
-Block
-"{" RepeatTerminator StatementList "}"
-Statement RepeatTerminator StatementList
 empty
 terminator RepeatTerminator
 empty
@@ -53,39 +25,11 @@ BasicLit
 intLit
 type
 identifier
-terminator RepeatTerminator
-empty
 terminator RepeatTerminator
 empty
 Parameters
 "( RepeatTerminator )"
 empty
-identifier
-Declaration RepeatTerminator
-terminator RepeatTerminator
-empty
-ConstDecl
-kwdConst ConstSpec terminator
-IdentifierList Type "=" ExpressionList
-Expression
-UnaryExpr
-PrimaryExpr
-Operand
-Literal
-BasicLit
-intLit
-TypeLit
-ArrayType
-"[" ArrayLength "]" ElementType
-Type
-type
-Expression
-UnaryExpr
-PrimaryExpr
-Operand
-Literal
-BasicLit
-intLit
 identifier
 ImportDecl terminator RepeatTerminator RepeatImportDecl
 empty
