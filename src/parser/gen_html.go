@@ -51,7 +51,7 @@ func GenHTML(file *os.File) {
 				fmt.Printf("%s ", v)
 			}
 		}
-		fmt.Println("<br>")
+		fmt.Println("<br><br>")
 	}
 }
 
