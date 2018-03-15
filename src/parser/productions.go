@@ -9,19 +9,16 @@ import (
 
 func main() {
 	stmt := `package main
-	import (
-	"fmt"
-	"os"
-	)
 	func main() {
-	const b int = 2
-	x := 4
-	x++
-	{
-	const z = y * 2
-	}
-	End:
-	const a int = 1
+		const a int = 1
+		switch a {
+		case 1:
+			const a int = 1
+		case 2:
+			const a int = 1
+		default:
+			const a int = 1
+		}
 	}
 	`
 
