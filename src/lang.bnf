@@ -34,7 +34,7 @@ type : 'b' 'o' 'o' 'l'
      ;
 
 /* Predeclared contants */
-boolConst : 't' 'r' 'u' 'e' | 'f' 'a' 'l' 's' 'e' ;
+boolLit : 't' 'r' 'u' 'e' | 'f' 'a' 'l' 's' 'e' ;
 
 /* Single-character escapes */
 escapeChar : '\\' 'n' | '\\' 'r' | '\\' 't' | '\\';
@@ -112,26 +112,26 @@ import(
 Start : SourceFile << func() (Attrib, error) {
         fmt.Println("SourceFile");
         return nil, nil} () >>
-        ;
+      ;
 
 // NewTerm : terminator RepeatTerminator ;
-SourceFile : PackageClause terminator RepeatImportDecl RepeatTopLevelDecl
+SourceFile : PackageClause terminator RepeatTerminator RepeatImportDecl RepeatTopLevelDecl
                 << func() (Attrib, error) {
-                        fmt.Println("PackageClause terminator RepeatImportDecl RepeatTopLevelDecl");
+                        fmt.Println("PackageClause terminator RepeatTerminator RepeatImportDecl RepeatTopLevelDecl");
                         return nil, nil
                 } () >>
-                ;
+           ;
 
 RepeatImportDecl : ImportDecl terminator RepeatTerminator RepeatImportDecl
-                << func() (Attrib, error) {
-                        fmt.Println("ImportDecl terminator RepeatTerminator RepeatImportDecl");
-                        return nil, nil
-                } () >>
+                        << func() (Attrib, error) {
+                                fmt.Println("ImportDecl terminator RepeatTerminator RepeatImportDecl");
+                                return nil, nil
+                        } () >>
                  | empty
-                << func() (Attrib, error) {
-                        fmt.Println("empty");
-                        return nil, nil
-                } () >>
+                        << func() (Attrib, error) {
+                                fmt.Println("empty");
+                                return nil, nil
+                        } () >>
                  ;
 
 // ImportDecl       = "import" ( ImportSpec | "(" { ImportSpec ";" } ")" ) .
@@ -190,14 +190,14 @@ ImportPath : stringLit
                       fmt.Println("stringLit");
                       return nil, nil
                 } () >>
-              ;
+           ;
 
-PackageClause : "package" PackageName
+PackageClause : kwdPackage PackageName
                 << func() (Attrib, error) {
-                        fmt.Println("\"package\" PackageName");
+                        fmt.Println("kwdPackage PackageName");
                         return nil, nil
                 } () >>
-             ;
+              ;
 
 PackageName : identifier
                 << func() (Attrib, error) {
@@ -206,19 +206,18 @@ PackageName : identifier
                 } () >>
             ;
 
-// TODO: Add assignment -- `a = 2`
 // TopLevelDecl  = Declaration | FunctionDecl | MethodDecl .
 RepeatTopLevelDecl : TopLevelDecl RepeatTopLevelDecl
-                << func() (Attrib, error) {
-                      fmt.Println("TopLevelDecl RepeatTopLevelDecl");
-                      return nil, nil
-                } () >>
+                        << func() (Attrib, error) {
+                              fmt.Println("TopLevelDecl RepeatTopLevelDecl");
+                              return nil, nil
+                        } () >>
                    | empty
-                << func() (Attrib, error) {
-                      fmt.Println("empty");
-                      return nil, nil
-                } () >>
-                ;
+                        << func() (Attrib, error) {
+                              fmt.Println("empty");
+                              return nil, nil
+                        } () >>
+                   ;
 
 TopLevelDecl : Declaration RepeatTerminator
                 << func() (Attrib, error) {
@@ -230,40 +229,158 @@ TopLevelDecl : Declaration RepeatTerminator
                       fmt.Println("FunctionDecl RepeatTerminator");
                       return nil, nil
                 } () >>
-                ;
+             ;
 
-// Declaration   = ConstDecl | TypeDecl | VarDecl .
+// Declaration = ConstDecl | TypeDecl | VarDecl .
 Declaration : ConstDecl
+                    << func() (Attrib, error) {
+                          fmt.Println("ConstDecl");
+                          return nil, nil
+                    } () >>
+            | TypeDecl
+                    << func() (Attrib, error) {
+                          fmt.Println("TypeDecl");
+                          return nil, nil
+                    } () >>
+            | VarDecl
+                    << func() (Attrib, error) {
+                          fmt.Println("VarDecl");
+                          return nil, nil
+                    } () >>
+            ;
+
+// VarDecl     = "var" ( VarSpec | "(" { VarSpec ";" } ")" ) .
+// VarSpec     = IdentifierList ( Type [ "=" ExpressionList ] | "=" ExpressionList ) .
+VarDecl : kwdVar VarSpec
             << func() (Attrib, error) {
-                  fmt.Println("ConstDecl");
+                  fmt.Println("kwdVar VarSpec");
                   return nil, nil
             } () >>
-            ;
-// ConstDecl      = "const" ( ConstSpec | "(" { ConstSpec ";" } ")" ) .
-// ConstSpec      = IdentifierList [ [ Type ] "=" ExpressionList ] .
-//
-// IdentifierList = identifier { "," identifier } .
-// ExpressionList = Expression { "," Expression } .
-ConstDecl : kwdConst ConstSpec
+        | kwdVar "(" RepeatTerminator RepeatVarSpec ")"
             << func() (Attrib, error) {
-                    fmt.Println("kwdConst ConstSpec terminator");
+                  fmt.Println("kwdVar \"(\" RepeatTerminator RepeatVarSpec \")\"");
+                  return nil, nil
+            } () >>
+        ;
+
+// VarSpec     = IdentifierList ( Type [ "=" ExpressionList ] | "=" ExpressionList ) .
+RepeatVarSpec : VarSpec terminator RepeatTerminator RepeatVarSpec
+                << func() (Attrib, error) {
+                      fmt.Println("VarSpec terminator RepeatTerminator RepeatVarSpec");
+                      return nil, nil
+                } () >>
+              | VarSpec RepeatTerminator
+                << func() (Attrib, error) {
+                      fmt.Println("VarSpec RepeatTerminator");
+                      return nil, nil
+                } () >>
+              ;
+
+VarSpec : IdentifierList Type
+            << func() (Attrib, error) {
+                  fmt.Println("IdentifierList Type");
+                  return nil, nil
+            } () >>
+        | IdentifierList Type "=" ExpressionList
+            << func() (Attrib, error) {
+                  fmt.Println("IdentifierList Type \"=\" ExpressionList");
+                  return nil, nil
+            } () >>
+        | IdentifierList "=" ExpressionList
+            << func() (Attrib, error) {
+                  fmt.Println("IdentifierList \"=\" ExpressionList");
+                  return nil, nil
+            } () >>
+        | empty
+            << func() (Attrib, error) {
+                  fmt.Println("empty");
+                  return nil, nil
+            } () >>
+        ;
+
+// TypeDecl = "type" ( TypeSpec | "(" { TypeSpec ";" } ")" ) .
+// TypeSpec = AliasDecl | TypeDef .
+// AliasDecl = identifier "=" Type
+// TypeDef = identifier Type
+TypeDecl : kwdType TypeSpec
+                << func() (Attrib, error) {
+                      fmt.Println("kwdType TypeSpec");
+                      return nil, nil
+                } () >>
+         | kwdType "(" RepeatTerminator RepeatTypeSpec ")"
+                << func() (Attrib, error) {
+                        fmt.Println("kwdType \"(\" RepeatTerminator RepeatTypeSpec \")\"");
+                        return nil, nil
+                } () >>
+         ;
+
+RepeatTypeSpec : TypeSpec terminator RepeatTerminator RepeatTypeSpec
+                    << func() (Attrib, error) {
+                            fmt.Println("TypeSpec terminator RepeatTerminator RepeatTypeSpec");
+                            return nil, nil
+                    } () >>
+               | TypeSpec RepeatTerminator
+                    << func() (Attrib, error) {
+                            fmt.Println("TypeSpec RepeatTerminator");
+                            return nil, nil
+                    } () >>
+               ;
+
+TypeSpec : AliasDecl
+            << func() (Attrib, error) {
+                    fmt.Println("AliasDecl");
                     return nil, nil
             } () >>
-          | kwdConst "(" RepeatConstSpec ")"
+         | TypeDef
             << func() (Attrib, error) {
-                    fmt.Println("kwdConst \"(\" RepeatConstSpec \")\"");
+                    fmt.Println("TypeDef");
+                    return nil, nil
+            } () >>
+         | empty
+            << func() (Attrib, error) {
+                    fmt.Println("empty");
+                    return nil, nil
+            } () >>
+         ;
+
+AliasDecl : identifier "=" Type
+            << func() (Attrib, error) {
+                    fmt.Println("identifier \"=\" Type");
                     return nil, nil
             } () >>
           ;
 
-RepeatConstSpec : ConstSpec terminator RepeatConstSpec
+TypeDef : identifier Type
+            << func() (Attrib, error) {
+                    fmt.Println("identifier Type");
+                    return nil, nil
+            } () >>
+        ;
+
+// ConstDecl      = "const" ( ConstSpec | "(" { ConstSpec ";" } ")" ) .
+// ConstSpec      = IdentifierList [ [ Type ] "=" ExpressionList ] .
+// IdentifierList = identifier { "," identifier } .
+// ExpressionList = Expression { "," Expression } .
+ConstDecl : kwdConst ConstSpec
+            << func() (Attrib, error) {
+                    fmt.Println("kwdConst ConstSpec");
+                    return nil, nil
+            } () >>
+          | kwdConst "(" RepeatTerminator RepeatConstSpec ")"
+            << func() (Attrib, error) {
+                    fmt.Println("kwdConst \"(\" RepeatTerminator RepeatConstSpec \")\"");
+                    return nil, nil
+            } () >>
+          ;
+
+RepeatConstSpec : ConstSpec terminator RepeatTerminator RepeatConstSpec
                 << func() (Attrib, error) {
-                      fmt.Println("ConstSpec terminator RepeatConstSpec");
+                      fmt.Println("ConstSpec terminator RepeatTerminator RepeatConstSpec");
                       return nil, nil
                 } () >>
-                | empty
+                | ConstSpec RepeatTerminator
                 << func() (Attrib, error) {
-                      fmt.Println("empty");
+                      fmt.Println("ConstSpec RepeatTerminator");
                       return nil, nil
                 } () >>
                 ;
@@ -283,6 +400,11 @@ ConstSpec : IdentifierList
                 fmt.Println("IdentifierList Type \"=\" ExpressionList");
                 return nil, nil
           } () >>
+          | empty
+          << func() (Attrib, error) {
+                fmt.Println("empty");
+                return nil, nil
+          } () >>
           ;
 
 ExpressionList : Expression
@@ -297,9 +419,7 @@ ExpressionList : Expression
                } () >>
                ;
 
-// TODO
 // Expression = UnaryExpr | Expression binary_op Expression .
-// Expression : UnaryExpr | Expression binaryOp Expression ;
 Expression : UnaryExpr
           << func() (Attrib, error) {
                 fmt.Println("UnaryExpr");
@@ -333,8 +453,14 @@ UnaryExpr : PrimaryExpr
                 fmt.Println("unaryOp UnaryExpr");
                 return nil, nil
           } () >>
+          | "*" UnaryExpr
+          << func() (Attrib, error) {
+                fmt.Println("unaryOp UnaryExpr");
+                return nil, nil
+          } () >>
           ;
 
+// TODO
 // PrimaryExpr =
 //  Operand |
 //  Conversion |
@@ -345,15 +471,40 @@ UnaryExpr : PrimaryExpr
 //  PrimaryExpr TypeAssertion |
 //  PrimaryExpr Arguments .
 PrimaryExpr : Operand
-          << func() (Attrib, error) {
-                fmt.Println("Operand");
-                return nil, nil
-          } () >>
+                << func() (Attrib, error) {
+                      fmt.Println("Operand");
+                      return nil, nil
+                } () >>
+            | Conversion
+                << func() (Attrib, error) {
+                      fmt.Println("Conversion");
+                      return nil, nil
+                } () >>
+            | PrimaryExpr Selector
+                << func() (Attrib, error) {
+                      fmt.Println("PrimaryExpr Selector");
+                      return nil, nil
+                } () >>
+            | PrimaryExpr Index
+                << func() (Attrib, error) {
+                      fmt.Println("PrimaryExpr Index");
+                      return nil, nil
+                } () >>
+            | PrimaryExpr Slice
+                << func() (Attrib, error) {
+                      fmt.Println("PrimaryExpr Slice");
+                      return nil, nil
+                } () >>
+            | PrimaryExpr TypeAssertion
+                << func() (Attrib, error) {
+                      fmt.Println("PrimaryExpr TypeAssertion");
+                      return nil, nil
+                } () >>
             | PrimaryExpr Arguments
-            << func() (Attrib, error) {
-                  fmt.Println("PrimaryExpr Arguments");
-                  return nil, nil
-            } () >>
+                << func() (Attrib, error) {
+                      fmt.Println("PrimaryExpr Arguments");
+                      return nil, nil
+                } () >>
             ;
 
 // Operand     = Literal | OperandName | "(" Expression ")" .
@@ -383,7 +534,13 @@ Literal : BasicLit
                       fmt.Println("BasicLit");
                       return nil, nil
                 } () >>
+        | FunctionLit
+                << func() (Attrib, error) {
+                      fmt.Println("FunctionLit");
+                      return nil, nil
+                } () >>
         ;
+
 BasicLit : intLit
                 << func() (Attrib, error) {
                       fmt.Println("intLit");
@@ -404,7 +561,23 @@ BasicLit : intLit
                       fmt.Println("stringLit");
                       return nil, nil
                 } () >>
+         | boolLit
+               << func() (Attrib, error) {
+                     fmt.Println("boolLit");
+                     return nil, nil
+               } () >>
          ;
+
+
+
+// FunctionLit = "func" Signature FunctionBody .
+FunctionLit : kwdFunc Signature FunctionBody
+                << func() (Attrib, error) {
+                      fmt.Println("kwdFunc Signature FunctionBody");
+                      return nil, nil
+                } () >>
+            ;
+
 
 OperandName : identifier
                 << func() (Attrib, error) {
@@ -412,6 +585,66 @@ OperandName : identifier
                       return nil, nil
                 } () >>
             ;
+
+// Selector       = "." identifier .
+// Index          = "[" Expression "]" .
+// Slice          = "[" [ Expression ] ":" [ Expression ] "]" |
+//                  "[" [ Expression ] ":" Expression ":" Expression "]" .
+// TypeAssertion  = "." "(" Type ")" .
+// Arguments      = "(" [ ( ExpressionList | Type [ "," ExpressionList ] ) [ "..." ] [ "," ] ] ")" .
+// Conversion = Type "(" Expression [ "," ] ")"
+Selector : "." identifier
+              << func() (Attrib, error) {
+                    fmt.Println("\".\" identifier");
+                    return nil, nil
+              } () >>
+         ;
+
+Index : "[" Expression "]"
+              << func() (Attrib, error) {
+                    fmt.Println("\"[\" Expression \"]\"");
+                    return nil, nil
+              } () >>
+      ;
+
+Slice : "[" ":" "]"
+              << func() (Attrib, error) {
+                    fmt.Println("\"[\" \":\" \"]\"");
+                    return nil, nil
+              } () >>
+      | "[" ":" Expression "]"
+              << func() (Attrib, error) {
+                    fmt.Println("\"[\" \":\" Expression \"]\"");
+                    return nil, nil
+              } () >>
+      | "[" Expression ":" "]"
+              << func() (Attrib, error) {
+                    fmt.Println("\"[\" Expression \":\" \"]\"");
+                    return nil, nil
+              } () >>
+      | "[" Expression ":" Expression "]"
+              << func() (Attrib, error) {
+                    fmt.Println("\"[\" Expression \":\" Expression \"]\"");
+                    return nil, nil
+              } () >>
+      | "[" ":" Expression ":" Expression "]"
+              << func() (Attrib, error) {
+                    fmt.Println("\"[\" \":\" Expression \":\" Expression \"]\"");
+                    return nil, nil
+              } () >>
+      | "[" Expression ":" Expression ":" Expression "]"
+              << func() (Attrib, error) {
+                    fmt.Println("\"[\" Expression \":\" Expression \":\" Expression \"]\"");
+                    return nil, nil
+              } () >>
+      ;
+
+TypeAssertion : "." "(" Type ")"
+              << func() (Attrib, error) {
+                    fmt.Println("\".\" \"(\" Type \")\"");
+                    return nil, nil
+              } () >>
+              ;
 
 // Arguments      = "(" [ ( ExpressionList | Type [ "," ExpressionList ] ) [ "..." ] [ "," ] ] ")" .
 Arguments : "(" ")"
@@ -480,6 +713,18 @@ Arguments : "(" ")"
                       return nil, nil
                 } () >>
           ;
+
+Conversion : Type "(" Expression ")"
+                << func() (Attrib, error) {
+                      fmt.Println("Type \"(\" Expression \")\"");
+                      return nil, nil
+                } () >>
+           | Type "(" Expression "," ")"
+               << func() (Attrib, error) {
+                     fmt.Println("Type \"(\" Expression \",\" \")\"");
+                     return nil, nil
+               } () >>
+           ;
 
 // FunctionDecl = "func" FunctionName Signature [ FunctionBody ] .
 // FunctionName = identifier .
@@ -583,9 +828,7 @@ ParameterDecl : IdentifierList Type
 // Type      = TypeName | TypeLit | "(" Type ")" .
 // TypeName  = identifier | QualifiedIdent .
 // TypeLit   = ArrayType | StructType | PointerType | FunctionType | InterfaceType |
-//         SliceType | MapType | ChannelType .
-//
-
+//             SliceType | MapType | ChannelType .
 Type : type
         << func() (Attrib, error) {
               fmt.Println("type");
@@ -668,9 +911,9 @@ RepeatFieldDecl : FieldDecl terminator RepeatTerminator RepeatFieldDecl
                       fmt.Println("FieldDecl terminator RepeatTerminator RepeatFieldDecl");
                       return nil, nil
                 } () >>
-                | empty
+                | FieldDecl RepeatTerminator
                 << func() (Attrib, error) {
-                      fmt.Println("empty");
+                      fmt.Println("FieldDecl RepeatTerminator");
                       return nil, nil
                 } () >>
                 ;
@@ -695,6 +938,11 @@ FieldDecl : IdentifierList Type
                       fmt.Println("EmbeddedField Tag");
                       return nil, nil
                 } () >>
+          | empty
+                << func() (Attrib, error) {
+                      fmt.Println("empty");
+                      return nil, nil
+                } () >>
           ;
 
 EmbeddedField : type
@@ -708,16 +956,16 @@ EmbeddedField : type
                       return nil, nil
                 } () >>
               ;
+
 Tag : stringLit
-                << func() (Attrib, error) {
-                      fmt.Println("stringLit");
-                      return nil, nil
-                } () >>
+        << func() (Attrib, error) {
+              fmt.Println("stringLit");
+              return nil, nil
+        } () >>
     ;
 
 // PointerType = "*" BaseType .
 // BaseType    = Type .
-
 PointerType : "*" BaseType
                 << func() (Attrib, error) {
                       fmt.Println("\"*\" BaseType");
@@ -738,7 +986,6 @@ BaseType : Type
 // Parameters     = "(" [ ParameterList [ "," ] ] ")" .
 // ParameterList  = ParameterDecl { "," ParameterDecl } .
 // ParameterDecl  = [ IdentifierList ] [ "..." ] Type .
-
 FunctionType : kwdFunc Signature
                 << func() (Attrib, error) {
                       fmt.Println("kwdFunc Signature");
@@ -794,24 +1041,22 @@ RepeatTerminator : terminator RepeatTerminator
                 } () >>
                  ;
 
-StatementList : Statement RepeatTerminator StatementList
+StatementList : Statement terminator RepeatTerminator StatementList
                 << func() (Attrib, error) {
-                      fmt.Println("Statement RepeatTerminator StatementList");
+                      fmt.Println("Statement terminator RepeatTerminator StatementList");
                       return nil, nil
                 } () >>
-              | empty
+              | Statement RepeatTerminator
                 << func() (Attrib, error) {
-                      fmt.Println("empty");
+                      fmt.Println("Statement RepeatTerminator");
                       return nil, nil
                 } () >>
               ;
 
-// Statement =
-// Declaration | LabeledStmt | SimpleStmt |
-// GoStmt | ReturnStmt | BreakStmt | ContinueStmt | GotoStmt |
-// FallthroughStmt | Block | IfStmt | SwitchStmt | SelectStmt | ForStmt |
-// DeferStmt .
-
+// Statement = Declaration | LabeledStmt | SimpleStmt |
+//             GoStmt | ReturnStmt | BreakStmt | ContinueStmt | GotoStmt |
+//             FallthroughStmt | Block | IfStmt | SwitchStmt | SelectStmt | ForStmt |
+//             DeferStmt .
 Statement : Declaration
                 << func() (Attrib, error) {
                       fmt.Println("Declaration");
@@ -907,8 +1152,19 @@ SimpleStmt : ExpressionStmt
                      fmt.Println("ShortVarDecl");
                      return nil, nil
                } () >>
-           // TODO | EmptyStmt
+           | EmptyStmt
+               << func() (Attrib, error) {
+                     fmt.Println("EmptyStmt");
+                     return nil, nil
+               } () >>
            ;
+
+EmptyStmt : empty
+                  << func() (Attrib, error) {
+                        fmt.Println("empty");
+                        return nil, nil
+                  } () >>
+          ;
 
 ReturnStmt : kwdRet
                   << func() (Attrib, error) {
@@ -1013,7 +1269,6 @@ SwitchStmt : ExprSwitchStmt
 // ExprSwitchStmt = "switch" [ SimpleStmt ";" ] [ Expression ] "{" { ExprCaseClause } "}" .
 // ExprCaseClause = ExprSwitchCase ":" StatementList .
 // ExprSwitchCase = "case" ExpressionList | "default" .
-
 ExprSwitchStmt : kwdSwitch "{" RepeatTerminator RepeatExprCaseClause "}"
                        << func() (Attrib, error) {
                              fmt.Println("kwdSwitch \"{\" RepeatTerminator RepeatExprCaseClause \"}\"");
@@ -1103,9 +1358,9 @@ TypeSwitchGuard : PrimaryExpr "." "(" kwdType ")"
                       fmt.Println("PrimaryExpr \".\" \"(\" kwdType \")\"");
                       return nil, nil
                 } () >>
-                | identifier ":=" PrimaryExpr "." "(" kwdType ")"
+                | identifier shortAssign PrimaryExpr "." "(" kwdType ")"
                 << func() (Attrib, error) {
-                      fmt.Println("identifier \":=\" PrimaryExpr \".\" \"(\" kwdType \")\"");
+                      fmt.Println("identifier shortAssign PrimaryExpr \".\" \"(\" kwdType \")\"");
                       return nil, nil
                 } () >>
                 ;
@@ -1137,7 +1392,7 @@ TypeList : Type RepeatType
          ;
 RepeatType : "," Type RepeatType
                 << func() (Attrib, error) {
-                      fmt.Println("Type RepeatType");
+                      fmt.Println("\",\" Type RepeatType");
                       return nil, nil
                 } () >>
            | empty
@@ -1182,9 +1437,9 @@ RangeClause : kwdRange Expression
                       fmt.Println("ExpressionList \"=\" kwdRange Expression");
                       return nil, nil
                 } () >>
-            | IdentifierList ":=" kwdRange Expression
+            | IdentifierList shortAssign kwdRange Expression
                 << func() (Attrib, error) {
-                      fmt.Println("IdentifierList \":=\" kwdRange Expression");
+                      fmt.Println("IdentifierList shortAssign kwdRange Expression");
                       return nil, nil
                 } () >>
             ;
@@ -1199,7 +1454,7 @@ ForClause : terminator terminator
               } () >>
           | InitStmt terminator terminator
               << func() (Attrib, error) {
-                    fmt.Println("InitStmt erminator terminator");
+                    fmt.Println("InitStmt terminator terminator");
                     return nil, nil
               } () >>
           | terminator Condition terminator
@@ -1279,11 +1534,16 @@ Assignment : ExpressionList assignOp ExpressionList
                       fmt.Println("ExpressionList assignOp ExpressionList");
                       return nil, nil
                 } () >>
+           | ExpressionList "=" ExpressionList
+                << func() (Attrib, error) {
+                      fmt.Println("ExpressionList assignOp ExpressionList");
+                      return nil, nil
+                } () >>
            ;
 
-ShortVarDecl : IdentifierList ":=" ExpressionList
+ShortVarDecl : IdentifierList shortAssign ExpressionList
                 << func() (Attrib, error) {
-                      fmt.Println("IdentifierList \":=\" ExpressionList");
+                      fmt.Println("IdentifierList shortAssign ExpressionList");
                       return nil, nil
                 } () >>
              ;

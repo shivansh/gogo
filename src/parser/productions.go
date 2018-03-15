@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io/ioutil"
 	"log"
 
 	"gogo/tmp/lexer"
@@ -8,23 +9,13 @@ import (
 )
 
 func main() {
-	stmt := `package main
-	func main() {
-		const a int = 1
-		switch a {
-		case 1:
-			const a int = 1
-		case 2:
-			const a int = 1
-		default:
-			const a int = 1
-		}
+	content, err := ioutil.ReadFile("src/parser/input.go")
+	if err != nil {
+		log.Fatal(err)
 	}
-	`
-
-	s := lexer.NewLexer([]byte(stmt))
+	s := lexer.NewLexer(content)
 	p := parser.NewParser()
-	_, err := p.Parse(s)
+	_, err = p.Parse(s)
 	if err != nil {
 		log.Fatal(err)
 	}
