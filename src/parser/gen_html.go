@@ -11,7 +11,7 @@ import (
 func FindNonTerminal(input []string) int {
 	index := -1
 	for i := len(input) - 1; i >= 0; i-- {
-		if input[i][0] >= 'A' && input[i][0] <= 'Z' {
+		if input[i] != "" && input[i][0] >= 'A' && input[i][0] <= 'Z' {
 			index = i
 			break
 		}
