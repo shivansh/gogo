@@ -8,17 +8,19 @@ binDir="$srcDir/bin"
 testDir="$srcDir/test"
 testName=
 
-# runIRTests generates MIPS assembly files of the form:
-#	"test(i)ir.asm", i ∈ Z
-# from corresponding test files (in $testdir) of the form:
-#	"test(i).ir", i ∈ Z
-runIRTests() {
+checkBuildStatus() {
     if [ ! -e "$binDir/gogo" ]; then
 	# http://mywiki.wooledge.org/BashFAQ/105
 	# http://fvue.nl/wiki/Bash:_Error_handling
 	( cd "$srcDir" && make gogo )
     fi
+}
 
+# runIRTests generates MIPS assembly files of the form:
+#	"test(i)ir.asm", i ∈ Z
+# from corresponding test files (in $testdir) of the form:
+#	"test(i).ir", i ∈ Z
+runIRTests() {
     for f in "$testDir/ir"/*.ir; do
 	# Remove everything after and including the last '.'
 	testName=$(echo "$f" | sed -E 's/(.*)\.(.*)/\1/')
@@ -27,4 +29,15 @@ runIRTests() {
     done
 }
 
-runIRTests
+runParserTests() {
+    for f in "$testDir/parser"/*.go; do
+    	echo "$f"
+	# Remove everything after and including the last '.'
+	testName=$(echo "$f" | sed -E 's/(.*)\.(.*)/\1/')
+	rm -f "$testName.html"
+	"$binDir/gogo" "$f" > "$testName.html"
+    done
+}
+
+checkBuildStatus
+runParserTests

@@ -1181,12 +1181,14 @@ ArrayType : "[" ArrayLength "]" ElementType
                   return nil, nil
             } () >>
             ;
+
 ArrayLength : Expression
             << func() (Attrib, error) {
                   fmt.Println("Expression");
                   return nil, nil
             } () >>
             ;
+
 ElementType : Type
             << func() (Attrib, error) {
                   fmt.Println("Type");
