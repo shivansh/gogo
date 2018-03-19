@@ -436,18 +436,131 @@ Expression : UnaryExpr
           // rule is introduced.
           | Expression "*" Expression
           << func() (Attrib, error) {
-                fmt.Println("Expression BinaryOp Expression");
+                fmt.Println("Expression \"*\" Expression");
                 return nil, nil
           } () >>
            ;
 
-BinaryOp    : "||" | "&&" | RelOp | AddOp | MulOp ;
+BinaryOp    : "||"
+                  << func() (Attrib, error) {
+                        fmt.Println("\"||\"");
+                        return nil, nil
+                  } () >>
+
+              | "&&"
+                  << func() (Attrib, error) {
+                    fmt.Println("\"&&\"");
+                    return nil, nil
+                  } () >>
+              | RelOp
+                  << func() (Attrib, error) {
+                        fmt.Println("RelOp");
+                        return nil, nil
+                  } () >>
+              | AddOp
+                  << func() (Attrib, error) {
+                        fmt.Println("AddOp");
+                        return nil, nil
+                  } () >>
+              | MulOp
+                  << func() (Attrib, error) {
+                        fmt.Println("MulOp");
+                        return nil, nil
+                  } () >>
+              ;
 // unaryOp will be used for defining UnaryExpr in parser.
 // unaryOp     : '+' | '-' | '!' | '^' | '*' | '&' | '<' '-' ;
 // binaryOp    : '|' '|' | '&' '&' | _relOp | _addOp | _mulOp ;
-RelOp      : "==" | "!=" | "<" | "<=" | ">" | ">=" ;
-AddOp      : "+" | "-" | "|" | "^" ;
-MulOp      : "*" | "/" | "%" | "<<" | ">>" | "&" | "&^" ;
+RelOp : "=="
+       << func() (Attrib, error) {
+             fmt.Println("\"==\"");
+             return nil, nil
+       } () >>
+      | "!="
+      << func() (Attrib, error) {
+            fmt.Println("\"!=\"");
+            return nil, nil
+      } () >>
+      | "<"
+      << func() (Attrib, error) {
+            fmt.Println("\"<\"");
+            return nil, nil
+      } () >>
+      | "<="
+      << func() (Attrib, error) {
+            fmt.Println("\"<=\"");
+            return nil, nil
+      } () >>
+      | ">"
+      << func() (Attrib, error) {
+            fmt.Println("\">\"");
+            return nil, nil
+      } () >>
+      | ">="
+      << func() (Attrib, error) {
+            fmt.Println("\">=\"");
+            return nil, nil
+      } () >>
+      ;
+
+AddOp : "+"
+       << func() (Attrib, error) {
+             fmt.Println("\"+\"");
+             return nil, nil
+       } () >>
+      | "-"
+      << func() (Attrib, error) {
+            fmt.Println("\"-\"");
+            return nil, nil
+      } () >>
+      | "|"
+      << func() (Attrib, error) {
+            fmt.Println("\"|\"");
+            return nil, nil
+      } () >>
+      | "^"
+      << func() (Attrib, error) {
+            fmt.Println("\"^\"");
+            return nil, nil
+      } () >>
+      ;
+
+MulOp : "*"
+      << func() (Attrib, error) {
+            fmt.Println("\"*\"");
+            return nil, nil
+      } () >>
+      | "/"
+      << func() (Attrib, error) {
+            fmt.Println("\"/\"");
+            return nil, nil
+      } () >>
+      | "%"
+      << func() (Attrib, error) {
+            fmt.Println("\"%\"");
+            return nil, nil
+      } () >>
+      | "<<"
+      << func() (Attrib, error) {
+            fmt.Println("\"<<\"");
+            return nil, nil
+      } () >>
+      | ">>"
+      << func() (Attrib, error) {
+            fmt.Println("\"<<\"");
+            return nil, nil
+      } () >>
+      | "&"
+      << func() (Attrib, error) {
+            fmt.Println("\"&\"");
+            return nil, nil
+      } () >>
+      | "&^"
+      << func() (Attrib, error) {
+            fmt.Println("\"&^\"");
+            return nil, nil
+      } () >>
+      ;
 
 // UnaryExpr  = PrimaryExpr | unary_op UnaryExpr .
 UnaryExpr : PrimaryExpr
@@ -462,12 +575,47 @@ UnaryExpr : PrimaryExpr
           } () >>
           | "*" UnaryExpr
           << func() (Attrib, error) {
-                fmt.Println("UnaryOp UnaryExpr");
+                fmt.Println("\"*\" UnaryExpr");
                 return nil, nil
           } () >>
           ;
 
-UnaryOp     : "+" | "-" | "!" | "^" | "*" | "&" | "<-" ;
+UnaryOp : "+"
+              << func() (Attrib, error) {
+                    fmt.Println("\"+\"");
+                    return nil, nil
+              } () >>
+        | "-"
+              << func() (Attrib, error) {
+                    fmt.Println("\"-\"");
+                    return nil, nil
+              } () >>
+        | "!"
+              << func() (Attrib, error) {
+                    fmt.Println("\"!\"");
+                    return nil, nil
+              } () >>
+        | "^"
+              << func() (Attrib, error) {
+                    fmt.Println("\"^\"");
+                    return nil, nil
+              } () >>
+        | "*"
+              << func() (Attrib, error) {
+                    fmt.Println("\"*\"");
+                    return nil, nil
+              } () >>
+        | "&"
+              << func() (Attrib, error) {
+                    fmt.Println("\"&\"");
+                    return nil, nil
+              } () >>
+        | "<-"
+              << func() (Attrib, error) {
+                    fmt.Println("\"<-\"");
+                    return nil, nil
+              } () >>
+        ;
 
 // TODO
 // PrimaryExpr =
@@ -979,6 +1127,11 @@ Type : type
         << func() (Attrib, error) {
               fmt.Println("type");
               return nil, nil
+        } () >>
+      | identifier
+        << func() (Attrib, error) {
+                fmt.Println("identifier");
+                return nil, nil
         } () >>
       | TypeLit
         << func() (Attrib, error) {
