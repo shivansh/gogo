@@ -110,6 +110,9 @@ func GenHTML(file string) {
 		log.Fatal(err)
 	}
 
+	startIndex := 0
+	endIndex := 0
+
 	// The rightmost non-terminal in str (currently the start symbol) will
 	// be replaced by the RHS of the next production in "productions" until
 	// no more non-terminals are left.
@@ -127,8 +130,16 @@ func GenHTML(file string) {
 			temp = append(temp, str[index+1:]...)
 			str = append([]string{}, temp...)
 		}
+		startIndex = index
+		endIndex = index + len(record) - 1
 		index = FindNonTerminal(str)
 		for k, v := range str {
+			if k == startIndex {
+				_, err = writer.WriteString(fmt.Sprintf("<font color=\"red\">"))
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
 			if k == index {
 				_, err = writer.WriteString(fmt.Sprintf("<b><u>%s</u></b> ", v))
 				if err != nil {
@@ -136,6 +147,12 @@ func GenHTML(file string) {
 				}
 			} else if strings.Compare(v, "empty") != 0 {
 				_, err = writer.WriteString(fmt.Sprintf("%s ", v))
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+			if k == endIndex {
+				_, err = writer.WriteString(fmt.Sprintf("</font>"))
 				if err != nil {
 					log.Fatal(err)
 				}
