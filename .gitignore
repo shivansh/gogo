@@ -2,3 +2,6 @@
 bin
 # Ignore generated files
 LR1_conflicts.txt
+test/parser/lexer_tests
+*.html
+!test/parser/struct.html
