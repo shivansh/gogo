@@ -528,10 +528,14 @@ Operand : Literal
                 } () >>
         ;
 
-// TODO
 Literal : BasicLit
                 << func() (Attrib, error) {
                       fmt.Println("BasicLit");
+                      return nil, nil
+                } () >>
+        | CompositeLit
+                << func() (Attrib, error) {
+                      fmt.Println("CompositeLit");
                       return nil, nil
                 } () >>
         | FunctionLit
@@ -568,7 +572,140 @@ BasicLit : intLit
                } () >>
          ;
 
+// CompositeLit  = LiteralType LiteralValue .
+// LiteralType   = StructType | ArrayType | "[" "..." "]" ElementType |
+//                 SliceType | MapType | TypeName .
+// LiteralValue  = "{" [ ElementList [ "," ] ] "}" .
+// ElementList   = KeyedElement { "," KeyedElement } .
+// KeyedElement  = [ Key ":" ] Element .
+// Key           = FieldName | Expression | LiteralValue .
+// FieldName     = identifier .
+// Element       = Expression | LiteralValue .
+CompositeLit : LiteralType LiteralValue
+                    << func() (Attrib, error) {
+                          fmt.Println("LiteralType LiteralValue");
+                          return nil, nil
+                    } () >>
+             ;
 
+LiteralType : StructType
+                    << func() (Attrib, error) {
+                          fmt.Println("StructType");
+                          return nil, nil
+                    } () >>
+            | ArrayType
+                    << func() (Attrib, error) {
+                          fmt.Println("ArrayType");
+                          return nil, nil
+                    } () >>
+            | "[" "..." "]" ElementType
+                    << func() (Attrib, error) {
+                          fmt.Println("\"[\" \"...\" \"]\" ElementType");
+                          return nil, nil
+                    } () >>
+
+            | SliceType
+                  << func() (Attrib, error) {
+                        fmt.Println("SliceType");
+                        return nil, nil
+                  } () >>
+            | type
+                  << func() (Attrib, error) {
+                        fmt.Println("type");
+                        return nil, nil
+                  } () >>
+            ;
+
+LiteralValue : "{" RepeatTerminator "}"
+                    << func() (Attrib, error) {
+                          fmt.Println("RepeatTerminator");
+                          return nil, nil
+                    } () >>
+             // NOTE: We don't support adding a ',' after the last KeyedElement
+             // as opposed to the official go language.
+             | "{" RepeatTerminator ElementList "}"
+                   << func() (Attrib, error) {
+                         fmt.Println("\"{\" RepeatTerminator ElementList \"}\" ");
+                         return nil, nil
+                   } () >>
+             ;
+
+ElementList : KeyedElement RepeatKeyedElement
+                << func() (Attrib, error) {
+                      fmt.Println("KeyedElement RepeatKeyedElement");
+                      return nil, nil
+                } () >>
+            ;
+
+RepeatKeyedElement : "," RepeatTerminator KeyedElement RepeatKeyedElement
+                        << func() (Attrib, error) {
+                              fmt.Println("\",\" RepeatTerminator KeyedElement RepeatKeyedElement");
+                              return nil, nil
+                        } () >>
+                   | RepeatTerminator
+                        << func() (Attrib, error) {
+                              fmt.Println("\",\" RepeatTerminator");
+                              return nil, nil
+                        } () >>
+                   // | "," RepeatTerminator
+                   //      << func() (Attrib, error) {
+                   //            fmt.Println("\",\" RepeatTerminator");
+                   //            return nil, nil
+                   //      } () >>
+                   // | empty
+                   //      << func() (Attrib, error) {
+                   //            fmt.Println("empty");
+                   //            return nil, nil
+                   //      } () >>
+                   ;
+
+KeyedElement : Element
+                << func() (Attrib, error) {
+                        fmt.Println("Element");
+                        return nil, nil
+                } () >>
+             | Key ":" Element
+                << func() (Attrib, error) {
+                        fmt.Println("Key \":\" Element");
+                        return nil, nil
+                } () >>
+             ;
+
+Key : FieldName
+        << func() (Attrib, error) {
+              fmt.Println("FieldName");
+              return nil, nil
+        } () >>
+    | Expression
+        << func() (Attrib, error) {
+              fmt.Println("Expression");
+              return nil, nil
+        } () >>
+    | LiteralValue
+        << func() (Attrib, error) {
+              fmt.Println("LiteralValue");
+              return nil, nil
+        } () >>
+    ;
+
+FieldName : identifier
+                << func() (Attrib, error) {
+                      fmt.Println("identifier");
+                      return nil, nil
+                } () >>
+          ;
+
+Element : Expression
+                << func() (Attrib, error) {
+                      fmt.Println("Expression");
+                      return nil, nil
+                } () >>
+        | LiteralValue
+                << func() (Attrib, error) {
+                      fmt.Println("LiteralValue");
+                      return nil, nil
+                } () >>
+        ;
 
 // FunctionLit = "func" Signature FunctionBody .
 FunctionLit : kwdFunc Signature FunctionBody
@@ -996,7 +1133,7 @@ FunctionType : kwdFunc Signature
 // SliceType = "[" "]" ElementType .
 SliceType : "[" "]" ElementType
                 << func() (Attrib, error) {
-                      fmt.Println("\"[\" \"]\"ElementType");
+                      fmt.Println("\"[\" \"]\" ElementType");
                       return nil, nil
                 } () >>
           ;
@@ -1390,6 +1527,7 @@ TypeList : Type RepeatType
                       return nil, nil
                 } () >>
          ;
+
 RepeatType : "," Type RepeatType
                 << func() (Attrib, error) {
                       fmt.Println("\",\" Type RepeatType");
