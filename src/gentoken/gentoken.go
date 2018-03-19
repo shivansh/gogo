@@ -7,19 +7,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
 
 	"gogo/tmp/lexer"
 	"gogo/tmp/token"
 )
 
-func PrintTokens() {
-	args := os.Args
-	if len(args) != 2 {
-		log.Fatalf("Usage: ./lexer <filename>")
-	}
-
-	src, err := ioutil.ReadFile(args[1])
+func PrintTokens(file string) {
+	src, err := ioutil.ReadFile(file)
 	if err != nil {
 		log.Fatal(err)
 	}
