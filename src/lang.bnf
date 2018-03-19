@@ -16,7 +16,7 @@ kwdFor      : 'f' 'o' 'r' ;
 kwdGoto     : 'g' 'o' 't' 'o' ;
 kwdIf       : 'i' 'f' ;
 kwdImport   : 'i' 'm' 'p' 'o' 'r' 't' ;
-kwdNil      : 'n' 'i' 'l' ;
+// kwdNil      : 'n' 'i' 'l' ;
 kwdPackage  : 'p' 'a' 'c' 'k' 'a' 'g' 'e' ;
 kwdRange    : 'r' 'a' 'n' 'g' 'e' ;
 kwdRet      : 'r' 'e' 't' 'u' 'r' 'n' ;
@@ -40,12 +40,9 @@ boolLit : 't' 'r' 'u' 'e' | 'f' 'a' 'l' 's' 'e' ;
 escapeChar : '\\' 'n' | '\\' 'r' | '\\' 't' | '\\';
 
 /* Operators */
-binaryOp    : '|' '|' | '&' '&' | _relOp | _addOp | _mulOp ;
 _relOp      : '=' '=' | '!' '=' | '<' | '<' '=' | '>' | '>' '=' ;
 _addOp      : '+' | '-' | '|' | '^' ;
 _mulOp      : '*' | '/' | '%' | '<' '<' | '>' '>' | '&' | '&' '^' ;
-// unaryOp will be used for defining UnaryExpr in parser.
-unaryOp     : '+' | '-' | '!' | '^' | '*' | '&' | '<' '-' ;
 assignOp    : [ _addOp | _mulOp ] '=' ;
 shortAssign : ':' '=' ;
 dotOp       : '.' ;
@@ -70,7 +67,7 @@ _octalDigit    : '0' - '7' ;
 _hexDigit      : _decimalDigit | 'a' - 'f' | 'A' - 'F' ;
 
 /* Identifiers */
-blankIdent : '_' ;
+// blankIdent : '_' ;
 identifier : _letter { _letter | _decimalDigit } ;
 
 /* Integer literals */
@@ -103,7 +100,8 @@ import(
 )
 >>
 
-// https://github.com/goccmack/gocc/issues/59
+// https://github.com/goccmack/gocc/issues/5998
+
 // TODO: Fix these.
 // Type      : identifier | "(" identifier ")" ;
 // ArrayType : "[" intLit "]" Type ;
@@ -206,6 +204,7 @@ PackageName : identifier
                 } () >>
             ;
 
+// TODO: We don't support MethodDecl at the moment.
 // TopLevelDecl  = Declaration | FunctionDecl | MethodDecl .
 RepeatTopLevelDecl : TopLevelDecl RepeatTopLevelDecl
                         << func() (Attrib, error) {
@@ -425,22 +424,30 @@ Expression : UnaryExpr
                 fmt.Println("UnaryExpr");
                 return nil, nil
           } () >>
-           | Expression binaryOp Expression
+           | Expression BinaryOp Expression
           << func() (Attrib, error) {
-                fmt.Println("Expression binaryOp Expression");
+                fmt.Println("Expression BinaryOp Expression");
                 return nil, nil
           } () >>
           // Since PointerType defines "*" to be a token, expressions
           // like `y = x * 2` will not be parsed because parser will
-          // expect a "binaryOp" token but the parser will return a
+          // expect a "BinaryOp" token but the parser will return a
           // "*" token. To avoid such ambiguity the following (extra)
           // rule is introduced.
           | Expression "*" Expression
           << func() (Attrib, error) {
-                fmt.Println("Expression binaryOp Expression");
+                fmt.Println("Expression BinaryOp Expression");
                 return nil, nil
           } () >>
            ;
+
+BinaryOp    : "||" | "&&" | RelOp | AddOp | MulOp ;
+// unaryOp will be used for defining UnaryExpr in parser.
+// unaryOp     : '+' | '-' | '!' | '^' | '*' | '&' | '<' '-' ;
+// binaryOp    : '|' '|' | '&' '&' | _relOp | _addOp | _mulOp ;
+RelOp      : "==" | "!=" | "<" | "<=" | ">" | ">=" ;
+AddOp      : "+" | "-" | "|" | "^" ;
+MulOp      : "*" | "/" | "%" | "<<" | ">>" | "&" | "&^" ;
 
 // UnaryExpr  = PrimaryExpr | unary_op UnaryExpr .
 UnaryExpr : PrimaryExpr
@@ -448,17 +455,19 @@ UnaryExpr : PrimaryExpr
                 fmt.Println("PrimaryExpr");
                 return nil, nil
           } () >>
-          | unaryOp UnaryExpr
+          | UnaryOp UnaryExpr
           << func() (Attrib, error) {
-                fmt.Println("unaryOp UnaryExpr");
+                fmt.Println("UnaryOp UnaryExpr");
                 return nil, nil
           } () >>
           | "*" UnaryExpr
           << func() (Attrib, error) {
-                fmt.Println("unaryOp UnaryExpr");
+                fmt.Println("UnaryOp UnaryExpr");
                 return nil, nil
           } () >>
           ;
+
+UnaryOp     : "+" | "-" | "!" | "^" | "*" | "&" | "<-" ;
 
 // TODO
 // PrimaryExpr =
