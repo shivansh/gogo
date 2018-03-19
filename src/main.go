@@ -5,9 +5,15 @@ import (
 	"os"
 
 	"gogo/src/asm"
+	"gogo/src/gentoken"
 	"gogo/src/parser"
 	"gogo/src/tac"
 )
+
+// GenToken generates the tokens returned by lexer for the input program.
+func GenToken(file string) {
+	gentoken.PrintTokens(file)
+}
 
 // GenAsm generates the assembly code using the IR generated from the input program.
 func GenAsm(file string) {
