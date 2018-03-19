@@ -36,9 +36,6 @@ type : 'b' 'o' 'o' 'l'
 /* Predeclared contants */
 boolLit : 't' 'r' 'u' 'e' | 'f' 'a' 'l' 's' 'e' ;
 
-/* Single-character escapes */
-escapeChar : '\\' 'n' | '\\' 'r' | '\\' 't' | '\\';
-
 /* Operators */
 _relOp      : '=' '=' | '!' '=' | '<' | '<' '=' | '>' | '>' '=' ;
 _addOp      : '+' | '-' | '|' | '^' ;
@@ -87,7 +84,9 @@ _exponent : ( 'e' | 'E' ) [ '+' | '-' ] _decimals ;
 /* String literals */
 stringLit          :  _rawStrLit | _interpretedStrLit ;
 _rawStrLit         : '`' { . } '`' ;
-_interpretedStrLit : '"' { . } '"' ;
+_interpretedStrLit : '"' { . | '\\' '"' | _escapeChar } '"' ;
+/* Single-character escapes */
+_escapeChar : '\\' 'n' | '\\' 'r' | '\\' 't' ;
 
 /* Rune literals */
 runeLit  : '\'' [ '\\' ] [ . ] '\'' ;
