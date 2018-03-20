@@ -1,3 +1,6 @@
+// Package tac implements heuristics and data structures to generate the three
+// address code from a source file.
+
 package tac
 
 import (
@@ -219,12 +222,16 @@ func (blk Blk) EvalNextUseInfo() {
 // 	and ends:
 //		* before label instruction
 //		* at jump instruction
-func GenTAC(file *os.File) (tac Tac) {
+func GenTAC(file string) (tac Tac) {
 	blk := new(Blk)
-	scanner := bufio.NewScanner(file)
 	line := 0
 	re := regexp.MustCompile("(^-?[0-9]+$)") // integers
 
+	f, err := os.Open(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		record := strings.Split(scanner.Text(), ",")
 		// Sanitize the records

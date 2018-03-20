@@ -15,10 +15,9 @@ all:
 
 deps: $(SRC)/lang.bnf
 	mkdir -p tmp
-	gocc -a -v -o tmp $(SRC)/lang.bnf
+	gocc -a -zip -o tmp $(SRC)/lang.bnf
 
 gentoken: $(SRC)/gentoken/gentoken.go
-	make deps
 	cd $(SRC)/gentoken; $(CC) install $(GCFLAGS)
 
 tac: $(SRC)/tac/tac.go
@@ -26,10 +25,6 @@ tac: $(SRC)/tac/tac.go
 
 gogo: $(SRC)/main.go
 	$(CC) build $(GCFLAGS) -o $(BIN)/gogo $(SRC)/main.go
-
-parser: $(SRC)/parser/gen_html.go $(SRC)/parser/productions.go
-	$(CC) run $(SRC)/parser/productions.go | tac > $(SRC)/parser/output.txt && \
-	$(CC) run $(SRC)/parser/gen_html.go > $(SRC)/parser/output.html
 
 test:
 	scripts/run-tests.sh
