@@ -30,6 +30,7 @@ func Tac(s string) []string {
 
 // GenProductions generates the RHS of productions in the reverse order of
 // rightmost derivations used in the bottom-up parsing of the input program.
+// The routine prints to stdout by default.
 func GenProductions(file string) {
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
@@ -57,9 +58,9 @@ func FindNonTerminal(input []string) int {
 	return index
 }
 
-// GenHTML generates the HTML showing the rightmost derivations used in bottom-up
-// parsing of the input program.
-func GenHTML(file string) {
+// RightmostDerivation generates the HTML showing the rightmost derivations
+// used in bottom-up parsing of the input program.
+func RightmostDerivation(file string) {
 	// Create a pipe with stdout mapped to its write end.
 	old := os.Stdout
 	r, w, _ := os.Pipe()
@@ -110,9 +111,6 @@ func GenHTML(file string) {
 		log.Fatal(err)
 	}
 
-	startIndex := 0
-	endIndex := 0
-
 	// The rightmost non-terminal in str (currently the start symbol) will
 	// be replaced by the RHS of the next production in "productions" until
 	// no more non-terminals are left.
@@ -130,12 +128,18 @@ func GenHTML(file string) {
 			temp = append(temp, str[index+1:]...)
 			str = append([]string{}, temp...)
 		}
-		startIndex = index
-		endIndex = index + len(record) - 1
+		startIndex := index
+		endIndex := index + len(record) - 1
 		index = FindNonTerminal(str)
 		for k, v := range str {
 			if k == startIndex {
-				_, err = writer.WriteString(fmt.Sprintf("<font color=\"red\">"))
+				_, err = writer.WriteString(fmt.Sprintf("<font color=\"blue\">"))
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+			if k == endIndex {
+				_, err = writer.WriteString(fmt.Sprintf("</font>"))
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -147,12 +151,6 @@ func GenHTML(file string) {
 				}
 			} else if strings.Compare(v, "empty") != 0 {
 				_, err = writer.WriteString(fmt.Sprintf("%s ", v))
-				if err != nil {
-					log.Fatal(err)
-				}
-			}
-			if k == endIndex {
-				_, err = writer.WriteString(fmt.Sprintf("</font>"))
 				if err != nil {
 					log.Fatal(err)
 				}

@@ -1,5 +1,5 @@
-// Generate tokens and the corresponding
-// lexemes extracted from a source file.
+// Package gentoken generate tokens and the corresponding lexemes extracted
+// from a source file.
 
 package gentoken
 

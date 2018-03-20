@@ -9,18 +9,15 @@ kwdCase     : 'c' 'a' 's' 'e' ;
 kwdConst    : 'c' 'o' 'n' 's' 't' ;
 kwdContinue : 'c' 'o' 'n' 't' 'i' 'n' 'u' 'e' ;
 kwdDefault  : 'd' 'e' 'f' 'a' 'u' 'l' 't' ;
-// kwdDefer    : 'd' 'e' 'f' 'e' 'r' ;
 kwdElse     : 'e' 'l' 's' 'e' ;
 kwdFunc     : 'f' 'u' 'n' 'c' ;
 kwdFor      : 'f' 'o' 'r' ;
 kwdGoto     : 'g' 'o' 't' 'o' ;
 kwdIf       : 'i' 'f' ;
 kwdImport   : 'i' 'm' 'p' 'o' 'r' 't' ;
-// kwdNil      : 'n' 'i' 'l' ;
 kwdPackage  : 'p' 'a' 'c' 'k' 'a' 'g' 'e' ;
 kwdRange    : 'r' 'a' 'n' 'g' 'e' ;
 kwdRet      : 'r' 'e' 't' 'u' 'r' 'n' ;
-// kwdSet      : 's' 'e' 't' ;
 kwdStruct   : 's' 't' 'r' 'u' 'c' 't' ;
 kwdSwitch   : 's' 'w' 'i' 't' 'c' 'h' ;
 kwdType     : 't' 'y' 'p' 'e' ;
@@ -44,10 +41,6 @@ assignOp    : [ _addOp | _mulOp ] '=' ;
 shortAssign : ':' '=' ;
 // dotOp       : '.' ;
 
-/* Blocks */
-// blockBegin : '{' ;
-// blockEnd   : '}' ;
-
 /* Whitespaces (suppressed) */
 !whitespace : ' ' | '\t' | '\r' ;
 
@@ -64,6 +57,7 @@ _octalDigit    : '0' - '7' ;
 _hexDigit      : _decimalDigit | 'a' - 'f' | 'A' - 'F' ;
 
 /* Identifiers */
+// TODO: Check this
 // blankIdent : '_' ;
 identifier : _letter { _letter | _decimalDigit } ;
 
@@ -99,11 +93,7 @@ import(
 )
 >>
 
-// https://github.com/goccmack/gocc/issues/5998
-
-// TODO: Fix these.
-// Type      : identifier | "(" identifier ")" ;
-// ArrayType : "[" intLit "]" Type ;
+// NOTE: https://github.com/goccmack/gocc/issues/5998
 
 // SourceFile = PackageClause ";" { ImportDecl ";" } { TopLevelDecl ";" } .
 Start : SourceFile << func() (Attrib, error) {
@@ -134,7 +124,6 @@ RepeatImportDecl : ImportDecl terminator RepeatTerminator RepeatImportDecl
 // ImportDecl       = "import" ( ImportSpec | "(" { ImportSpec ";" } ")" ) .
 // ImportSpec       = [ "." | PackageName ] ImportPath .
 // ImportPath       = string_lit .
-
 ImportDecl : kwdImport ImportSpec
                 << func() (Attrib, error) {
                         fmt.Println("kwdImport ImportSpec");
@@ -157,7 +146,7 @@ RepeatImportSpec : ImportSpec terminator RepeatImportSpec
                         fmt.Println("empty");
                         return nil, nil
                 } () >>
-                // TODO: import ( <<-- '\n' is allowed but ';' isn't
+                // TODO: '\n' can follow "import (", but a ';' cannot as opposed to go's grammar.
                  | terminator RepeatImportSpec
                 << func() (Attrib, error) {
                         fmt.Println("terminator RepeatImportSpec");
@@ -203,7 +192,7 @@ PackageName : identifier
                 } () >>
             ;
 
-// TODO: We don't support MethodDecl at the moment.
+// TODO: MethodDecl is not supported at the moment.
 // TopLevelDecl  = Declaration | FunctionDecl | MethodDecl .
 RepeatTopLevelDecl : TopLevelDecl RepeatTopLevelDecl
                         << func() (Attrib, error) {
@@ -296,10 +285,10 @@ VarSpec : IdentifierList Type
             } () >>
         ;
 
-// TypeDecl = "type" ( TypeSpec | "(" { TypeSpec ";" } ")" ) .
-// TypeSpec = AliasDecl | TypeDef .
+// TypeDecl  = "type" ( TypeSpec | "(" { TypeSpec ";" } ")" ) .
+// TypeSpec  = AliasDecl | TypeDef .
 // AliasDecl = identifier "=" Type
-// TypeDef = identifier Type
+// TypeDef   = identifier Type
 TypeDecl : kwdType TypeSpec
                 << func() (Attrib, error) {
                       fmt.Println("kwdType TypeSpec");
@@ -384,25 +373,25 @@ RepeatConstSpec : ConstSpec terminator RepeatTerminator RepeatConstSpec
                 ;
 
 ConstSpec : IdentifierList
-          << func() (Attrib, error) {
-                fmt.Println("IdentifierList");
-                return nil, nil
-          } () >>
+                << func() (Attrib, error) {
+                        fmt.Println("IdentifierList");
+                        return nil, nil
+                } () >>
           | IdentifierList "=" ExpressionList
-          << func() (Attrib, error) {
-                fmt.Println("IdentifierList \"=\" ExpressionList");
-                return nil, nil
-          } () >>
+                << func() (Attrib, error) {
+                        fmt.Println("IdentifierList \"=\" ExpressionList");
+                        return nil, nil
+                } () >>
           | IdentifierList Type "=" ExpressionList
-          << func() (Attrib, error) {
-                fmt.Println("IdentifierList Type \"=\" ExpressionList");
-                return nil, nil
-          } () >>
+                << func() (Attrib, error) {
+                        fmt.Println("IdentifierList Type \"=\" ExpressionList");
+                        return nil, nil
+                } () >>
           | empty
-          << func() (Attrib, error) {
-                fmt.Println("empty");
-                return nil, nil
-          } () >>
+                << func() (Attrib, error) {
+                        fmt.Println("empty");
+                        return nil, nil
+                } () >>
           ;
 
 ExpressionList : Expression
@@ -419,25 +408,25 @@ ExpressionList : Expression
 
 // Expression = UnaryExpr | Expression binary_op Expression .
 Expression : UnaryExpr
-          << func() (Attrib, error) {
-                fmt.Println("UnaryExpr");
-                return nil, nil
-          } () >>
+                << func() (Attrib, error) {
+                      fmt.Println("UnaryExpr");
+                      return nil, nil
+                } () >>
            | Expression BinaryOp Expression
-          << func() (Attrib, error) {
-                fmt.Println("Expression BinaryOp Expression");
-                return nil, nil
-          } () >>
+                << func() (Attrib, error) {
+                      fmt.Println("Expression BinaryOp Expression");
+                      return nil, nil
+                } () >>
           // Since PointerType defines "*" to be a token, expressions
           // like `y = x * 2` will not be parsed because parser will
           // expect a "BinaryOp" token but the parser will return a
           // "*" token. To avoid such ambiguity the following (extra)
           // rule is introduced.
           | Expression "*" Expression
-          << func() (Attrib, error) {
-                fmt.Println("Expression \"*\" Expression");
-                return nil, nil
-          } () >>
+                << func() (Attrib, error) {
+                        fmt.Println("Expression \"*\" Expression");
+                        return nil, nil
+                } () >>
            ;
 
 BinaryOp    : "||"
@@ -616,7 +605,6 @@ UnaryOp : "+"
               } () >>
         ;
 
-// TODO
 // PrimaryExpr =
 //  Operand |
 //  Conversion |
@@ -1393,7 +1381,7 @@ Statement : Declaration
                       fmt.Println("GotoStmt");
                       return nil, nil
                 } () >>
-         // TODO: FallthroughStmt
+         // TODO: FallthroughStmt is not supported currently.
          | Block
                 << func() (Attrib, error) {
                       fmt.Println("Block");
@@ -1512,7 +1500,6 @@ GotoStmt : kwdGoto Label
                 } () >>
          ;
 
-// TODO: Block should be ended by {terminator}
 Block : "{" RepeatTerminator StatementList "}"
                 << func() (Attrib, error) {
                       fmt.Println("\"{\" RepeatTerminator StatementList \"}\"");

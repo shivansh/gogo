@@ -10,6 +10,23 @@ Go to MIPS compiler implemented in Go. Made as a course project for CS335 (Compi
 
 - - -
 
+## Components
+
+| Component | Demo | Status |
+|:------------------------:|:----------------------------------------------------------------------------------------------------------------------------------:|:------------------:|
+| Token generation / Lexer | [`test1.out`](test/lexer/test1.out) | :heavy_check_mark: |
+| Code generation | [`pascalTriangle.ir`](test/ir/pascalTriangle.ir) :arrow_right: [`pascalTriangle.asm`](test/ir/pascalTriangle.asm) | :heavy_check_mark: |
+| Parser | [`struct.go`](test/parser/struct.go) :arrow_right: [`struct.html`](https://shivanshrai84.gitlab.io/staticPages/assets/struct.html) | :heavy_check_mark: |
+| IR generation |  | In progress |
+
+The file [main.go](src/main.go) contains routines described as follows corresponding to each component -
+
+|    Routine   | Description                                                                                      |
+|:------------:|--------------------------------------------------------------------------------------------------|
+| `GenToken()` | Generates the tokens returned by lexer from the input program                                    |
+|  `GenAsm()`  | Generates the assembly code using the IR generated from the input program                        |
+|  `GenHTML()` | Generates the rightmost derivations used in the bottom-up parsing and pretty-prints them in HTML |
+
 ## Setting up
 Run `./scripts/setup.sh` from the root directory of the project to set up the pre-commit git hooks.
 
@@ -24,12 +41,19 @@ make
 
 Alternatively, individual components can be built via -
 ```
+make deps
 make gentoken
 make tac
 make gogo
 ```
 
-The MIPS assembly can be generated via -
+The generated binary `bin/gogo` can be used to generate `(Tokens | Assembly | HTML)` from the corresponding `(go | IR | go)` files -
 ```
-bin/gogo test/test1.ir
+bin/gogo test.go
+```
+
+## Testing
+The [tests](test) can be built via -
+```
+make test
 ```

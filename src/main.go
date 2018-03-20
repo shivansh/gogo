@@ -10,25 +10,20 @@ import (
 	"gogo/src/tac"
 )
 
-// GenToken generates the tokens returned by lexer for the input program.
+// GenToken generates the tokens returned by lexer from the input program.
 func GenToken(file string) {
 	gentoken.PrintTokens(file)
 }
 
 // GenAsm generates the assembly code using the IR generated from the input program.
 func GenAsm(file string) {
-	f, err := os.Open(file)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-	asm.CodeGen(tac.GenTAC(f))
+	asm.CodeGen(tac.GenTAC(file))
 }
 
-// GenRightmostDerivation generates the rightmost derivations used in the bottom-up
-// parsing and pretty-prints them in an HTML format.
-func GenRightmostDerivation(file string) {
-	parser.GenHTML(file)
+// GenHTML generates the rightmost derivations used in the bottom-up parsing
+// and pretty-prints them in an HTML format.
+func GenHTML(file string) {
+	parser.RightmostDerivation(file)
 }
 
 func main() {
@@ -36,5 +31,5 @@ func main() {
 	if len(args) != 2 {
 		log.Fatalf("Usage: gogo <filename>")
 	}
-	GenRightmostDerivation(args[1])
+	GenHTML(args[1])
 }
