@@ -14,8 +14,7 @@ all:
 .PHONY: gentoken tac gogo clean test
 
 deps: $(SRC)/lang.bnf
-	mkdir -p tmp
-	gocc -a -zip -o tmp $(SRC)/lang.bnf
+	scripts/check-gocc.sh
 
 gentoken: $(SRC)/gentoken/gentoken.go
 	cd $(SRC)/gentoken; $(CC) install $(GCFLAGS)
