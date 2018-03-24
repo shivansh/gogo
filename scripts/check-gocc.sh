@@ -12,7 +12,7 @@ if [ -z "$GOPATH" ]; then
 else
     goccpath="$GOPATH"/bin/gocc
     if [ -f "$goccpath" ]; then
-        gocc -a -zip -o "$tmp" "$SRC"/lang.bnf
+        "$goccpath" -a -zip -o "$tmp" "$SRC"/lang.bnf
     else
         echo "gocc is not properly installed"
         exit 1
