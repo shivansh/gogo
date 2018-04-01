@@ -132,6 +132,17 @@ func RightmostDerivation(file string) {
 		endIndex := index + len(record) - 1
 		index = FindNonTerminal(str)
 		for k, v := range str {
+			if k == index {
+				_, err = writer.WriteString(fmt.Sprintf("<b><u>%s</u></b> ", v))
+				if err != nil {
+					log.Fatal(err)
+				}
+			} else if strings.Compare(v, "empty") != 0 {
+				_, err = writer.WriteString(fmt.Sprintf("%s ", v))
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
 			if k == startIndex {
 				_, err = writer.WriteString(fmt.Sprintf("<font color=\"blue\">"))
 				if err != nil {
@@ -140,17 +151,6 @@ func RightmostDerivation(file string) {
 			}
 			if k == endIndex {
 				_, err = writer.WriteString(fmt.Sprintf("</font>"))
-				if err != nil {
-					log.Fatal(err)
-				}
-			}
-			if k == index {
-				_, err = writer.WriteString(fmt.Sprintf("<b><u>%s</u></b> ", v))
-				if err != nil {
-					log.Fatal(err)
-				}
-			} else if strings.Compare(v, "empty") != 0 {
-				_, err = writer.WriteString(fmt.Sprintf("%s ", v))
 				if err != nil {
 					log.Fatal(err)
 				}
