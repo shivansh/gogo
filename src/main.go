@@ -31,5 +31,5 @@ func main() {
 	if len(args) != 2 {
 		log.Fatalf("Usage: gogo <filename>")
 	}
-	GenHTML(args[1])
+	parser.GenProductions(args[1])
 }
