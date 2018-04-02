@@ -89,9 +89,10 @@ runeLit  : '\'' [ '\\' ] [ . ] '\'' ;
 
 <<
 import(
-        "gogo/tmp/token"
-
         "fmt"
+        "strings"
+
+        "gogo/tmp/token"
 )
 
 type Node struct {
@@ -317,25 +318,36 @@ VarDecl : kwdVar VarSpec
 //
 VarSpec : IdentifierList Type
             << func() (Attrib, error) {
-                        return Node{"", []string{fmt.Sprintf("=, %s, 0", $0.(Node).place), "\n"}}, nil
+                        n := Node{"", []string{}}
+                        for _, v := range $0.(Node).code {
+                                n.code = append(n.code, fmt.Sprintf("=, %s, 0", v))
+                        }
+                        return n, nil
             } () >>
         | IdentifierList Type "=" ExpressionList
             << func() (Attrib, error) {
                         n := Node{"", $3.(Node).code}
-                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", $0.(Node).place, $3.(Node).place))
-                        n.code = append(n.code, "\n")
+                        expr := strings.Split($3.(Node).place, ",")
+                        for k, v := range $0.(Node).code {
+                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
+
+                        }
                         return n, nil
             } () >>
-//         | IdentifierList "=" ExpressionList
-//             << func() (Attrib, error) {
-//                   fmt.Println("IdentifierList \"=\" ExpressionList");
-//                   return nil, nil
-//             } () >>
-//         | empty
-//             << func() (Attrib, error) {
-//                   fmt.Println("empty");
-//                   return nil, nil
-//             } () >>
+        | IdentifierList "=" ExpressionList
+            << func() (Attrib, error) {
+                n := Node{"", $2.(Node).code}
+                expr := strings.Split($2.(Node).place, ",")
+                for k, v := range $0.(Node).code {
+                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
+
+                }
+                return n, nil
+            } () >>
+        | empty
+            << func() (Attrib, error) {
+                    return Node{"", []string{}}, nil
+            } () >>
         ;
 
 // TypeDecl  = "type" ( TypeSpec | "(" { TypeSpec ";" } ")" ) .
@@ -426,13 +438,20 @@ ConstDecl : kwdConst ConstSpec
 
 ConstSpec : IdentifierList
                 << func() (Attrib, error) {
-                        return Node{"", []string{fmt.Sprintf("=, %s, 0", $0.(Node).place), "\n"}}, nil
+                        n := Node{"", []string{}}
+                        for _, v := range $0.(Node).code {
+                                n.code = append(n.code, fmt.Sprintf("=, %s, 0", v))
+                        }
+                        return n, nil
                 } () >>
           | IdentifierList "=" ExpressionList
                 << func() (Attrib, error) {
                         n := Node{"", $2.(Node).code}
-                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", $0.(Node).place, $2.(Node).place))
-                        n.code = append(n.code, "\n")
+                        expr := strings.Split($2.(Node).place, ",")
+                        for k, v := range $0.(Node).code {
+                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
+
+                        }
                         return n, nil
                 } () >>
           // | IdentifierList Type "=" ExpressionList
@@ -451,11 +470,13 @@ ExpressionList : Expression
                 << func() (Attrib, error) {
                         return Node{$0.(Node).place, $0.(Node).code}, nil
                 } () >>
-//                | Expression "," ExpressionList
-//                << func() (Attrib, error) {
-//                      fmt.Println("Expression \",\" ExpressionList");
-//                      return nil, nil
-//                } () >>
+               | Expression "," ExpressionList
+               << func() (Attrib, error) {
+                       n := Node{"", $0.(Node).code}
+                       n.code = append(n.code, $2.(Node).code...)
+                       n.place = fmt.Sprintf("%s,%s", $0.(Node).place, $2.(Node).place)
+                       return n, nil
+               } () >>
                ;
 
 // Expression = UnaryExpr | Expression binary_op Expression .
@@ -1351,14 +1372,15 @@ Type : type
 // // TODO
 // // IdentifierList = identifier { "," identifier } .
 IdentifierList : identifier
-                << func() (Attrib, error) {
-                        return Node{string($0.(*token.Token).Lit), []string{}}, nil
-                } () >>
-//                | identifier "," IdentifierList
-//                 << func() (Attrib, error) {
-//                       fmt.Println("identifier \",\" IdentifierList");
-//                       return nil, nil
-//                 } () >>
+                        << func() (Attrib, error) {
+                                return Node{"", []string{string($0.(*token.Token).Lit)}}, nil
+                        } () >>
+               | identifier "," IdentifierList
+                        << func() (Attrib, error) {
+                                n := Node{"", []string{string($0.(*token.Token).Lit)}}
+                                n.code = append(n.code, $2.(Node).code...)
+                                return n, nil
+                        } () >>
                ;
 //
 FunctionName : identifier
@@ -1913,8 +1935,11 @@ IncDecStmt : Expression "++"
 ShortVarDecl : IdentifierList shortAssign ExpressionList
                 << func() (Attrib, error) {
                         n := Node{"", $2.(Node).code}
-                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", $0.(Node).place, $2.(Node).place))
-                        n.code = append(n.code, "\n")
+                        expr := strings.Split($2.(Node).place, ",")
+                        for k, v := range $0.(Node).code {
+                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
+
+                        }
                         return n, nil
                 } () >>
              ;

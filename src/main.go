@@ -15,6 +15,11 @@ func GenToken(file string) {
 	gentoken.PrintTokens(file)
 }
 
+// GenIR generates the IR instructions from the input program.
+func GenIR(file string) {
+	parser.GenProductions(file)
+}
+
 // GenAsm generates the assembly code using the IR generated from the input program.
 func GenAsm(file string) {
 	asm.CodeGen(tac.GenTAC(file))
@@ -31,5 +36,5 @@ func main() {
 	if len(args) != 2 {
 		log.Fatalf("Usage: gogo <filename>")
 	}
-	parser.GenProductions(args[1])
+	GenIR(args[1])
 }
