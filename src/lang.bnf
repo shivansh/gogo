@@ -459,14 +459,43 @@ ExpressionList : Expression
                ;
 
 // Expression = UnaryExpr | Expression binary_op Expression .
-Expression : Expression "+" Expression
+Expression : Expression BinaryOp Expression
                 << func() (Attrib, error) {
                         n := Node{"", $0.(Node).code}
-                        n.place = NewTmp()
                         n.code = append(n.code, $2.(Node).code...)
-                        // TODO: Replace + with BinaryOp lexeme.
-                        n.code = append(n.code, fmt.Sprintf("+, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
-                        n.code = append(n.code, "\n")
+                        op := $1.(Node).place
+                        if op == "==" || op == "<=" || op == "<" || op == ">=" || op == ">" || op == "!=" {
+                                branchOp := ""
+                                n.place = NewTmp()
+                                falseLabel := NewLabel()
+                                afterLabel := NewLabel()
+                                switch op {
+                                        case "<":
+                                                branchOp = "bge"
+                                        case ">":
+                                                branchOp = "ble"
+                                        case "<=":
+                                                branchOp = "bgt"
+                                        case ">=":
+                                                branchOp = "blt"
+                                        case "==":
+                                                branchOp = "bne"
+                                        case "!=":
+                                                branchOp = "beq"
+                                }
+                                n.code = append(n.code, fmt.Sprintf("%s, %s, %s, %s", branchOp, falseLabel, $0.(Node).place, $2.(Node).place))
+                                n.code = append(n.code, fmt.Sprintf("=, %s, 1", n.place))
+                                n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
+                                n.code = append(n.code, fmt.Sprintf("label, %s", falseLabel))
+                                n.code = append(n.code, fmt.Sprintf("=, %s, 0", n.place))
+                                n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
+                        } else if op == "+" || op == "-" || op == "*" || op == "/" {
+                                n.place = NewTmp()
+                                n.code = append(n.code, fmt.Sprintf("%s, %s, %s, %s", op, n.place, $0.(Node).place, $2.(Node).place))
+                                n.code = append(n.code, "\n")
+                        }
+                        switch $1.(Node).place {
+                        }
                         return n, nil
               } () >>
            | UnaryExpr
@@ -485,69 +514,62 @@ Expression : Expression "+" Expression
 //                 } () >>
            ;
 
-// BinaryOp    : "||"
-//                   << func() (Attrib, error) {
-//                         fmt.Println("\"||\"");
-//                         return nil, nil
-//                   } () >>
-//
-//               | "&&"
-//                   << func() (Attrib, error) {
-//                     fmt.Println("\"&&\"");
-//                     return nil, nil
-//                   } () >>
-//               | RelOp
-//                   << func() (Attrib, error) {
-//                         fmt.Println("RelOp");
-//                         return nil, nil
-//                   } () >>
-//               | AddOp
-//                   << func() (Attrib, error) {
-//                         fmt.Println("AddOp");
-//                         return nil, nil
-//                   } () >>
-//               | MulOp
-//                   << func() (Attrib, error) {
-//                         fmt.Println("MulOp");
-//                         return nil, nil
-//                   } () >>
-//               ;
-//
-// // unaryOp will be used for defining UnaryExpr in parser.
-// // unaryOp     : '+' | '-' | '!' | '^' | '*' | '&' | '<' '-' ;
-// // binaryOp    : '|' '|' | '&' '&' | _relOp | _addOp | _mulOp ;
-// RelOp : "=="
-//        << func() (Attrib, error) {
-//              fmt.Println("\"==\"");
-//              return nil, nil
-//        } () >>
-//       | "!="
-//       << func() (Attrib, error) {
-//             fmt.Println("\"!=\"");
-//             return nil, nil
-//       } () >>
-//       | "<"
-//       << func() (Attrib, error) {
-//             fmt.Println("\"<\"");
-//             return nil, nil
-//       } () >>
-//       | "<="
-//       << func() (Attrib, error) {
-//             fmt.Println("\"<=\"");
-//             return nil, nil
-//       } () >>
-//       | ">"
-//       << func() (Attrib, error) {
-//             fmt.Println("\">\"");
-//             return nil, nil
-//       } () >>
-//       | ">="
-//       << func() (Attrib, error) {
-//             fmt.Println("\">=\"");
-//             return nil, nil
-//       } () >>
-//       ;
-//
+BinaryOp    : "||"
+                  << func() (Attrib, error) {
+                        fmt.Println("\"||\"");
+                        return nil, nil
+                  } () >>
+
+              | "&&"
+                  << func() (Attrib, error) {
+                    fmt.Println("\"&&\"");
+                    return nil, nil
+                  } () >>
+              | RelOp
+                  << func() (Attrib, error) {
+                        return Node{$0.(Node).place, []string{}}, nil
+                  } () >>
+              // | AddOp
+              //     << func() (Attrib, error) {
+              //           fmt.Println("AddOp");
+              //           return nil, nil
+              //     } () >>
+              // | MulOp
+              //     << func() (Attrib, error) {
+              //           fmt.Println("MulOp");
+              //           return nil, nil
+              //     } () >>
+              ;
+
+// unaryOp will be used for defining UnaryExpr in parser.
+// unaryOp     : '+' | '-' | '!' | '^' | '*' | '&' | '<' '-' ;
+// binaryOp    : '|' '|' | '&' '&' | _relOp | _addOp | _mulOp ;
+RelOp : "=="
+       << func() (Attrib, error) {
+             return Node{"==", []string{}}, nil
+       } () >>
+      | "!="
+      << func() (Attrib, error) {
+            return Node{"!=", []string{}}, nil
+      } () >>
+      | "<"
+      << func() (Attrib, error) {
+              return Node{"<", []string{}}, nil
+      } () >>
+      | "<="
+      << func() (Attrib, error) {
+            return Node{"<=", []string{}}, nil
+      } () >>
+      | ">"
+      << func() (Attrib, error) {
+            return Node{">", []string{}}, nil
+      } () >>
+      | ">="
+      << func() (Attrib, error) {
+            return Node{">=", []string{}}, nil
+      } () >>
+      ;
+
 // AddOp : "+"
 //        << func() (Attrib, error) {
 //              fmt.Println("\"+\"");
