@@ -289,26 +289,30 @@ Declaration : ConstDecl
             //               fmt.Println("TypeDecl");
             //               return nil, nil
             //         } () >>
-            // | VarDecl
-            //         << func() (Attrib, error) {
-            //               fmt.Println("VarDecl");
-            //               return nil, nil
-            //         } () >>
+            | VarDecl
+                    << func() (Attrib, error) {
+                            n := Node{"", []string{}}
+                            n.code = append(n.code, $0.(Node).code...)
+                            n.code = append(n.code, "\n")
+                            return n, nil
+                    } () >>
             ;
 
 // VarDecl     = "var" ( VarSpec | "(" { VarSpec ";" } ")" ) .
 // VarSpec     = IdentifierList ( Type [ "=" ExpressionList ] | "=" ExpressionList ) .
-// VarDecl : kwdVar VarSpec
-//             << func() (Attrib, error) {
-//                   fmt.Println("kwdVar VarSpec");
-//                   return nil, nil
-//             } () >>
+VarDecl : kwdVar VarSpec
+            << func() (Attrib, error) {
+                    n := Node{"", []string{}}
+                    n.code = append(n.code, $1.(Node).code...)
+                    n.code = append(n.code, "\n")
+                    return n, nil
+            } () >>
 //         | kwdVar "(" RepeatTerminator RepeatVarSpec ")"
 //             << func() (Attrib, error) {
 //                   fmt.Println("kwdVar \"(\" RepeatTerminator RepeatVarSpec \")\"");
 //                   return nil, nil
 //             } () >>
-//         ;
+        ;
 //
 // // VarSpec     = IdentifierList ( Type [ "=" ExpressionList ] | "=" ExpressionList ) .
 // RepeatVarSpec : VarSpec terminator RepeatTerminator RepeatVarSpec
@@ -323,16 +327,21 @@ Declaration : ConstDecl
 //                 } () >>
 //               ;
 //
-// VarSpec : IdentifierList Type
-//             << func() (Attrib, error) {
-//                   fmt.Println("IdentifierList Type");
-//                   return nil, nil
-//             } () >>
-//         | IdentifierList Type "=" ExpressionList
-//             << func() (Attrib, error) {
-//                   fmt.Println("IdentifierList Type \"=\" ExpressionList");
-//                   return nil, nil
-//             } () >>
+VarSpec : IdentifierList Type
+            << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        n.code = append(n.code, fmt.Sprintf("=, %s, 0", $0.(Node).place))
+                        n.code = append(n.code, "\n")
+                        return n, nil
+            } () >>
+        | IdentifierList Type "=" ExpressionList
+            << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        n.code = append(n.code, $3.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", $0.(Node).place, $3.(Node).place))
+                        n.code = append(n.code, "\n")
+                        return n, nil
+            } () >>
 //         | IdentifierList "=" ExpressionList
 //             << func() (Attrib, error) {
 //                   fmt.Println("IdentifierList \"=\" ExpressionList");
@@ -343,7 +352,7 @@ Declaration : ConstDecl
 //                   fmt.Println("empty");
 //                   return nil, nil
 //             } () >>
-//         ;
+        ;
 
 // TypeDecl  = "type" ( TypeSpec | "(" { TypeSpec ";" } ")" ) .
 // TypeSpec  = AliasDecl | TypeDef .
@@ -436,9 +445,8 @@ ConstDecl : kwdConst ConstSpec
 
 ConstSpec : IdentifierList
                 << func() (Attrib, error) {
-                        n := Node{"", []string{"="}}
-                        n.code = append(n.code, $0.(Node).code...)
-                        n.code = append(n.code, "0")
+                        n := Node{"", []string{}}
+                        n.code = append(n.code, fmt.Sprintf("=, %s, 0", $0.(Node).place))
                         n.code = append(n.code, "\n")
                         return n, nil
                 } () >>
@@ -446,10 +454,7 @@ ConstSpec : IdentifierList
                 << func() (Attrib, error) {
                         n := Node{"", []string{}}
                         n.code = append(n.code, $2.(Node).code...)
-                        // n.code = append(n.code, "\n")
                         n.code = append(n.code, fmt.Sprintf("=, %s, %s", $0.(Node).place, $2.(Node).place))
-                        // n.code = append(n.code, $0.(Node).code...)
-                        // n.code = append(n.code, $2.(Node).place)
                         n.code = append(n.code, "\n")
                         return n, nil
                 } () >>
@@ -495,7 +500,6 @@ Expression : Expression "+" Expression
                 << func() (Attrib, error) {
                         n := Node{"", []string{}}
                         n.place = NewTmp()
-                        // n.code = append(n.code, $0.(Node).code...)
                         n.code = append(n.code, fmt.Sprintf("=, %s, %s", n.place, $0.(Node).place))
                         n.code = append(n.code, "\n")
                         return n, nil
@@ -637,10 +641,6 @@ Expression : Expression "+" Expression
 UnaryExpr : PrimaryExpr
           << func() (Attrib, error) {
                 n := Node{$0.(Node).place, []string{}}
-                // n.place = NewTmp()
-                // n.code = append(n.code, $0.(Node).code...)
-                // n.code = append(n.code, fmt.Sprintf("=, %s, %s", n.place, $0.(Node).place))
-                // n.code = append(n.code, "\n")
                 return n, nil
           } () >>
 //           | UnaryOp UnaryExpr
@@ -704,10 +704,6 @@ UnaryExpr : PrimaryExpr
 PrimaryExpr : Operand
                 << func() (Attrib, error) {
                         n := Node{$0.(Node).place, []string{}}
-                        // n.place = NewTmp()
-                        // n.code = append(n.code, $0.(Node).code...)
-                        // n.code = append(n.code, fmt.Sprintf("=, %s, %s", n.place, $0.(Node).place))
-                        // n.code = append(n.code, "\n")
                         return n, nil
                 } () >>
 //             | Conversion
@@ -749,10 +745,6 @@ PrimaryExpr : Operand
 Operand : Literal
                 << func() (Attrib, error) {
                         n := Node{$0.(Node).place, []string{}}
-                        // n.place = NewTmp()
-                        // n.code = append(n.code, $0.(Node).code...)
-                        // n.code = append(n.code, fmt.Sprintf("=, %s, %s", n.place, $0.(Node).place))
-                        // n.code = append(n.code, "\n")
                         return n, nil
                 } () >>
 //         | OperandName
@@ -770,9 +762,6 @@ Operand : Literal
 Literal : BasicLit
                 << func() (Attrib, error) {
                         n := Node{$0.(Node).place, []string{}}
-                        // n.code = append(n.code, $0.(Node).code...)
-                        // n.code = append(n.code, fmt.Sprintf("=, %s, %s", n.place, $0.(Node).place))
-                        // n.code = append(n.code, "\n")
                         return n, nil
                 } () >>
 //         | CompositeLit
@@ -791,8 +780,6 @@ BasicLit : intLit
                 << func() (Attrib, error) {
                         n := Node{"", []string{}}
                         n.place = string($0.(*token.Token).Lit)
-                        // n.code = append(n.code, fmt.Sprintf("=, %s, %s", n.place, string($0.(*token.Token).Lit)))
-                        // n.code = append(n.code, "\n")
                         return n, nil
                 } () >>
 //          | floatLit
@@ -1210,11 +1197,10 @@ BasicLit : intLit
 // // TypeName  = identifier | QualifiedIdent .
 // // TypeLit   = ArrayType | StructType | PointerType | FunctionType | InterfaceType |
 // //             SliceType | MapType | ChannelType .
-// Type : type
-//         << func() (Attrib, error) {
-//               fmt.Println("type");
-//               return nil, nil
-//         } () >>
+Type : type
+        << func() (Attrib, error) {
+              return nil, nil
+        } () >>
 //       | identifier
 //         << func() (Attrib, error) {
 //                 fmt.Println("identifier");
@@ -1230,7 +1216,7 @@ BasicLit : intLit
 //               fmt.Println("\"(\" Type \")\"");
 //               return nil, nil
 //         } () >>
-//      ;
+     ;
 //
 // TypeLit : ArrayType
 //         << func() (Attrib, error) {
