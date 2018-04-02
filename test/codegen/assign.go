@@ -5,5 +5,6 @@ func main() {
 	var c int
 	var d int = 1 + 2
         x := 1 + 2
+        x++
         return a + b
 }

@@ -498,9 +498,7 @@ Expression : Expression "+" Expression
               } () >>
            | UnaryExpr
                 << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.place = NewTmp()
-                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", n.place, $0.(Node).place))
+                        n := Node{$0.(Node).place, $0.(Node).code}
                         n.code = append(n.code, "\n")
                         return n, nil
                 } () >>
@@ -1528,6 +1526,11 @@ SimpleStmt : EmptyStmt
                        n := Node{"", $0.(Node).code}
                        return n, nil
                } () >>
+           | IncDecStmt
+                 << func() (Attrib, error) {
+                        n := Node{"", $0.(Node).code}
+                        return n, nil
+                 } () >>
            ;
 
 // SimpleStmt : ExpressionStmt
@@ -1535,11 +1538,6 @@ SimpleStmt : EmptyStmt
 //                       fmt.Println("ExpressionStmt");
 //                       return nil, nil
 //                 } () >>
-//            | IncDecStmt
-//                  << func() (Attrib, error) {
-//                        fmt.Println("IncDecStmt");
-//                        return nil, nil
-//                  } () >>
 //            | Assignment
 //                << func() (Attrib, error) {
 //                      fmt.Println("Assignment");
@@ -1911,19 +1909,23 @@ Block : "{" RepeatTerminator StatementList "}"
 //                       return nil, nil
 //                 } () >>
 //                ;
-//
-// IncDecStmt : Expression "++"
-//                 << func() (Attrib, error) {
-//                       fmt.Println("Expression \"++\"");
-//                       return nil, nil
-//                 } () >>
-//            | Expression "--"
-//                 << func() (Attrib, error) {
-//                       fmt.Println("Expression \"--\"");
-//                       return nil, nil
-//                 } () >>
-//            ;
-//
+
+IncDecStmt : Expression "++"
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        n.code = append(n.code, $0.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("+, %s, %s, 1", $0.(Node).place, $0.(Node).place))
+                        return n, nil
+                } () >>
+           | Expression "--"
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        n.code = append(n.code, $0.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("-, %s, %s, 1", $0.(Node).place, $0.(Node).place))
+                        return n, nil
+                } () >>
+           ;
+
 // Assignment : ExpressionList assignOp ExpressionList
 //                 << func() (Attrib, error) {
 //                       fmt.Println("ExpressionList assignOp ExpressionList");
