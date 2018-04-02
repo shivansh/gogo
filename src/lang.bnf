@@ -1523,6 +1523,11 @@ SimpleStmt : EmptyStmt
                         n := Node{"", []string{}}
                         return n, nil
                 } () >>
+           | ShortVarDecl
+               << func() (Attrib, error) {
+                       n := Node{"", $0.(Node).code}
+                       return n, nil
+               } () >>
            ;
 
 // SimpleStmt : ExpressionStmt
@@ -1930,14 +1935,17 @@ Block : "{" RepeatTerminator StatementList "}"
 //                       return nil, nil
 //                 } () >>
 //            ;
-//
-// ShortVarDecl : IdentifierList shortAssign ExpressionList
-//                 << func() (Attrib, error) {
-//                       fmt.Println("IdentifierList shortAssign ExpressionList");
-//                       return nil, nil
-//                 } () >>
-//              ;
-//
+
+ShortVarDecl : IdentifierList shortAssign ExpressionList
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        n.code = append(n.code, $2.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", $0.(Node).place, $2.(Node).place))
+                        n.code = append(n.code, "\n")
+                        return n, nil
+                } () >>
+             ;
+
 // Label : identifier
 //                 << func() (Attrib, error) {
 //                       fmt.Println("identifier");
