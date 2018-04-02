@@ -638,7 +638,7 @@ Expression : Expression "+" Expression
 // // UnaryExpr  = PrimaryExpr | unary_op UnaryExpr .
 UnaryExpr : PrimaryExpr
           << func() (Attrib, error) {
-                n := Node{$0.(Node).place, []string{}}
+                n := Node{$0.(Node).place, $0.(Node).code}
                 return n, nil
           } () >>
 //           | UnaryOp UnaryExpr
@@ -729,11 +729,15 @@ PrimaryExpr : Operand
 //                       fmt.Println("PrimaryExpr TypeAssertion");
 //                       return nil, nil
 //                 } () >>
-//             | PrimaryExpr Arguments
-//                 << func() (Attrib, error) {
-//                       fmt.Println("PrimaryExpr Arguments");
-//                       return nil, nil
-//                 } () >>
+            | PrimaryExpr Arguments
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        n.place = NewTmp()
+                        n.code = append(n.code, fmt.Sprintf("call, %s", $0.(Node).place))
+                        n.code = append(n.code, fmt.Sprintf("store, %s", n.place))
+                        n.code = append(n.code, "\n")
+                        return n, nil
+                } () >>
             ;
 //
 // // Operand     = Literal | OperandName | "(" Expression ")" .
@@ -1013,11 +1017,7 @@ OperandName : identifier
 //               ;
 //
 // // Arguments      = "(" [ ( ExpressionList | Type [ "," ExpressionList ] ) [ "..." ] [ "," ] ] ")" .
-// Arguments : "(" ")"
-//                 << func() (Attrib, error) {
-//                       fmt.Println("\"(\" \")\"");
-//                       return nil, nil
-//                 } () >>
+Arguments : "(" ")"
 //           | "(" ExpressionList ")"
 //                 << func() (Attrib, error) {
 //                       fmt.Println("\"(\" ExpressionList \")\"");
@@ -1078,7 +1078,7 @@ OperandName : identifier
 //                       fmt.Println("\"(\" Type \",\" ExpressionList \"...\" \",\" \")\"");
 //                       return nil, nil
 //                 } () >>
-//           ;
+          ;
 //
 // Conversion : Type "(" Expression ")"
 //                 << func() (Attrib, error) {
@@ -1098,16 +1098,11 @@ OperandName : identifier
 FunctionDecl : kwdFunc FunctionName Signature FunctionBody
                 << func() (Attrib, error) {
                         n := Node{"", []string{fmt.Sprintf("func, %s", $1.(Node).place)}}
-                        // n.code = append(n.code, fmt.Sprintf("func, %s", $1.(Node).place))
                         n.code = append(n.code, $3.(Node).code...)
                         n.code = append(n.code, "\n")
                         return n, nil
                 } () >>
              | kwdFunc FunctionName Signature
-             //    << func() (Attrib, error) {
-             //          fmt.Println("kwdFunc FunctionName Signature");
-             //          return nil, nil
-             //    } () >>
              ;
 
 // // Signature      = Parameters [ Result ] .
