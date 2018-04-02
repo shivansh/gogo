@@ -267,13 +267,13 @@ TopLevelDecl : Declaration RepeatTerminator
                         n.code = append(n.code, "\n")
                         return n, nil
                 } () >>
-             // | FunctionDecl RepeatTerminator
-             //    << func() (Attrib, error) {
-             //            n := Node{"", []string{}}
-             //            n.code = append(n.code, $0.(Node).code...)
-             //            n.code = append(n.code, "\n")
-             //            return n, nil
-             //    } () >>
+             | FunctionDecl RepeatTerminator
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        n.code = append(n.code, $0.(Node).code...)
+                        n.code = append(n.code, "\n")
+                        return n, nil
+                } () >>
              ;
 
 // Declaration = ConstDecl | TypeDecl | VarDecl .
@@ -1097,34 +1097,37 @@ BasicLit : intLit
 // // FunctionDecl = "func" FunctionName Signature [ FunctionBody ] .
 // // FunctionName = identifier .
 // // FunctionBody = Block .
-// FunctionDecl : kwdFunc FunctionName Signature
-//                 << func() (Attrib, error) {
-//                       fmt.Println("kwdFunc FunctionName Signature");
-//                       return nil, nil
-//                 } () >>
-//              | kwdFunc FunctionName Signature FunctionBody
-//                 << func() (Attrib, error) {
-//                       fmt.Println("kwdFunc FunctionName Signature FunctionBody");
-//                       return nil, nil
-//                 } () >>
-//              ;
-//
+FunctionDecl : kwdFunc FunctionName Signature FunctionBody
+                << func() (Attrib, error) {
+                        n := Node{"", []string{fmt.Sprintf("func, %s", $1.(Node).place)}}
+                        // n.code = append(n.code, fmt.Sprintf("func, %s", $1.(Node).place))
+                        n.code = append(n.code, $3.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("ret,"))
+                        n.code = append(n.code, "\n")
+                        return n, nil
+                } () >>
+             | kwdFunc FunctionName Signature
+             //    << func() (Attrib, error) {
+             //          fmt.Println("kwdFunc FunctionName Signature");
+             //          return nil, nil
+             //    } () >>
+             ;
+
 // // Signature      = Parameters [ Result ] .
 // // Result         = Parameters | Type .
 // // Parameters     = "(" [ ParameterList [ "," ] ] ")" .
 // // ParameterList  = ParameterDecl { "," ParameterDecl } .
 // // ParameterDecl  = [ IdentifierList ] [ "..." ] Type .
-// Signature : Parameters
-//                 << func() (Attrib, error) {
-//                       fmt.Println("Parameters");
-//                       return nil, nil
-//                 } () >>
+Signature : Parameters
+                << func() (Attrib, error) {
+                        return nil, nil
+                } () >>
 //           | Parameters Result
 //                 << func() (Attrib, error) {
 //                       fmt.Println("Parameters Result");
 //                       return nil, nil
 //                 } () >>
-//           ;
+          ;
 //
 // Result : Parameters
 //               << func() (Attrib, error) {
@@ -1140,17 +1143,16 @@ BasicLit : intLit
 //
 // // TODO: Ignore terminator
 // // TODO: Parameters cannot end in ','
-// Parameters : "(" RepeatTerminator ")"
-//                  << func() (Attrib, error) {
-//                        fmt.Println("\"( RepeatTerminator )\"");
-//                        return nil, nil
-//                  } () >>
+Parameters : "(" RepeatTerminator ")"
+                 << func() (Attrib, error) {
+                       return nil, nil
+                 } () >>
 //            | "(" ParameterList ")"
 //                 << func() (Attrib, error) {
 //                       fmt.Println("\"(\" ParameterList \")\"");
 //                       return nil, nil
 //                 } () >>
-//            ;
+           ;
 //
 // ParameterList : ParameterDecl RepeatParameterDecl
 //                 << func() (Attrib, error) {
@@ -1391,20 +1393,20 @@ IdentifierList : identifier
 //                 } () >>
                ;
 //
-// FunctionName : identifier
-//                 << func() (Attrib, error) {
-//                       fmt.Println("identifier");
-//                       return nil, nil
-//                 } () >>
-//              ;
-//
-// FunctionBody : Block
-//                 << func() (Attrib, error) {
-//                       fmt.Println("Block");
-//                       return nil, nil
-//                 } () >>
-//              ;
-//
+FunctionName : identifier
+                << func() (Attrib, error) {
+                        n := Node{string($0.(*token.Token).Lit), []string{}}
+                        return n, nil
+                 } () >>
+              ;
+
+FunctionBody : Block
+                << func() (Attrib, error) {
+                        n := Node{"", $0.(Node).code}
+                        return n, nil
+                } () >>
+             ;
+
 RepeatTerminator : terminator RepeatTerminator
                 << func() (Attrib, error) {
                       return nil, nil
@@ -1414,38 +1416,47 @@ RepeatTerminator : terminator RepeatTerminator
                       return nil, nil
                 } () >>
                  ;
-//
-// StatementList : Statement terminator RepeatTerminator StatementList
-//                 << func() (Attrib, error) {
-//                       fmt.Println("Statement terminator RepeatTerminator StatementList");
-//                       return nil, nil
-//                 } () >>
-//               | Statement RepeatTerminator
-//                 << func() (Attrib, error) {
-//                       fmt.Println("Statement RepeatTerminator");
-//                       return nil, nil
-//                 } () >>
-//               ;
+
+StatementList : Statement terminator RepeatTerminator StatementList
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        n.code = append(n.code, $0.(Node).code...)
+                        n.code = append(n.code, $3.(Node).code...)
+                        n.code = append(n.code, "\n")
+                        return n, nil
+                } () >>
+              | Statement RepeatTerminator
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        n.code = append(n.code, $0.(Node).code...)
+                        n.code = append(n.code, "\n")
+                        return n, nil
+                } () >>
+              ;
 //
 // // Statement = Declaration | LabeledStmt | SimpleStmt |
 // //             GoStmt | ReturnStmt | BreakStmt | ContinueStmt | GotoStmt |
 // //             FallthroughStmt | Block | IfStmt | SwitchStmt | SelectStmt | ForStmt |
 // //             DeferStmt .
-// Statement : Declaration
-//                 << func() (Attrib, error) {
-//                       fmt.Println("Declaration");
-//                       return nil, nil
-//                 } () >>
+Statement : Declaration
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        n.code = append(n.code, $0.(Node).code...)
+                        n.code = append(n.code, "\n")
+                        return n, nil
+                } () >>
 //           | LabeledStmt
 //                 << func() (Attrib, error) {
 //                       fmt.Println("LabeledStmt");
 //                       return nil, nil
 //                 } () >>
-//           | SimpleStmt
-//                 << func() (Attrib, error) {
-//                       fmt.Println("SimpleStmt");
-//                       return nil, nil
-//                 } () >>
+          | SimpleStmt
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        n.code = append(n.code, $0.(Node).code...)
+                        n.code = append(n.code, "\n")
+                        return n, nil
+                } () >>
 //           | ReturnStmt
 //                 << func() (Attrib, error) {
 //                       fmt.Println("ReturnStmt");
@@ -1487,7 +1498,7 @@ RepeatTerminator : terminator RepeatTerminator
 //                       fmt.Println("ForStmt");
 //                       return nil, nil
 //                 } () >>
-//           ;
+          ;
 //
 // // LabeledStmt = Label ":" Statement .
 // // Label       = identifier .
@@ -1505,6 +1516,14 @@ RepeatTerminator : terminator RepeatTerminator
 // // Assignment = ExpressionList assign_op ExpressionList .
 // // assign_op = [ add_op | mul_op ] "=" .
 // // ShortVarDecl = IdentifierList ":=" ExpressionList .
+
+SimpleStmt : EmptyStmt
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        return n, nil
+                } () >>
+           ;
+
 // SimpleStmt : ExpressionStmt
 //                 << func() (Attrib, error) {
 //                       fmt.Println("ExpressionStmt");
@@ -1531,14 +1550,9 @@ RepeatTerminator : terminator RepeatTerminator
 //                      return nil, nil
 //                } () >>
 //            ;
-//
-// EmptyStmt : empty
-//                   << func() (Attrib, error) {
-//                         fmt.Println("empty");
-//                         return nil, nil
-//                   } () >>
-//           ;
-//
+
+EmptyStmt : empty ;
+
 // ReturnStmt : kwdRet
 //                   << func() (Attrib, error) {
 //                         fmt.Println("kwdRet");
@@ -1585,12 +1599,12 @@ RepeatTerminator : terminator RepeatTerminator
 //                 } () >>
 //          ;
 //
-// Block : "{" RepeatTerminator StatementList "}"
-//                 << func() (Attrib, error) {
-//                       fmt.Println("\"{\" RepeatTerminator StatementList \"}\"");
-//                       return nil, nil
-//                 } () >>
-//       ;
+Block : "{" RepeatTerminator StatementList "}"
+                << func() (Attrib, error) {
+                        n := Node{"", $2.(Node).code}
+                        return n, nil
+                } () >>
+      ;
 //
 // // IfStmt = "if" [ SimpleStmt ";" ] Expression Block [ "else" ( IfStmt | Block ) ] .
 // IfStmt : kwdIf Expression Block
