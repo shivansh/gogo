@@ -99,12 +99,21 @@ type Node struct {
         code []string
 }
 
-var index int = 0
+var tmpIndex int = 0
+var labelIndex int = 0
 
+// NewTmp generates a unique temporary.
 func NewTmp() string {
-        t := fmt.Sprintf("t%d", index)
-        index++
+        t := fmt.Sprintf("t%d", tmpIndex)
+        tmpIndex++
         return t
+}
+
+// NewLabel generates a unique label name.
+func NewLabel() string {
+        l := fmt.Sprintf("l%d", labelIndex)
+        labelIndex++
+        return l
 }
 
 >>
@@ -1406,11 +1415,10 @@ Statement : Declaration
 //                       fmt.Println("Block");
 //                       return nil, nil
 //                 } () >>
-//          | IfStmt
-//                << func() (Attrib, error) {
-//                      fmt.Println("IfStmt");
-//                      return nil, nil
-//                } () >>
+         | IfStmt
+               << func() (Attrib, error) {
+                       return Node{"", $0.(Node).code}, nil
+               } () >>
 //          | SwitchStmt
 //                 << func() (Attrib, error) {
 //                       fmt.Println("SwitchStmt");
@@ -1530,23 +1538,38 @@ Block : "{" RepeatTerminator StatementList "}"
                         return Node{"", $2.(Node).code}, nil
                 } () >>
       ;
-//
-// // IfStmt = "if" [ SimpleStmt ";" ] Expression Block [ "else" ( IfStmt | Block ) ] .
-// IfStmt : kwdIf Expression Block
-//               << func() (Attrib, error) {
-//                     fmt.Println("kwdIf Expression Block");
-//                     return nil, nil
-//               } () >>
-//        | kwdIf Expression Block kwdElse IfStmt
-//                 << func() (Attrib, error) {
-//                       fmt.Println("kwdIf Expression Block kwdElse IfStmt");
-//                       return nil, nil
-//                 } () >>
-//        | kwdIf Expression Block kwdElse Block
-//                 << func() (Attrib, error) {
-//                       fmt.Println("kwdIf Expression Block kwdElse Block");
-//                       return nil, nil
-//                 } () >>
+
+// IfStmt = "if" [ SimpleStmt ";" ] Expression Block [ "else" ( IfStmt | Block ) ] .
+IfStmt : kwdIf Expression Block
+              << func() (Attrib, error) {
+                        n := Node{"", $1.(Node).code}
+                        afterLabel := NewLabel()
+                        n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", afterLabel, $1.(Node).place))
+                        n.code = append(n.code, $2.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
+                        n.code = append(n.code, "\n")
+                        return n, nil
+              } () >>
+       | kwdIf Expression Block kwdElse Block
+                << func() (Attrib, error) {
+                        n := Node{"", $1.(Node).code}
+                        elseLabel := NewLabel()
+                        afterLabel := NewLabel()
+                        n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", elseLabel, $1.(Node).place))
+                        n.code = append(n.code, $2.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
+                        n.code = append(n.code, fmt.Sprintf("label, %s", elseLabel))
+                        n.code = append(n.code, $4.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
+                        return n, nil
+                      fmt.Println("kwdIf Expression Block kwdElse Block");
+                      return nil, nil
+                } () >>
+       // | kwdIf Expression Block kwdElse IfStmt
+       //          << func() (Attrib, error) {
+       //               fmt.Println("kwdIf SimpleStmt terminator Expression Block");
+       //               return nil, nil
+       //          } () >>
 //        | kwdIf SimpleStmt terminator Expression Block
 //                << func() (Attrib, error) {
 //                      fmt.Println("kwdIf SimpleStmt terminator Expression Block");
@@ -1562,7 +1585,7 @@ Block : "{" RepeatTerminator StatementList "}"
 //                       fmt.Println("kwdIf SimpleStmt terminator Expression Block kwdElse Block");
 //                       return nil, nil
 //                 } () >>
-//        ;
+       ;
 //
 // // SwitchStmt = ExprSwitchStmt | TypeSwitchStmt .
 // SwitchStmt : ExprSwitchStmt
