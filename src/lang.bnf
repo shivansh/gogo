@@ -1424,11 +1424,10 @@ Statement : Declaration
 //                       fmt.Println("SwitchStmt");
 //                       return nil, nil
 //                 } () >>
-//          | ForStmt
-//                 << func() (Attrib, error) {
-//                       fmt.Println("ForStmt");
-//                       return nil, nil
-//                 } () >>
+         | ForStmt
+                << func() (Attrib, error) {
+                       return Node{"", $0.(Node).code}, nil
+                } () >>
           ;
 //
 // // LabeledStmt = Label ":" Statement .
@@ -1736,19 +1735,31 @@ IfStmt : kwdIf Expression Block
 //                       return nil, nil
 //                 } () >>
 //            ;
-//
-// // ForStmt = "for" [ Condition | ForClause | RangeClause ] Block .
-// // Condition = Expression .
-// ForStmt : kwdFor Block
-//                 << func() (Attrib, error) {
-//                       fmt.Println("kwdFor Block");
-//                       return nil, nil
-//                 } () >>
-//         | kwdFor Condition Block
-//                 << func() (Attrib, error) {
-//                       fmt.Println("kwdFor Condition Block");
-//                       return nil, nil
-//                 } () >>
+
+// ForStmt = "for" [ Condition | ForClause | RangeClause ] Block .
+// Condition = Expression .
+ForStmt : kwdFor Block
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        startLabel := NewLabel()
+                        n.code = append(n.code, fmt.Sprintf("label, %s", startLabel))
+                        n.code = append(n.code, $1.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("j, %s", startLabel))
+                        return n, nil
+                } () >>
+        | kwdFor Condition Block
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        startLabel := NewLabel()
+                        afterLabel := NewLabel()
+                        n.code = append(n.code, fmt.Sprintf("label, %s", startLabel))
+                        n.code = append(n.code, $1.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", afterLabel, $1.(Node).place))
+                        n.code = append(n.code, $2.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("j, %s", startLabel))
+                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
+                        return n, nil
+                } () >>
 //         | kwdFor ForClause Block
 //                 << func() (Attrib, error) {
 //                       fmt.Println("kwdFor ForClause Block");
@@ -1759,7 +1770,7 @@ IfStmt : kwdIf Expression Block
 //                       fmt.Println("kwdFor RangeClause Block");
 //                       return nil, nil
 //                 } () >>
-//         ;
+        ;
 //
 // // RangeClause = [ ExpressionList "=" | IdentifierList ":=" ] "range" Expression .
 // RangeClause : kwdRange Expression
@@ -1837,14 +1848,13 @@ IfStmt : kwdIf Expression Block
 //                     return nil, nil
 //               } () >>
 //          ;
-//
-// Condition : Expression
-//               << func() (Attrib, error) {
-//                     fmt.Println("Expression");
-//                     return nil, nil
-//               } () >>
-//           ;
-//
+
+Condition : Expression
+              << func() (Attrib, error) {
+                      return Node{$0.(Node).place, $0.(Node).code}, nil
+              } () >>
+          ;
+
 // ExpressionStmt : Expression
 //                 << func() (Attrib, error) {
 //                       fmt.Println("Expression");
