@@ -747,11 +747,11 @@ Operand : Literal
                         n := Node{$0.(Node).place, []string{}}
                         return n, nil
                 } () >>
-//         | OperandName
-//                 << func() (Attrib, error) {
-//                       fmt.Println("OperandName");
-//                       return nil, nil
-//                 } () >>
+        | OperandName
+                << func() (Attrib, error) {
+                        n := Node{$0.(Node).place, []string{}}
+                        return n, nil
+                } () >>
 //         | "(" Expression ")"
 //                 << func() (Attrib, error) {
 //                       fmt.Println("\"(\" Expression \")\"");
@@ -946,14 +946,14 @@ BasicLit : intLit
 //                       return nil, nil
 //                 } () >>
 //             ;
-//
-// OperandName : identifier
-//                 << func() (Attrib, error) {
-//                       fmt.Println("identifier");
-//                       return nil, nil
-//                 } () >>
-//             ;
-//
+
+OperandName : identifier
+                << func() (Attrib, error) {
+                        n := Node{string($0.(*token.Token).Lit), []string{}}
+                        return n, nil
+                } () >>
+            ;
+
 // // Selector       = "." identifier .
 // // Index          = "[" Expression "]" .
 // // Slice          = "[" [ Expression ] ":" [ Expression ] "]" |
@@ -1102,7 +1102,6 @@ FunctionDecl : kwdFunc FunctionName Signature FunctionBody
                         n := Node{"", []string{fmt.Sprintf("func, %s", $1.(Node).place)}}
                         // n.code = append(n.code, fmt.Sprintf("func, %s", $1.(Node).place))
                         n.code = append(n.code, $3.(Node).code...)
-                        n.code = append(n.code, fmt.Sprintf("ret,"))
                         n.code = append(n.code, "\n")
                         return n, nil
                 } () >>
@@ -1457,11 +1456,13 @@ Statement : Declaration
                         n.code = append(n.code, "\n")
                         return n, nil
                 } () >>
-//           | ReturnStmt
-//                 << func() (Attrib, error) {
-//                       fmt.Println("ReturnStmt");
-//                       return nil, nil
-//                 } () >>
+          | ReturnStmt
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        n.code = append(n.code, $0.(Node).code...)
+                        n.code = append(n.code, "\n")
+                        return n, nil
+                } () >>
 //           | BreakStmt
 //                 << func() (Attrib, error) {
 //                       fmt.Println("BreakStmt");
@@ -1553,18 +1554,20 @@ SimpleStmt : EmptyStmt
 
 EmptyStmt : empty ;
 
-// ReturnStmt : kwdRet
-//                   << func() (Attrib, error) {
-//                         fmt.Println("kwdRet");
-//                         return nil, nil
-//                   } () >>
-//            | kwdRet ExpressionList
-//                  << func() (Attrib, error) {
-//                        fmt.Println("kwdRet ExpressionList");
-//                        return nil, nil
-//                  } () >>
-//            ;
-//
+ReturnStmt : kwdRet
+                << func() (Attrib, error) {
+                        n := Node{"", []string{"ret,"}}
+                        return n, nil
+                } () >>
+           | kwdRet ExpressionList
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        n.code = append(n.code, $1.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("ret, %s", $1.(Node).place))
+                        return n, nil
+                } () >>
+           ;
+
 // // BreakStmt = "break" [ Label ] .
 // BreakStmt : kwdBreak
 //                 << func() (Attrib, error) {
