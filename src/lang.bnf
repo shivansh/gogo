@@ -150,10 +150,7 @@ Start : SourceFile
 // SourceFile : PackageClause terminator RepeatTerminator RepeatImportDecl RepeatTopLevelDecl
 SourceFile : RepeatTopLevelDecl
                 << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.code = append(n.code, $0.(Node).code...)
-                        n.code = append(n.code, "\n")
-                        return n, nil
+                        return Node{"", $0.(Node).code}, nil
                 } () >>
            ;
 
@@ -247,42 +244,30 @@ SourceFile : RepeatTopLevelDecl
 // TopLevelDecl  = Declaration | FunctionDecl | MethodDecl .
 RepeatTopLevelDecl : TopLevelDecl RepeatTopLevelDecl
                         << func() (Attrib, error) {
-                              n := Node{"", []string{}}
-                              n.code = append(n.code, $0.(Node).code...)
+                              n := Node{"", $0.(Node).code}
                               n.code = append(n.code, $1.(Node).code...)
-                              n.code = append(n.code, "\n")
                               return n, nil
                         } () >>
                    | empty
                         << func() (Attrib, error) {
-                              n := Node{"", []string{}}
-                              return n, nil
+                              return Node{"", []string{}}, nil
                         } () >>
                    ;
 
 TopLevelDecl : Declaration RepeatTerminator
                 << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.code = append(n.code, $0.(Node).code...)
-                        n.code = append(n.code, "\n")
-                        return n, nil
+                        return Node{"", $0.(Node).code}, nil
                 } () >>
              | FunctionDecl RepeatTerminator
                 << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.code = append(n.code, $0.(Node).code...)
-                        n.code = append(n.code, "\n")
-                        return n, nil
+                        return Node{"", $0.(Node).code}, nil
                 } () >>
              ;
 
 // Declaration = ConstDecl | TypeDecl | VarDecl .
 Declaration : ConstDecl
                     << func() (Attrib, error) {
-                            n := Node{"", []string{}}
-                            n.code = append(n.code, $0.(Node).code...)
-                            n.code = append(n.code, "\n")
-                            return n, nil
+                            return Node{"", $0.(Node).code}, nil
                     } () >>
             // | TypeDecl
             //         << func() (Attrib, error) {
@@ -291,10 +276,7 @@ Declaration : ConstDecl
             //         } () >>
             | VarDecl
                     << func() (Attrib, error) {
-                            n := Node{"", []string{}}
-                            n.code = append(n.code, $0.(Node).code...)
-                            n.code = append(n.code, "\n")
-                            return n, nil
+                            return Node{"", $0.(Node).code}, nil
                     } () >>
             ;
 
@@ -302,10 +284,7 @@ Declaration : ConstDecl
 // VarSpec     = IdentifierList ( Type [ "=" ExpressionList ] | "=" ExpressionList ) .
 VarDecl : kwdVar VarSpec
             << func() (Attrib, error) {
-                    n := Node{"", []string{}}
-                    n.code = append(n.code, $1.(Node).code...)
-                    n.code = append(n.code, "\n")
-                    return n, nil
+                    return Node{"", $1.(Node).code}, nil
             } () >>
 //         | kwdVar "(" RepeatTerminator RepeatVarSpec ")"
 //             << func() (Attrib, error) {
@@ -329,15 +308,11 @@ VarDecl : kwdVar VarSpec
 //
 VarSpec : IdentifierList Type
             << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.code = append(n.code, fmt.Sprintf("=, %s, 0", $0.(Node).place))
-                        n.code = append(n.code, "\n")
-                        return n, nil
+                        return Node{"", []string{fmt.Sprintf("=, %s, 0", $0.(Node).place), "\n"}}, nil
             } () >>
         | IdentifierList Type "=" ExpressionList
             << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.code = append(n.code, $3.(Node).code...)
+                        n := Node{"", $3.(Node).code}
                         n.code = append(n.code, fmt.Sprintf("=, %s, %s", $0.(Node).place, $3.(Node).place))
                         n.code = append(n.code, "\n")
                         return n, nil
@@ -419,10 +394,7 @@ VarSpec : IdentifierList Type
 // ExpressionList = Expression { "," Expression } .
 ConstDecl : kwdConst ConstSpec
             << func() (Attrib, error) {
-                    n := Node{"", []string{}}
-                    n.code = append(n.code, $1.(Node).code...)
-                    n.code = append(n.code, "\n")
-                    return n, nil
+                    return Node{"", $1.(Node).code}, nil
             } () >>
           // | kwdConst "(" RepeatTerminator RepeatConstSpec ")"
           //   << func() (Attrib, error) {
@@ -445,15 +417,11 @@ ConstDecl : kwdConst ConstSpec
 
 ConstSpec : IdentifierList
                 << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.code = append(n.code, fmt.Sprintf("=, %s, 0", $0.(Node).place))
-                        n.code = append(n.code, "\n")
-                        return n, nil
+                        return Node{"", []string{fmt.Sprintf("=, %s, 0", $0.(Node).place), "\n"}}, nil
                 } () >>
           | IdentifierList "=" ExpressionList
                 << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.code = append(n.code, $2.(Node).code...)
+                        n := Node{"", $2.(Node).code}
                         n.code = append(n.code, fmt.Sprintf("=, %s, %s", $0.(Node).place, $2.(Node).place))
                         n.code = append(n.code, "\n")
                         return n, nil
@@ -472,10 +440,7 @@ ConstSpec : IdentifierList
 
 ExpressionList : Expression
                 << func() (Attrib, error) {
-                        n := Node{$0.(Node).place, []string{}}
-                        n.code = append(n.code, $0.(Node).code...)
-                        n.code = append(n.code, "\n")
-                        return n, nil
+                        return Node{$0.(Node).place, $0.(Node).code}, nil
                 } () >>
 //                | Expression "," ExpressionList
 //                << func() (Attrib, error) {
@@ -487,9 +452,8 @@ ExpressionList : Expression
 // Expression = UnaryExpr | Expression binary_op Expression .
 Expression : Expression "+" Expression
                 << func() (Attrib, error) {
-                        n := Node{"", []string{}}
+                        n := Node{"", $0.(Node).code}
                         n.place = NewTmp()
-                        n.code = append(n.code, $0.(Node).code...)
                         n.code = append(n.code, $2.(Node).code...)
                         // TODO: Replace + with BinaryOp lexeme.
                         n.code = append(n.code, fmt.Sprintf("+, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
@@ -498,9 +462,7 @@ Expression : Expression "+" Expression
               } () >>
            | UnaryExpr
                 << func() (Attrib, error) {
-                        n := Node{$0.(Node).place, $0.(Node).code}
-                        n.code = append(n.code, "\n")
-                        return n, nil
+                        return Node{$0.(Node).place, $0.(Node).code}, nil
                 } () >>
 //           // Since PointerType defines "*" to be a token, expressions
 //           // like `y = x * 2` will not be parsed because parser will
@@ -638,8 +600,7 @@ Expression : Expression "+" Expression
 // // UnaryExpr  = PrimaryExpr | unary_op UnaryExpr .
 UnaryExpr : PrimaryExpr
           << func() (Attrib, error) {
-                n := Node{$0.(Node).place, $0.(Node).code}
-                return n, nil
+                return Node{$0.(Node).place, $0.(Node).code}, nil
           } () >>
 //           | UnaryOp UnaryExpr
 //           << func() (Attrib, error) {
@@ -701,8 +662,7 @@ UnaryExpr : PrimaryExpr
 // //  PrimaryExpr Arguments .
 PrimaryExpr : Operand
                 << func() (Attrib, error) {
-                        n := Node{$0.(Node).place, []string{}}
-                        return n, nil
+                        return Node{$0.(Node).place, []string{}}, nil
                 } () >>
 //             | Conversion
 //                 << func() (Attrib, error) {
@@ -746,13 +706,11 @@ PrimaryExpr : Operand
 // // OperandName = identifier | QualifiedIdent.
 Operand : Literal
                 << func() (Attrib, error) {
-                        n := Node{$0.(Node).place, []string{}}
-                        return n, nil
+                        return Node{$0.(Node).place, []string{}}, nil
                 } () >>
         | OperandName
                 << func() (Attrib, error) {
-                        n := Node{$0.(Node).place, []string{}}
-                        return n, nil
+                        return Node{$0.(Node).place, []string{}}, nil
                 } () >>
 //         | "(" Expression ")"
 //                 << func() (Attrib, error) {
@@ -763,8 +721,7 @@ Operand : Literal
 //
 Literal : BasicLit
                 << func() (Attrib, error) {
-                        n := Node{$0.(Node).place, []string{}}
-                        return n, nil
+                        return Node{$0.(Node).place, []string{}}, nil
                 } () >>
 //         | CompositeLit
 //                 << func() (Attrib, error) {
@@ -780,9 +737,7 @@ Literal : BasicLit
 //
 BasicLit : intLit
                 << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.place = string($0.(*token.Token).Lit)
-                        return n, nil
+                        return Node{string($0.(*token.Token).Lit), []string{}}, nil
                 } () >>
 //          | floatLit
 //                 << func() (Attrib, error) {
@@ -1099,7 +1054,6 @@ FunctionDecl : kwdFunc FunctionName Signature FunctionBody
                 << func() (Attrib, error) {
                         n := Node{"", []string{fmt.Sprintf("func, %s", $1.(Node).place)}}
                         n.code = append(n.code, $3.(Node).code...)
-                        n.code = append(n.code, "\n")
                         return n, nil
                 } () >>
              | kwdFunc FunctionName Signature
@@ -1111,9 +1065,6 @@ FunctionDecl : kwdFunc FunctionName Signature FunctionBody
 // // ParameterList  = ParameterDecl { "," ParameterDecl } .
 // // ParameterDecl  = [ IdentifierList ] [ "..." ] Type .
 Signature : Parameters
-                << func() (Attrib, error) {
-                        return nil, nil
-                } () >>
 //           | Parameters Result
 //                 << func() (Attrib, error) {
 //                       fmt.Println("Parameters Result");
@@ -1136,9 +1087,6 @@ Signature : Parameters
 // // TODO: Ignore terminator
 // // TODO: Parameters cannot end in ','
 Parameters : "(" RepeatTerminator ")"
-                 << func() (Attrib, error) {
-                       return nil, nil
-                 } () >>
 //            | "(" ParameterList ")"
 //                 << func() (Attrib, error) {
 //                       fmt.Println("\"(\" ParameterList \")\"");
@@ -1373,10 +1321,7 @@ Type : type
 // // IdentifierList = identifier { "," identifier } .
 IdentifierList : identifier
                 << func() (Attrib, error) {
-                        n := Node{string($0.(*token.Token).Lit), []string{}}
-                        // n.code = append(n.code, string($0.(*token.Token).Lit))
-                        // n.code = append(n.code, "\n")
-                        return n, nil
+                        return Node{string($0.(*token.Token).Lit), []string{}}, nil
                 } () >>
 //                | identifier "," IdentifierList
 //                 << func() (Attrib, error) {
@@ -1387,15 +1332,13 @@ IdentifierList : identifier
 //
 FunctionName : identifier
                 << func() (Attrib, error) {
-                        n := Node{string($0.(*token.Token).Lit), []string{}}
-                        return n, nil
+                        return Node{string($0.(*token.Token).Lit), []string{}}, nil
                  } () >>
               ;
 
 FunctionBody : Block
                 << func() (Attrib, error) {
-                        n := Node{"", $0.(Node).code}
-                        return n, nil
+                        return Node{"", $0.(Node).code}, nil
                 } () >>
              ;
 
@@ -1411,18 +1354,13 @@ RepeatTerminator : terminator RepeatTerminator
 
 StatementList : Statement terminator RepeatTerminator StatementList
                 << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.code = append(n.code, $0.(Node).code...)
+                        n := Node{"", $0.(Node).code}
                         n.code = append(n.code, $3.(Node).code...)
-                        n.code = append(n.code, "\n")
                         return n, nil
                 } () >>
               | Statement RepeatTerminator
                 << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.code = append(n.code, $0.(Node).code...)
-                        n.code = append(n.code, "\n")
-                        return n, nil
+                        return Node{"", $0.(Node).code}, nil
                 } () >>
               ;
 //
@@ -1432,10 +1370,7 @@ StatementList : Statement terminator RepeatTerminator StatementList
 // //             DeferStmt .
 Statement : Declaration
                 << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.code = append(n.code, $0.(Node).code...)
-                        n.code = append(n.code, "\n")
-                        return n, nil
+                        return Node{"", $0.(Node).code}, nil
                 } () >>
 //           | LabeledStmt
 //                 << func() (Attrib, error) {
@@ -1444,17 +1379,11 @@ Statement : Declaration
 //                 } () >>
           | SimpleStmt
                 << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.code = append(n.code, $0.(Node).code...)
-                        n.code = append(n.code, "\n")
-                        return n, nil
+                        return Node{"", $0.(Node).code}, nil
                 } () >>
           | ReturnStmt
                 << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.code = append(n.code, $0.(Node).code...)
-                        n.code = append(n.code, "\n")
-                        return n, nil
+                        return Node{"", $0.(Node).code}, nil
                 } () >>
 //           | BreakStmt
 //                 << func() (Attrib, error) {
@@ -1513,18 +1442,15 @@ Statement : Declaration
 
 SimpleStmt : EmptyStmt
                 << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        return n, nil
+                        return Node{"", []string{}}, nil
                 } () >>
            | ShortVarDecl
                << func() (Attrib, error) {
-                       n := Node{"", $0.(Node).code}
-                       return n, nil
+                       return Node{"", $0.(Node).code}, nil
                } () >>
            | IncDecStmt
                  << func() (Attrib, error) {
-                        n := Node{"", $0.(Node).code}
-                        return n, nil
+                        return Node{"", $0.(Node).code}, nil
                  } () >>
            ;
 
@@ -1554,8 +1480,7 @@ EmptyStmt : empty ;
 
 ReturnStmt : kwdRet
                 << func() (Attrib, error) {
-                        n := Node{"", []string{"ret,"}}
-                        return n, nil
+                        return Node{"", []string{"ret,"}}, nil
                 } () >>
            | kwdRet ExpressionList
                 << func() (Attrib, error) {
@@ -1602,8 +1527,7 @@ ReturnStmt : kwdRet
 //
 Block : "{" RepeatTerminator StatementList "}"
                 << func() (Attrib, error) {
-                        n := Node{"", $2.(Node).code}
-                        return n, nil
+                        return Node{"", $2.(Node).code}, nil
                 } () >>
       ;
 //
@@ -1907,15 +1831,13 @@ Block : "{" RepeatTerminator StatementList "}"
 
 IncDecStmt : Expression "++"
                 << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.code = append(n.code, $0.(Node).code...)
+                        n := Node{"", $0.(Node).code}
                         n.code = append(n.code, fmt.Sprintf("+, %s, %s, 1", $0.(Node).place, $0.(Node).place))
                         return n, nil
                 } () >>
            | Expression "--"
                 << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.code = append(n.code, $0.(Node).code...)
+                        n := Node{"", $0.(Node).code}
                         n.code = append(n.code, fmt.Sprintf("-, %s, %s, 1", $0.(Node).place, $0.(Node).place))
                         return n, nil
                 } () >>
@@ -1935,8 +1857,7 @@ IncDecStmt : Expression "++"
 
 ShortVarDecl : IdentifierList shortAssign ExpressionList
                 << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.code = append(n.code, $2.(Node).code...)
+                        n := Node{"", $2.(Node).code}
                         n.code = append(n.code, fmt.Sprintf("=, %s, %s", $0.(Node).place, $2.(Node).place))
                         n.code = append(n.code, "\n")
                         return n, nil
