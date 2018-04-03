@@ -1593,7 +1593,7 @@ IfStmt : kwdIf Expression Block
                         n.code = append(n.code, "\n")
                         return n, nil
               } () >>
-       | kwdIf Expression Block kwdElse Block
+        | kwdIf Expression Block kwdElse Block
                 << func() (Attrib, error) {
                         n := Node{"", $1.(Node).code}
                         elseLabel := NewLabel()
@@ -1605,29 +1605,59 @@ IfStmt : kwdIf Expression Block
                         n.code = append(n.code, $4.(Node).code...)
                         n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
                         return n, nil
-                      fmt.Println("kwdIf Expression Block kwdElse Block");
-                      return nil, nil
                 } () >>
-       // | kwdIf Expression Block kwdElse IfStmt
-       //          << func() (Attrib, error) {
-       //               fmt.Println("kwdIf SimpleStmt terminator Expression Block");
-       //               return nil, nil
-       //          } () >>
-//        | kwdIf SimpleStmt terminator Expression Block
-//                << func() (Attrib, error) {
-//                      fmt.Println("kwdIf SimpleStmt terminator Expression Block");
-//                      return nil, nil
-//                } () >>
-//        | kwdIf SimpleStmt terminator Expression Block kwdElse IfStmt
-//                 << func() (Attrib, error) {
-//                       fmt.Println("kwdIf SimpleStmt terminator Expression Block kwdElse IfStmt");
-//                       return nil, nil
-//                 } () >>
-//        | kwdIf SimpleStmt terminator Expression Block kwdElse Block
-//                 << func() (Attrib, error) {
-//                       fmt.Println("kwdIf SimpleStmt terminator Expression Block kwdElse Block");
-//                       return nil, nil
-//                 } () >>
+        | kwdIf Expression Block kwdElse IfStmt
+                << func() (Attrib, error) {
+                        n := Node{"", $1.(Node).code}
+                        elseLabel := NewLabel()
+                        afterLabel := NewLabel()
+                        n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", elseLabel, $1.(Node).place))
+                        n.code = append(n.code, $2.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
+                        n.code = append(n.code, fmt.Sprintf("label, %s", elseLabel))
+                        n.code = append(n.code, $4.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
+                        return n, nil
+                } () >>
+       | kwdIf SimpleStmt terminator Expression Block
+                << func() (Attrib, error) {
+                        n := Node{"", $1.(Node).code}
+                        afterLabel := NewLabel()
+                        n.code = append(n.code, $3.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", afterLabel, $3.(Node).place))
+                        n.code = append(n.code, $4.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
+                        return n, nil
+                } () >>
+       | kwdIf SimpleStmt terminator Expression Block kwdElse IfStmt
+                << func() (Attrib, error) {
+                        n := Node{"", $1.(Node).code}
+                        elseLabel := NewLabel()
+                        afterLabel := NewLabel()
+                        n.code = append(n.code, $3.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", elseLabel, $3.(Node).place))
+                        n.code = append(n.code, $4.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
+                        n.code = append(n.code, fmt.Sprintf("label, %s", elseLabel))
+                        n.code = append(n.code, $6.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
+                        return n, nil
+
+                } () >>
+        | kwdIf SimpleStmt terminator Expression Block kwdElse Block
+                  << func() (Attrib, error) {
+                        n := Node{"", $1.(Node).code}
+                        elseLabel := NewLabel()
+                        afterLabel := NewLabel()
+                        n.code = append(n.code, $3.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", elseLabel, $3.(Node).place))
+                        n.code = append(n.code, $4.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
+                        n.code = append(n.code, fmt.Sprintf("label, %s", elseLabel))
+                        n.code = append(n.code, $6.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
+                        return n, nil
+                } () >>
        ;
 //
 // // SwitchStmt = ExprSwitchStmt | TypeSwitchStmt .
@@ -1854,144 +1884,117 @@ ForStmt : kwdFor Block
 // Condition and PostStmt.
 ForClause : terminator terminator
               << func() (Attrib, error) {
-                      // When Condition is not specified, do an endless loop.
+                      // When Condition is not specified, do an endless loop by
+                      // initializing the place value to 1.
                       return Node{"1", []string{"", "", ""}}, nil
               } () >>
           | InitStmt terminator terminator
               << func() (Attrib, error) {
-                      n := Node{"1", []string{}}
-                      initStmtCode := ""
-                      for _, v := range $0.(Node).code {
-                              initStmtCode += v
-                              initStmtCode += "\n"
-                      }
-                      n.code = append(n.code, initStmtCode)
-                      n.code = append(n.code, "")
-                      n.code = append(n.code, "")
-                      return n, nil
+                        initStmtCode := ""
+                        for _, v := range $0.(Node).code {
+                                initStmtCode += v
+                                initStmtCode += "\n"
+                        }
+                        return Node{"1", []string{initStmtCode, "", ""}}, nil
               } () >>
           | terminator Condition terminator
               << func() (Attrib, error) {
-                      n := Node{$1.(Node).place, []string{}}
-                      condCode := ""
-                      for _, v := range $1.(Node).code {
-                              condCode += v
-                              condCode += "\n"
-                      }
-                      n.code = append(n.code, "")
-                      n.code = append(n.code, condCode)
-                      n.code = append(n.code, "")
-                      return n, nil
+                        condCode := ""
+                        for _, v := range $1.(Node).code {
+                                condCode += v
+                                condCode += "\n"
+                        }
+                        return Node{$1.(Node).place, []string{"", condCode, ""}}, nil
               } () >>
           | terminator terminator PostStmt
               << func() (Attrib, error) {
-                      n := Node{"1", []string{}}
-                      postStmtCode := ""
-                      for _, v := range $2.(Node).code {
-                              postStmtCode += v
-                              postStmtCode += "\n"
-                      }
-                      n.code = append(n.code, "")
-                      n.code = append(n.code, "")
-                      n.code = append(n.code, postStmtCode)
-                      return n, nil
+                        postStmtCode := ""
+                        for _, v := range $2.(Node).code {
+                                postStmtCode += v
+                                postStmtCode += "\n"
+                        }
+                        return Node{"1", []string{"", "", postStmtCode}}, nil
               } () >>
           | InitStmt terminator Condition terminator
               << func() (Attrib, error) {
-                      n := Node{$2.(Node).place, []string{}}
-                      initStmtCode := ""
-                      for _, v := range $0.(Node).code {
-                              initStmtCode += v
-                              initStmtCode += "\n"
-                      }
-                      condCode := ""
-                      for _, v := range $2.(Node).code {
-                              condCode += v
-                              condCode += "\n"
-                      }
-                      n.code = append(n.code, initStmtCode)
-                      n.code = append(n.code, condCode)
-                      n.code = append(n.code, "")
-                      return n, nil
+                        initStmtCode := ""
+                        for _, v := range $0.(Node).code {
+                                initStmtCode += v
+                                initStmtCode += "\n"
+                        }
+                        condCode := ""
+                        for _, v := range $2.(Node).code {
+                                condCode += v
+                                condCode += "\n"
+                        }
+                        return Node{$2.(Node).place, []string{initStmtCode, condCode, ""}}, nil
               } () >>
           | InitStmt terminator terminator PostStmt
               << func() (Attrib, error) {
-                      n := Node{"1", []string{}}
-                      initStmtCode := ""
-                      for _, v := range $0.(Node).code {
-                              initStmtCode += v
-                              initStmtCode += "\n"
-                      }
-                      postStmtCode := ""
-                      for _, v := range $3.(Node).code {
-                              postStmtCode += v
-                              postStmtCode += "\n"
-                      }
-                      n.code = append(n.code, initStmtCode)
-                      n.code = append(n.code, "")
-                      n.code = append(n.code, postStmtCode)
-                      return n, nil
+                        initStmtCode := ""
+                        for _, v := range $0.(Node).code {
+                                initStmtCode += v
+                                initStmtCode += "\n"
+                        }
+                        postStmtCode := ""
+                        for _, v := range $3.(Node).code {
+                                postStmtCode += v
+                                postStmtCode += "\n"
+                        }
+                        return Node{"1", []string{initStmtCode, "", postStmtCode}}, nil
               } () >>
           | terminator Condition terminator PostStmt
               << func() (Attrib, error) {
-                      n := Node{$1.(Node).place, []string{}}
-                      condCode := ""
-                      for _, v := range $1.(Node).code {
-                              condCode += v
-                              condCode += "\n"
-                      }
-                      postStmtCode := ""
-                      for _, v := range $3.(Node).code {
-                              postStmtCode += v
-                              postStmtCode += "\n"
-                      }
-                      n.code = append(n.code, "")
-                      n.code = append(n.code, condCode)
-                      n.code = append(n.code, postStmtCode)
-                      return n, nil
+                        condCode := ""
+                        for _, v := range $1.(Node).code {
+                                condCode += v
+                                condCode += "\n"
+                        }
+                        postStmtCode := ""
+                        for _, v := range $3.(Node).code {
+                                postStmtCode += v
+                                postStmtCode += "\n"
+                        }
+                        return Node{$1.(Node).place, []string{"", condCode, postStmtCode}}, nil
               } () >>
           | InitStmt terminator Condition terminator PostStmt
               << func() (Attrib, error) {
-                      n := Node{$2.(Node).place, []string{}}
-                      initStmtCode := ""
-                      for _, v := range $0.(Node).code {
-                              initStmtCode += v
-                              initStmtCode += "\n"
-                      }
-                      condCode := ""
-                      for _, v := range $2.(Node).code {
-                              condCode += v
-                              condCode += "\n"
-                      }
-                      postStmtCode := ""
-                      for _, v := range $4.(Node).code {
-                              postStmtCode += v
-                              postStmtCode += "\n"
-                      }
-                      n.code = append(n.code, initStmtCode)
-                      n.code = append(n.code, condCode)
-                      n.code = append(n.code, postStmtCode)
-                      return n, nil
+                        initStmtCode := ""
+                        for _, v := range $0.(Node).code {
+                                initStmtCode += v
+                                initStmtCode += "\n"
+                        }
+                        condCode := ""
+                        for _, v := range $2.(Node).code {
+                                condCode += v
+                                condCode += "\n"
+                        }
+                        postStmtCode := ""
+                        for _, v := range $4.(Node).code {
+                                postStmtCode += v
+                                postStmtCode += "\n"
+                        }
+                        return Node{$2.(Node).place, []string{initStmtCode, condCode, postStmtCode}}, nil
               } () >>
           ;
 
 InitStmt : SimpleStmt
-              << func() (Attrib, error) {
-                      return Node{"", $0.(Node).code}, nil
-              } () >>
+                << func() (Attrib, error) {
+                        return Node{"", $0.(Node).code}, nil
+                } () >>
          ;
 
 PostStmt : SimpleStmt
-              << func() (Attrib, error) {
-                      return Node{"", $0.(Node).code}, nil
-              } () >>
+                << func() (Attrib, error) {
+                        return Node{"", $0.(Node).code}, nil
+                } () >>
          ;
 
 // FIXME: Condition can only be a binary expression.
 Condition : Expression
-              << func() (Attrib, error) {
-                      return Node{$0.(Node).place, $0.(Node).code}, nil
-              } () >>
+                << func() (Attrib, error) {
+                        return Node{$0.(Node).place, $0.(Node).code}, nil
+                } () >>
           ;
 
 // ExpressionStmt : Expression
