@@ -1424,11 +1424,10 @@ Statement : Declaration
                 << func() (Attrib, error) {
                         return Node{"", $0.(Node).code}, nil
                 } () >>
-//           | LabeledStmt
-//                 << func() (Attrib, error) {
-//                       fmt.Println("LabeledStmt");
-//                       return nil, nil
-//                 } () >>
+          | LabeledStmt
+                << func() (Attrib, error) {
+                        return Node{"", $0.(Node).code}, nil
+                } () >>
           | SimpleStmt
                 << func() (Attrib, error) {
                         return Node{"", $0.(Node).code}, nil
@@ -1447,17 +1446,15 @@ Statement : Declaration
 //                      fmt.Println("ContinueStmt");
 //                      return nil, nil
 //                } () >>
-//          | GotoStmt
-//                 << func() (Attrib, error) {
-//                       fmt.Println("GotoStmt");
-//                       return nil, nil
-//                 } () >>
-//          // TODO: FallthroughStmt is not supported currently.
-//          | Block
-//                 << func() (Attrib, error) {
-//                       fmt.Println("Block");
-//                       return nil, nil
-//                 } () >>
+         | GotoStmt
+                << func() (Attrib, error) {
+                       return Node{"", $0.(Node).code}, nil
+                } () >>
+         // TODO: FallthroughStmt is not supported currently.
+         | Block
+                << func() (Attrib, error) {
+                       return Node{"", $0.(Node).code}, nil
+                } () >>
          | IfStmt
                << func() (Attrib, error) {
                        return Node{"", $0.(Node).code}, nil
@@ -1472,16 +1469,17 @@ Statement : Declaration
                        return Node{"", $0.(Node).code}, nil
                 } () >>
           ;
-//
-// // LabeledStmt = Label ":" Statement .
-// // Label       = identifier .
-// LabeledStmt : Label ":" RepeatTerminator Statement
-//                 << func() (Attrib, error) {
-//                       fmt.Println("Label \":\" RepeatTerminator Statement");
-//                       return nil, nil
-//                 } () >>
-//             ;
-//
+
+// LabeledStmt = Label ":" Statement .
+// Label       = identifier .
+LabeledStmt : Label ":" RepeatTerminator Statement
+                << func() (Attrib, error) {
+                        n := Node{"", []string{fmt.Sprintf("label, %s", $0.(Node).place)}}
+                        n.code = append(n.code, $3.(Node).code...)
+                        return n, nil
+                } () >>
+            ;
+
 // // SimpleStmt = EmptyStmt | ExpressionStmt | SendStmt | IncDecStmt | Assignment | ShortVarDecl .
 // // EmptyStmt = .
 // // ExpressionStmt = Expression .
@@ -1570,15 +1568,14 @@ ReturnStmt : kwdRet
 //                       return nil, nil
 //                 } () >>
 //               ;
-//
-// // GotoStmt = "goto" Label .
-// GotoStmt : kwdGoto Label
-//                 << func() (Attrib, error) {
-//                       fmt.Println("kwdGoto Label");
-//                       return nil, nil
-//                 } () >>
-//          ;
-//
+
+// GotoStmt = "goto" Label .
+GotoStmt : kwdGoto Label
+                << func() (Attrib, error) {
+                        return Node{"", []string{fmt.Sprintf("j, %s", $1.(Node).place)}}, nil
+                } () >>
+         ;
+
 Block : "{" RepeatTerminator StatementList "}"
                 << func() (Attrib, error) {
                         return Node{"", $2.(Node).code}, nil
