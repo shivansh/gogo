@@ -3,7 +3,7 @@ func main() {
 	switch a {
 	case 1:
 		a = a + 1
-	case 2:
+	default:
 		a = a + 4
 	}
 	return

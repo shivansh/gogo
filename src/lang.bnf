@@ -90,6 +90,7 @@ runeLit  : '\'' [ '\\' ] [ . ] '\'' ;
 <<
 import(
         "fmt"
+        "regexp"
         "strings"
 
         "gogo/tmp/token"
@@ -146,9 +147,14 @@ Expr : identifier
 // SourceFile = PackageClause ";" { ImportDecl ";" } { TopLevelDecl ";" } .
 Start : SourceFile
         << func() (Attrib, error) {
+	        re := regexp.MustCompile("\n(\n)*")
                 c := $0.(Node).code
                 for _, v := range c {
-                        if v != "\n" {
+                        v := strings.TrimSpace(v)
+                        // Compress multiple newlines within IR statemnets into
+                        // a single newline.
+                        v = re.ReplaceAllString(v, "\n")
+                        if v != "" {
                                 fmt.Println(v)
                         }
                 }
@@ -1440,11 +1446,10 @@ Statement : Declaration
                 << func() (Attrib, error) {
                         return Node{"", $0.(Node).code}, nil
                 } () >>
-//          | ContinueStmt
-//                << func() (Attrib, error) {
-//                      fmt.Println("ContinueStmt");
-//                      return nil, nil
-//                } () >>
+         | ContinueStmt
+                << func() (Attrib, error) {
+                        return Node{"", $0.(Node).code}, nil
+                } () >>
          | GotoStmt
                 << func() (Attrib, error) {
                        return Node{"", $0.(Node).code}, nil
@@ -1552,18 +1557,18 @@ BreakStmt : kwdBreak
                 } () >>
           ;
 
-// // ContinueStmt = "continue" [ Label ] .
-// ContinueStmt : kwdContinue
-//                 << func() (Attrib, error) {
-//                       fmt.Println("kwdContinue");
-//                       return nil, nil
-//                 } () >>
-//              | kwdContinue Label
-//                 << func() (Attrib, error) {
-//                       fmt.Println("kwdContinue Label");
-//                       return nil, nil
-//                 } () >>
-//               ;
+// ContinueStmt = "continue" [ Label ] .
+ContinueStmt : kwdContinue
+                << func() (Attrib, error) {
+                        return Node{"", []string{"continue"}}, nil
+                } () >>
+             // TODO: `continue label` vs `break label` ??
+             // | kwdContinue Label
+             //    << func() (Attrib, error) {
+             //          fmt.Println("kwdContinue Label");
+             //          return nil, nil
+             //    } () >>
+              ;
 
 // GotoStmt = "goto" Label .
 GotoStmt : kwdGoto Label
@@ -1677,20 +1682,22 @@ ExprSwitchStmt : kwdSwitch Expression "{" RepeatTerminator RepeatExprCaseClause 
                                 caseLabels := []string{}
                                 caseStmts := $4.(Node).code
                                 caseTemporaries := strings.Split($4.(Node).place, ",")
-                                for k, v := range caseTemporaries {
-                                        // The last value in caseTemporaries will be the place value
-                                        // returned by Empty (arising from RepeatExprCaseClause -> Empty).
-                                        // This has to be ignored.
-                                        if k == len(caseTemporaries) - 1 {
-                                                break
-                                        }
+                                afterLabel := NewLabel()
+                                defaultLabel := afterLabel
+                                // The last value in caseTemporaries will be the place value
+                                // returned by Empty (arising from RepeatExprCaseClause -> Empty).
+                                // This has to be ignored.
+                                for k, v := range caseTemporaries[:len(caseTemporaries)-1] {
                                         caseLabel := NewLabel()
                                         caseLabels = append(caseLabels, caseLabel)
                                         n.code = append(n.code, caseStmts[2*k])
-                                        n.code = append(n.code, fmt.Sprintf("beq, %s, %s, %s", caseLabel, $1.(Node).place, v))
+                                        if strings.TrimSpace(v) == "default" {
+                                                defaultLabel = caseLabel
+                                        } else {
+                                                n.code = append(n.code, fmt.Sprintf("beq, %s, %s, %s", caseLabel, $1.(Node).place, v))
+                                        }
                                 }
-                                afterLabel := NewLabel()
-                                n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
+                                n.code = append(n.code, fmt.Sprintf("j, %s", defaultLabel))
                                 for k, v := range caseLabels {
                                         n.code = append(n.code, fmt.Sprintf("label, %s", v))
                                         n.code = append(n.code, caseStmts[2*k+1])
@@ -1758,11 +1765,10 @@ ExprSwitchCase : kwdCase Expression
                         << func() (Attrib, error) {
                                 return Node{$1.(Node).place, $1.(Node).code}, nil
                         } () >>
-//                | kwdDefault
-//                        << func() (Attrib, error) {
-//                              fmt.Println("kwdDefault");
-//                              return nil, nil
-//                        } () >>
+               | kwdDefault
+                        << func() (Attrib, error) {
+                                return Node{"default", []string{}}, nil
+                        } () >>
                ;
 //
 // // TypeSwitchStmt  = "switch" [ SimpleStmt ";" ] TypeSwitchGuard "{" { TypeCaseClause } "}" .
@@ -1853,8 +1859,11 @@ ForStmt : kwdFor Block
                         afterLabel := NewLabel()
                         n.code = append(n.code, fmt.Sprintf("label, %s", startLabel))
                         for _, v := range $1.(Node).code {
+                                v := strings.TrimSpace(v)
                                 if v == "break" {
                                         n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
+                                } else if v == "continue" {
+                                        n.code = append(n.code, fmt.Sprintf("j, %s", startLabel))
                                 } else {
                                         n.code = append(n.code, v)
                                 }
@@ -1872,8 +1881,11 @@ ForStmt : kwdFor Block
                         n.code = append(n.code, $1.(Node).code...)
                         n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", afterLabel, $1.(Node).place))
                         for _, v := range $2.(Node).code {
+                                v := strings.TrimSpace(v)
                                 if v == "break" {
                                         n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
+                                } else if v == "continue" {
+                                        n.code = append(n.code, fmt.Sprintf("j, %s", startLabel))
                                 } else {
                                         n.code = append(n.code, v)
                                 }
@@ -1892,13 +1904,15 @@ ForStmt : kwdFor Block
                         n.code = append(n.code, $1.(Node).code[1]) // condition
                         n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", afterLabel, $1.(Node).place))
                         for _, v := range $2.(Node).code {
+                                v := strings.TrimSpace(v)
                                 if v == "break" {
                                         n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
+                                } else if v == "continue" {
+                                        n.code = append(n.code, fmt.Sprintf("j, %s", startLabel))
                                 } else {
                                         n.code = append(n.code, v)
                                 }
                         }
-                        // n.code = append(n.code, $2.(Node).code...)
                         n.code = append(n.code, $1.(Node).code[2]) // post statement
                         n.code = append(n.code, fmt.Sprintf("j, %s", startLabel))
                         n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
