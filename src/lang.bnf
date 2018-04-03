@@ -1436,11 +1436,10 @@ Statement : Declaration
                 << func() (Attrib, error) {
                         return Node{"", $0.(Node).code}, nil
                 } () >>
-//           | BreakStmt
-//                 << func() (Attrib, error) {
-//                       fmt.Println("BreakStmt");
-//                       return nil, nil
-//                 } () >>
+          | BreakStmt
+                << func() (Attrib, error) {
+                        return Node{"", $0.(Node).code}, nil
+                } () >>
 //          | ContinueStmt
 //                << func() (Attrib, error) {
 //                      fmt.Println("ContinueStmt");
@@ -1459,11 +1458,10 @@ Statement : Declaration
                << func() (Attrib, error) {
                        return Node{"", $0.(Node).code}, nil
                } () >>
-//          | SwitchStmt
-//                 << func() (Attrib, error) {
-//                       fmt.Println("SwitchStmt");
-//                       return nil, nil
-//                 } () >>
+         | SwitchStmt
+                << func() (Attrib, error) {
+                       return Node{"", $0.(Node).code}, nil
+                } () >>
          | ForStmt
                 << func() (Attrib, error) {
                        return Node{"", $0.(Node).code}, nil
@@ -1543,19 +1541,17 @@ ReturnStmt : kwdRet
                 } () >>
            ;
 
-// // BreakStmt = "break" [ Label ] .
-// BreakStmt : kwdBreak
-//                 << func() (Attrib, error) {
-//                       fmt.Println("kwdBreak");
-//                       return nil, nil
-//                 } () >>
-//           | kwdBreak Label
-//                 << func() (Attrib, error) {
-//                       fmt.Println("kwdBreak Label");
-//                       return nil, nil
-//                 } () >>
-//           ;
-//
+// BreakStmt = "break" [ Label ] .
+BreakStmt : kwdBreak
+                << func() (Attrib, error) {
+                        return Node{"", []string{"break"}}, nil
+                } () >>
+          | kwdBreak Label
+                << func() (Attrib, error) {
+                        return Node{"", []string{fmt.Sprintf("j, %s", $1.(Node).place)}}, nil
+                } () >>
+          ;
+
 // // ContinueStmt = "continue" [ Label ] .
 // ContinueStmt : kwdContinue
 //                 << func() (Attrib, error) {
@@ -1659,29 +1655,52 @@ IfStmt : kwdIf Expression Block
                         return n, nil
                 } () >>
        ;
-//
-// // SwitchStmt = ExprSwitchStmt | TypeSwitchStmt .
-// SwitchStmt : ExprSwitchStmt
-//                 << func() (Attrib, error) {
-//                       fmt.Println("ExprSwitchStmt");
-//                       return nil, nil
-//                 } () >>
+
+// SwitchStmt = ExprSwitchStmt | TypeSwitchStmt .
+SwitchStmt : ExprSwitchStmt
+                << func() (Attrib, error) {
+                        return Node{"", $0.(Node).code}, nil
+                } () >>
 //            | TypeSwitchStmt
 //                << func() (Attrib, error) {
 //                      fmt.Println("TypeSwitchStmt");
 //                      return nil, nil
 //                } () >>
-//            ;
-//
-// // ExprSwitchStmt = "switch" [ SimpleStmt ";" ] [ Expression ] "{" { ExprCaseClause } "}" .
-// // ExprCaseClause = ExprSwitchCase ":" StatementList .
-// // ExprSwitchCase = "case" ExpressionList | "default" .
-// ExprSwitchStmt : kwdSwitch "{" RepeatTerminator RepeatExprCaseClause "}"
-//                        << func() (Attrib, error) {
-//                              fmt.Println("kwdSwitch \"{\" RepeatTerminator RepeatExprCaseClause \"}\"");
-//                              return nil, nil
-//                        } () >>
-//                | kwdSwitch Expression "{" RepeatTerminator RepeatExprCaseClause "}"
+           ;
+
+// ExprSwitchStmt = "switch" [ SimpleStmt ";" ] [ Expression ] "{" { ExprCaseClause } "}" .
+// ExprCaseClause = ExprSwitchCase ":" StatementList .
+// ExprSwitchCase = "case" ExpressionList | "default" .
+ExprSwitchStmt : kwdSwitch Expression "{" RepeatTerminator RepeatExprCaseClause "}"
+                        << func() (Attrib, error) {
+                                n := Node{"", $1.(Node).code}
+                                caseLabels := []string{}
+                                caseStmts := $4.(Node).code
+                                caseTemporaries := strings.Split($4.(Node).place, ",")
+                                for k, v := range caseTemporaries {
+                                        // The last value in caseTemporaries will be the place value
+                                        // returned by Empty (arising from RepeatExprCaseClause -> Empty).
+                                        // This has to be ignored.
+                                        if k == len(caseTemporaries) - 1 {
+                                                break
+                                        }
+                                        caseLabel := NewLabel()
+                                        caseLabels = append(caseLabels, caseLabel)
+                                        n.code = append(n.code, caseStmts[2*k])
+                                        n.code = append(n.code, fmt.Sprintf("beq, %s, %s, %s", caseLabel, $1.(Node).place, v))
+                                }
+                                afterLabel := NewLabel()
+                                n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
+                                for k, v := range caseLabels {
+                                        n.code = append(n.code, fmt.Sprintf("label, %s", v))
+                                        n.code = append(n.code, caseStmts[2*k+1])
+                                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
+                                }
+                                n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
+                                return n, nil
+                        } () >>
+                  // TODO: Handle empty expression
+//                | kwdSwitch "{" RepeatTerminator RepeatExprCaseClause "}"
 //                        << func() (Attrib, error) {
 //                              fmt.Println("kwdSwitch Expression \"{\" RepeatTerminator RepeatExprCaseClause \"}\"");
 //                              return nil, nil
@@ -1696,40 +1715,55 @@ IfStmt : kwdIf Expression Block
 //                              fmt.Println("kwdSwitch SimpleStmt terminator Expression \"{\" RepeatTerminator RepeatExprCaseClause \"}\"");
 //                              return nil, nil
 //                        } () >>
-//                ;
-//
-// RepeatExprCaseClause : ExprCaseClause RepeatExprCaseClause
-//                        << func() (Attrib, error) {
-//                              fmt.Println("ExprCaseClause RepeatExprCaseClause");
-//                              return nil, nil
-//                        } () >>
-//                      | empty
-//                        << func() (Attrib, error) {
-//                              fmt.Println("empty");
-//                              return nil, nil
-//                        } () >>
-//                      ;
-//
-// // ExprCaseClause = ExprSwitchCase ":" StatementList .
-// // ExprSwitchCase = "case" ExpressionList | "default" .
-// ExprCaseClause : ExprSwitchCase ":" RepeatTerminator StatementList
-//                        << func() (Attrib, error) {
-//                              fmt.Println("ExprSwitchCase \":\" RepeatTerminator StatementList");
-//                              return nil, nil
-//                        } () >>
-//                ;
-//
+               ;
+
+RepeatExprCaseClause : ExprCaseClause RepeatExprCaseClause
+                        << func() (Attrib, error) {
+                                n := Node{"", $0.(Node).code}
+                                n.code = append(n.code, $1.(Node).code...)
+                                n.place = fmt.Sprintf("%s, %s", $0.(Node).place, $1.(Node).place)
+                                return n, nil
+                        } () >>
+                     | empty
+                        << func() (Attrib, error) {
+                                return Node{"", []string{}}, nil
+                        } () >>
+                     ;
+
+// ExprCaseClause = ExprSwitchCase ":" StatementList .
+// ExprSwitchCase = "case" ExpressionList | "default" .
+ExprCaseClause : ExprSwitchCase ":" RepeatTerminator StatementList
+                        << func() (Attrib, error) {
+                                n := Node{$0.(Node).place, []string{}}
+                                exprCode := ""
+                                for _, v := range $0.(Node).code {
+                                        exprCode += v
+                                        exprCode += "\n"
+                                }
+                                n.code = append(n.code, exprCode)
+                                stmtCode := ""
+                                for _, v := range $3.(Node).code {
+                                        stmtCode += v
+                                        stmtCode += "\n"
+                                }
+                                n.code = append(n.code, stmtCode)
+                                return n, nil
+                        } () >>
+               ;
+
+// NOTE: The grammar is modified to support only a single expression in a
+// switch statement.
 // ExprSwitchCase : kwdCase ExpressionList
-//                        << func() (Attrib, error) {
-//                              fmt.Println("kwdCase ExpressionList");
-//                              return nil, nil
-//                        } () >>
+ExprSwitchCase : kwdCase Expression
+                        << func() (Attrib, error) {
+                                return Node{$1.(Node).place, $1.(Node).code}, nil
+                        } () >>
 //                | kwdDefault
 //                        << func() (Attrib, error) {
 //                              fmt.Println("kwdDefault");
 //                              return nil, nil
 //                        } () >>
-//                ;
+               ;
 //
 // // TypeSwitchStmt  = "switch" [ SimpleStmt ";" ] TypeSwitchGuard "{" { TypeCaseClause } "}" .
 // // TypeSwitchGuard = [ identifier ":=" ] PrimaryExpr "." "(" "type" ")" .
@@ -1816,9 +1850,17 @@ ForStmt : kwdFor Block
                 << func() (Attrib, error) {
                         n := Node{"", []string{}}
                         startLabel := NewLabel()
+                        afterLabel := NewLabel()
                         n.code = append(n.code, fmt.Sprintf("label, %s", startLabel))
-                        n.code = append(n.code, $1.(Node).code...)
+                        for _, v := range $1.(Node).code {
+                                if v == "break" {
+                                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
+                                } else {
+                                        n.code = append(n.code, v)
+                                }
+                        }
                         n.code = append(n.code, fmt.Sprintf("j, %s", startLabel))
+                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
                         return n, nil
                 } () >>
         | kwdFor Condition Block
@@ -1829,7 +1871,13 @@ ForStmt : kwdFor Block
                         n.code = append(n.code, fmt.Sprintf("label, %s", startLabel))
                         n.code = append(n.code, $1.(Node).code...)
                         n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", afterLabel, $1.(Node).place))
-                        n.code = append(n.code, $2.(Node).code...)
+                        for _, v := range $2.(Node).code {
+                                if v == "break" {
+                                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
+                                } else {
+                                        n.code = append(n.code, v)
+                                }
+                        }
                         n.code = append(n.code, fmt.Sprintf("j, %s", startLabel))
                         n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
                         return n, nil
@@ -1843,7 +1891,14 @@ ForStmt : kwdFor Block
                         n.code = append(n.code, fmt.Sprintf("label, %s", startLabel))
                         n.code = append(n.code, $1.(Node).code[1]) // condition
                         n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", afterLabel, $1.(Node).place))
-                        n.code = append(n.code, $2.(Node).code...)
+                        for _, v := range $2.(Node).code {
+                                if v == "break" {
+                                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
+                                } else {
+                                        n.code = append(n.code, v)
+                                }
+                        }
+                        // n.code = append(n.code, $2.(Node).code...)
                         n.code = append(n.code, $1.(Node).code[2]) // post statement
                         n.code = append(n.code, fmt.Sprintf("j, %s", startLabel))
                         n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
