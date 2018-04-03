@@ -485,24 +485,24 @@ Expression : Expression BinaryOp Expression
                         n := Node{"", $0.(Node).code}
                         n.code = append(n.code, $2.(Node).code...)
                         op := $1.(Node).place
-                        if op == "==" || op == "<=" || op == "<" || op == ">=" || op == ">" || op == "!=" {
+                        if op == "==" || op == "!=" || op == "<=" || op == "<" || op == ">=" || op == ">" {
                                 branchOp := ""
                                 n.place = NewTmp()
                                 falseLabel := NewLabel()
                                 afterLabel := NewLabel()
                                 switch op {
-                                        case "<":
-                                                branchOp = "bge"
-                                        case ">":
-                                                branchOp = "ble"
-                                        case "<=":
-                                                branchOp = "bgt"
-                                        case ">=":
-                                                branchOp = "blt"
                                         case "==":
                                                 branchOp = "bne"
                                         case "!=":
                                                 branchOp = "beq"
+                                        case "<=":
+                                                branchOp = "bgt"
+                                        case "<":
+                                                branchOp = "bge"
+                                        case ">=":
+                                                branchOp = "blt"
+                                        case ">":
+                                                branchOp = "ble"
                                 }
                                 n.code = append(n.code, fmt.Sprintf("%s, %s, %s, %s", branchOp, falseLabel, $0.(Node).place, $2.(Node).place))
                                 n.code = append(n.code, fmt.Sprintf("=, %s, 1", n.place))
@@ -550,15 +550,13 @@ BinaryOp    : "||"
                   << func() (Attrib, error) {
                         return Node{$0.(Node).place, []string{}}, nil
                   } () >>
-              // | AddOp
-              //     << func() (Attrib, error) {
-              //           fmt.Println("AddOp");
-              //           return nil, nil
-              //     } () >>
+              | AddOp
+                  << func() (Attrib, error) {
+                        return Node{$0.(Node).place, []string{}}, nil
+                  } () >>
               // | MulOp
               //     << func() (Attrib, error) {
-              //           fmt.Println("MulOp");
-              //           return nil, nil
+              //           return Node{$0.(Node).place, []string{}}, nil
               //     } () >>
               ;
 
@@ -573,34 +571,32 @@ RelOp : "=="
       << func() (Attrib, error) {
             return Node{"!=", []string{}}, nil
       } () >>
-      | "<"
-      << func() (Attrib, error) {
-              return Node{"<", []string{}}, nil
-      } () >>
       | "<="
       << func() (Attrib, error) {
             return Node{"<=", []string{}}, nil
       } () >>
-      | ">"
+      | "<"
       << func() (Attrib, error) {
-            return Node{">", []string{}}, nil
+              return Node{"<", []string{}}, nil
       } () >>
       | ">="
       << func() (Attrib, error) {
             return Node{">=", []string{}}, nil
       } () >>
+      | ">"
+      << func() (Attrib, error) {
+            return Node{">", []string{}}, nil
+      } () >>
       ;
 
-// AddOp : "+"
-//        << func() (Attrib, error) {
-//              fmt.Println("\"+\"");
-//              return nil, nil
-//        } () >>
-//       | "-"
-//       << func() (Attrib, error) {
-//             fmt.Println("\"-\"");
-//             return nil, nil
-//       } () >>
+AddOp : "+"
+       << func() (Attrib, error) {
+              return Node{"+", []string{}}, nil
+       } () >>
+      | "-"
+      << func() (Attrib, error) {
+            return Node{"-", []string{}}, nil
+      } () >>
 //       | "|"
 //       << func() (Attrib, error) {
 //             fmt.Println("\"|\"");
@@ -611,7 +607,7 @@ RelOp : "=="
 //             fmt.Println("\"^\"");
 //             return nil, nil
 //       } () >>
-//       ;
+      ;
 //
 // MulOp : "*"
 //       << func() (Attrib, error) {
@@ -742,6 +738,7 @@ PrimaryExpr : Operand
 //                       return nil, nil
 //                 } () >>
             | PrimaryExpr Arguments
+                // This is the production rule for a function call.
                 << func() (Attrib, error) {
                         n := Node{"", []string{}}
                         n.place = NewTmp()
@@ -1022,8 +1019,10 @@ OperandName : identifier
 //                     return nil, nil
 //               } () >>
 //               ;
-//
-// // Arguments      = "(" [ ( ExpressionList | Type [ "," ExpressionList ] ) [ "..." ] [ "," ] ] ")" .
+
+// Arguments      = "(" [ ( ExpressionList | Type [ "," ExpressionList ] ) [ "..." ] [ "," ] ] ")" .
+// NOTE: Since compilation of local variables has not yet been done, only empty
+// arguments are supported for the time being.
 Arguments : "(" ")"
 //           | "(" ExpressionList ")"
 //                 << func() (Attrib, error) {
@@ -1495,6 +1494,10 @@ SimpleStmt : EmptyStmt
                 << func() (Attrib, error) {
                         return Node{"", []string{}}, nil
                 } () >>
+           | Assignment
+               << func() (Attrib, error) {
+                       return Node{"", $0.(Node).code}, nil
+               } () >>
            | ShortVarDecl
                << func() (Attrib, error) {
                        return Node{"", $0.(Node).code}, nil
@@ -1804,11 +1807,21 @@ ForStmt : kwdFor Block
                         n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
                         return n, nil
                 } () >>
-//         | kwdFor ForClause Block
-//                 << func() (Attrib, error) {
-//                       fmt.Println("kwdFor ForClause Block");
-//                       return nil, nil
-//                 } () >>
+        | kwdFor ForClause Block
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        startLabel := NewLabel()
+                        afterLabel := NewLabel()
+                        n.code = append(n.code, $1.(Node).code[0]) // init statement
+                        n.code = append(n.code, fmt.Sprintf("label, %s", startLabel))
+                        n.code = append(n.code, $1.(Node).code[1]) // condition
+                        n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", afterLabel, $1.(Node).place))
+                        n.code = append(n.code, $2.(Node).code...)
+                        n.code = append(n.code, $1.(Node).code[2]) // post statement
+                        n.code = append(n.code, fmt.Sprintf("j, %s", startLabel))
+                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
+                        return n, nil
+                } () >>
 //         | kwdFor RangeClause Block
 //                 << func() (Attrib, error) {
 //                       fmt.Println("kwdFor RangeClause Block");
@@ -1833,66 +1846,151 @@ ForStmt : kwdFor Block
 //                       return nil, nil
 //                 } () >>
 //             ;
-//
-// // ForClause = [ InitStmt ] ";" [ Condition ] ";" [ PostStmt ] .
-// // InitStmt = SimpleStmt .
-// // PostStmt = SimpleStmt .
-// ForClause : terminator terminator
-//               << func() (Attrib, error) {
-//                     fmt.Println("terminator terminator");
-//                     return nil, nil
-//               } () >>
-//           | InitStmt terminator terminator
-//               << func() (Attrib, error) {
-//                     fmt.Println("InitStmt terminator terminator");
-//                     return nil, nil
-//               } () >>
-//           | terminator Condition terminator
-//               << func() (Attrib, error) {
-//                     fmt.Println("terminator Condition terminator");
-//                     return nil, nil
-//               } () >>
-//           | terminator terminator PostStmt
-//               << func() (Attrib, error) {
-//                     fmt.Println("terminator terminator PostStmt");
-//                     return nil, nil
-//               } () >>
-//           | InitStmt terminator Condition terminator
-//               << func() (Attrib, error) {
-//                     fmt.Println("InitStmt terminator Condition terminator");
-//                     return nil, nil
-//               } () >>
-//           | InitStmt terminator terminator PostStmt
-//               << func() (Attrib, error) {
-//                     fmt.Println("InitStmt terminator terminator PostStmt");
-//                     return nil, nil
-//               } () >>
-//           | terminator Condition terminator PostStmt
-//               << func() (Attrib, error) {
-//                     fmt.Println("terminator Condition terminator PostStmt");
-//                     return nil, nil
-//               } () >>
-//           | InitStmt terminator Condition terminator PostStmt
-//               << func() (Attrib, error) {
-//                     fmt.Println("InitStmt terminator Condition terminator PostStmt");
-//                     return nil, nil
-//               } () >>
-//           ;
-//
-// InitStmt : SimpleStmt
-//               << func() (Attrib, error) {
-//                     fmt.Println("SimpleStmt");
-//                     return nil, nil
-//               } () >>
-//          ;
-//
-// PostStmt : SimpleStmt
-//               << func() (Attrib, error) {
-//                     fmt.Println("SimpleStmt");
-//                     return nil, nil
-//               } () >>
-//          ;
 
+// ForClause = [ InitStmt ] ";" [ Condition ] ";" [ PostStmt ] .
+// InitStmt = SimpleStmt .
+// PostStmt = SimpleStmt .
+// NOTE: The place value of ForClause contains the place value of the condition
+// statement as that will be required in ForStmt to determine when to break. The
+// place values of InitStmt and PostStmt will not be required.
+// The code value of ForClause contains newline separated codes of InitStmt,
+// Condition and PostStmt.
+ForClause : terminator terminator
+              << func() (Attrib, error) {
+                      // When Condition is not specified, do an endless loop.
+                      return Node{"1", []string{"", "", ""}}, nil
+              } () >>
+          | InitStmt terminator terminator
+              << func() (Attrib, error) {
+                      n := Node{"1", []string{}}
+                      initStmtCode := ""
+                      for _, v := range $0.(Node).code {
+                              initStmtCode += v
+                              initStmtCode += "\n"
+                      }
+                      n.code = append(n.code, initStmtCode)
+                      n.code = append(n.code, "")
+                      n.code = append(n.code, "")
+                      return n, nil
+              } () >>
+          | terminator Condition terminator
+              << func() (Attrib, error) {
+                      n := Node{$1.(Node).place, []string{}}
+                      condCode := ""
+                      for _, v := range $1.(Node).code {
+                              condCode += v
+                              condCode += "\n"
+                      }
+                      n.code = append(n.code, "")
+                      n.code = append(n.code, condCode)
+                      n.code = append(n.code, "")
+                      return n, nil
+              } () >>
+          | terminator terminator PostStmt
+              << func() (Attrib, error) {
+                      n := Node{"1", []string{}}
+                      postStmtCode := ""
+                      for _, v := range $2.(Node).code {
+                              postStmtCode += v
+                              postStmtCode += "\n"
+                      }
+                      n.code = append(n.code, "")
+                      n.code = append(n.code, "")
+                      n.code = append(n.code, postStmtCode)
+                      return n, nil
+              } () >>
+          | InitStmt terminator Condition terminator
+              << func() (Attrib, error) {
+                      n := Node{$2.(Node).place, []string{}}
+                      initStmtCode := ""
+                      for _, v := range $0.(Node).code {
+                              initStmtCode += v
+                              initStmtCode += "\n"
+                      }
+                      condCode := ""
+                      for _, v := range $2.(Node).code {
+                              condCode += v
+                              condCode += "\n"
+                      }
+                      n.code = append(n.code, initStmtCode)
+                      n.code = append(n.code, condCode)
+                      n.code = append(n.code, "")
+                      return n, nil
+              } () >>
+          | InitStmt terminator terminator PostStmt
+              << func() (Attrib, error) {
+                      n := Node{"1", []string{}}
+                      initStmtCode := ""
+                      for _, v := range $0.(Node).code {
+                              initStmtCode += v
+                              initStmtCode += "\n"
+                      }
+                      postStmtCode := ""
+                      for _, v := range $3.(Node).code {
+                              postStmtCode += v
+                              postStmtCode += "\n"
+                      }
+                      n.code = append(n.code, initStmtCode)
+                      n.code = append(n.code, "")
+                      n.code = append(n.code, postStmtCode)
+                      return n, nil
+              } () >>
+          | terminator Condition terminator PostStmt
+              << func() (Attrib, error) {
+                      n := Node{$1.(Node).place, []string{}}
+                      condCode := ""
+                      for _, v := range $1.(Node).code {
+                              condCode += v
+                              condCode += "\n"
+                      }
+                      postStmtCode := ""
+                      for _, v := range $3.(Node).code {
+                              postStmtCode += v
+                              postStmtCode += "\n"
+                      }
+                      n.code = append(n.code, "")
+                      n.code = append(n.code, condCode)
+                      n.code = append(n.code, postStmtCode)
+                      return n, nil
+              } () >>
+          | InitStmt terminator Condition terminator PostStmt
+              << func() (Attrib, error) {
+                      n := Node{$2.(Node).place, []string{}}
+                      initStmtCode := ""
+                      for _, v := range $0.(Node).code {
+                              initStmtCode += v
+                              initStmtCode += "\n"
+                      }
+                      condCode := ""
+                      for _, v := range $2.(Node).code {
+                              condCode += v
+                              condCode += "\n"
+                      }
+                      postStmtCode := ""
+                      for _, v := range $4.(Node).code {
+                              postStmtCode += v
+                              postStmtCode += "\n"
+                      }
+                      n.code = append(n.code, initStmtCode)
+                      n.code = append(n.code, condCode)
+                      n.code = append(n.code, postStmtCode)
+                      return n, nil
+              } () >>
+          ;
+
+InitStmt : SimpleStmt
+              << func() (Attrib, error) {
+                      return Node{"", $0.(Node).code}, nil
+              } () >>
+         ;
+
+PostStmt : SimpleStmt
+              << func() (Attrib, error) {
+                      return Node{"", $0.(Node).code}, nil
+              } () >>
+         ;
+
+// FIXME: Condition can only be a binary expression.
 Condition : Expression
               << func() (Attrib, error) {
                       return Node{$0.(Node).place, $0.(Node).code}, nil
@@ -1920,17 +2018,30 @@ IncDecStmt : Expression "++"
                 } () >>
            ;
 
-// Assignment : ExpressionList assignOp ExpressionList
-//                 << func() (Attrib, error) {
-//                       fmt.Println("ExpressionList assignOp ExpressionList");
-//                       return nil, nil
-//                 } () >>
-//            | ExpressionList "=" ExpressionList
-//                 << func() (Attrib, error) {
-//                       fmt.Println("ExpressionList assignOp ExpressionList");
-//                       return nil, nil
-//                 } () >>
-//            ;
+Assignment : ExpressionList assignOp ExpressionList
+                << func() (Attrib, error) {
+                        op := string($1.(*token.Token).Lit)[0]
+                        n := Node{"", $0.(Node).code}
+                        n.code = append(n.code, $2.(Node).code...)
+                        leftExpr := strings.Split($0.(Node).place, ",")
+                        rightExpr := strings.Split($2.(Node).place, ",")
+                        for k, v := range leftExpr {
+                                n.code = append(n.code, fmt.Sprintf("%s, %s, %s, %s", op, v, v, rightExpr[k]))
+                        }
+                        return n, nil
+                } () >>
+           | ExpressionList "=" ExpressionList
+                << func() (Attrib, error) {
+                        n := Node{"", $0.(Node).code}
+                        n.code = append(n.code, $2.(Node).code...)
+                        leftExpr := strings.Split($0.(Node).place, ",")
+                        rightExpr := strings.Split($2.(Node).place, ",")
+                        for k, v := range leftExpr {
+                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, rightExpr[k]))
+                        }
+                        return n, nil
+                } () >>
+           ;
 
 ShortVarDecl : IdentifierList shortAssign ExpressionList
                 << func() (Attrib, error) {
@@ -1938,15 +2049,12 @@ ShortVarDecl : IdentifierList shortAssign ExpressionList
                         expr := strings.Split($2.(Node).place, ",")
                         for k, v := range $0.(Node).code {
                                 n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
-
                         }
                         return n, nil
                 } () >>
              ;
-
-// Label : identifier
-//                 << func() (Attrib, error) {
-//                       fmt.Println("identifier");
-//                       return nil, nil
-//                 } () >>
-//       ;
+Label : identifier
+                 << func() (Attrib, error) {
+                       return Node{string($0.(*token.Token).Lit), []string{}}, nil
+                 } () >>
+              ;

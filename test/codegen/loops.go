@@ -1,9 +1,6 @@
 func main() {
-	for {
-		b := 1
+	for i := 0; i < 4; i++ {
+		a := 1
 	}
-
-	for b + 1 {
-		b++
-	}
+	b := 1
 }

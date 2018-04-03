@@ -20,7 +20,7 @@ func GenIR(file string) {
 	parser.GenProductions(file)
 }
 
-// GenAsm generates the assembly code using the IR generated from the input program.
+// GenAsm generates the assembly code using IR generated from the input program.
 func GenAsm(file string) {
 	asm.CodeGen(tac.GenTAC(file))
 }
