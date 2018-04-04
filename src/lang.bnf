@@ -103,6 +103,11 @@ type Node struct {
 
 var tmpIndex int = 0
 var labelIndex int = 0
+var symTab map[string][]string
+
+func init() {
+        symTab = make(map[string][]string)
+}
 
 // NewTmp generates a unique temporary.
 func NewTmp() string {
@@ -456,7 +461,6 @@ ConstSpec : IdentifierList
                         expr := strings.Split($2.(Node).place, ",")
                         for k, v := range $0.(Node).code {
                                 n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
-
                         }
                         return n, nil
                 } () >>
@@ -541,25 +545,25 @@ Expression : Expression BinaryOp Expression
 //                 } () >>
            ;
 
-BinaryOp    : "||"
-                  << func() (Attrib, error) {
-                        fmt.Println("\"||\"");
-                        return nil, nil
-                  } () >>
+BinaryOp : "||"
+              << func() (Attrib, error) {
+                      fmt.Println("\"||\"");
+                      return nil, nil
+              } () >>
 
-              | "&&"
-                  << func() (Attrib, error) {
-                    fmt.Println("\"&&\"");
-                    return nil, nil
-                  } () >>
-              | RelOp
-                  << func() (Attrib, error) {
+         | "&&"
+             << func() (Attrib, error) {
+                     fmt.Println("\"&&\"");
+                     return nil, nil
+             } () >>
+         | RelOp
+                << func() (Attrib, error) {
                         return Node{$0.(Node).place, []string{}}, nil
-                  } () >>
-              | AddOp
-                  << func() (Attrib, error) {
+                } () >>
+         | AddOp
+                << func() (Attrib, error) {
                         return Node{$0.(Node).place, []string{}}, nil
-                  } () >>
+                } () >>
               // | MulOp
               //     << func() (Attrib, error) {
               //           return Node{$0.(Node).place, []string{}}, nil
@@ -728,11 +732,16 @@ PrimaryExpr : Operand
 //                       fmt.Println("PrimaryExpr Selector");
 //                       return nil, nil
 //                 } () >>
-//             | PrimaryExpr Index
-//                 << func() (Attrib, error) {
-//                       fmt.Println("PrimaryExpr Index");
-//                       return nil, nil
-//                 } () >>
+            | PrimaryExpr Index
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        n.place = NewTmp()
+                        // TODO: Write comment here.
+                        symTab[n.place] = []string{fmt.Sprintf("%s, %s", $0.(Node).place, $1.(Node).place), "array"}
+                        n.code = append(n.code, $1.(Node).code...)
+                        n.code = append(n.code, fmt.Sprintf("from, %s, %s, %s", n.place, $0.(Node).place, $1.(Node).place))
+                        return n, nil
+                } () >>
 //             | PrimaryExpr Slice
 //                 << func() (Attrib, error) {
 //                       fmt.Println("PrimaryExpr Slice");
@@ -773,16 +782,15 @@ Operand : Literal
 //                       return nil, nil
 //                 } () >>
         ;
-//
+
 Literal : BasicLit
                 << func() (Attrib, error) {
                         return Node{$0.(Node).place, []string{}}, nil
                 } () >>
-//         | CompositeLit
-//                 << func() (Attrib, error) {
-//                       fmt.Println("CompositeLit");
-//                       return nil, nil
-//                 } () >>
+        | CompositeLit
+                << func() (Attrib, error) {
+                        return Node{$0.(Node).place, []string{}}, nil
+                } () >>
 //         | FunctionLit
 //                 << func() (Attrib, error) {
 //                       fmt.Println("FunctionLit");
@@ -815,31 +823,29 @@ BasicLit : intLit
 //                      return nil, nil
 //                } () >>
          ;
-//
-// // CompositeLit  = LiteralType LiteralValue .
-// // LiteralType   = StructType | ArrayType | "[" "..." "]" ElementType |
-// //                 SliceType | MapType | TypeName .
-// // LiteralValue  = "{" [ ElementList [ "," ] ] "}" .
-// // ElementList   = KeyedElement { "," KeyedElement } .
-// // KeyedElement  = [ Key ":" ] Element .
-// // Key           = FieldName | Expression | LiteralValue .
-// // FieldName     = identifier .
-// // Element       = Expression | LiteralValue .
-// CompositeLit : LiteralType LiteralValue
-//                     << func() (Attrib, error) {
-//                           fmt.Println("LiteralType LiteralValue");
-//                           return nil, nil
-//                     } () >>
-//              ;
-//
-// LiteralType : StructType
+
+// CompositeLit  = LiteralType LiteralValue .
+// LiteralType   = StructType | ArrayType | "[" "..." "]" ElementType |
+//                 SliceType | MapType | TypeName .
+// LiteralValue  = "{" [ ElementList [ "," ] ] "}" .
+// ElementList   = KeyedElement { "," KeyedElement } .
+// KeyedElement  = [ Key ":" ] Element .
+// Key           = FieldName | Expression | LiteralValue .
+// FieldName     = identifier .
+// Element       = Expression | LiteralValue .
+CompositeLit : LiteralType LiteralValue
+                        << func() (Attrib, error) {
+                                return Node{$0.(Node).place, []string{}}, nil
+                        } () >>
+             ;
+
+LiteralType : ArrayType
+                        << func() (Attrib, error) {
+                                return Node{$0.(Node).place, []string{}}, nil
+                        } () >>
+//             | StructType
 //                     << func() (Attrib, error) {
 //                           fmt.Println("StructType");
-//                           return nil, nil
-//                     } () >>
-//             | ArrayType
-//                     << func() (Attrib, error) {
-//                           fmt.Println("ArrayType");
 //                           return nil, nil
 //                     } () >>
 //             | "[" "..." "]" ElementType
@@ -858,22 +864,21 @@ BasicLit : intLit
 //                         fmt.Println("type");
 //                         return nil, nil
 //                   } () >>
-//             ;
-//
-// LiteralValue : "{" RepeatTerminator "}"
-//                     << func() (Attrib, error) {
-//                           fmt.Println("RepeatTerminator");
-//                           return nil, nil
-//                     } () >>
-//              // NOTE: We don't support adding a ',' after the last KeyedElement
-//              // as opposed to the official go language.
-//              | "{" RepeatTerminator ElementList "}"
-//                    << func() (Attrib, error) {
-//                          fmt.Println("\"{\" RepeatTerminator ElementList \"}\" ");
-//                          return nil, nil
-//                    } () >>
-//              ;
-//
+            ;
+
+LiteralValue : "{" RepeatTerminator "}"
+                        << func() (Attrib, error) {
+                                return Node{"", []string{}}, nil
+                        } () >>
+             // NOTE: We don't support adding a ',' after the last KeyedElement
+             // as opposed to the official go language.
+             // | "{" RepeatTerminator ElementList "}"
+             //       << func() (Attrib, error) {
+             //             fmt.Println("\"{\" RepeatTerminator ElementList \"}\" ");
+             //             return nil, nil
+             //       } () >>
+             ;
+
 // ElementList : KeyedElement RepeatKeyedElement
 //                 << func() (Attrib, error) {
 //                       fmt.Println("KeyedElement RepeatKeyedElement");
@@ -961,8 +966,7 @@ BasicLit : intLit
 
 OperandName : identifier
                 << func() (Attrib, error) {
-                        n := Node{string($0.(*token.Token).Lit), []string{}}
-                        return n, nil
+                        return Node{string($0.(*token.Token).Lit), []string{}}, nil
                 } () >>
             ;
 
@@ -980,13 +984,12 @@ OperandName : identifier
 //               } () >>
 //          ;
 //
-// Index : "[" Expression "]"
-//               << func() (Attrib, error) {
-//                     fmt.Println("\"[\" Expression \"]\"");
-//                     return nil, nil
-//               } () >>
-//       ;
-//
+Index : "[" Expression "]"
+                << func() (Attrib, error) {
+                        return Node{$1.(Node).place, $1.(Node).code}, nil
+                } () >>
+      ;
+
 // Slice : "[" ":" "]"
 //               << func() (Attrib, error) {
 //                     fmt.Println("\"[\" \":\" \"]\"");
@@ -1198,7 +1201,7 @@ Parameters : "(" RepeatTerminator ")"
 // //             SliceType | MapType | ChannelType .
 Type : type
         << func() (Attrib, error) {
-              return nil, nil
+              return Node{string($0.(*token.Token).Lit), []string{}}, nil
         } () >>
 //       | identifier
 //         << func() (Attrib, error) {
@@ -1243,31 +1246,31 @@ Type : type
 //               return nil, nil
 //         } () >>
 //         ;
-//
-// // ArrayType   = "[" ArrayLength "]" ElementType .
-// // ArrayLength = Expression .
-// // ElementType = Type .
-// ArrayType : "[" ArrayLength "]" ElementType
-//             << func() (Attrib, error) {
-//                   fmt.Println("\"[\" ArrayLength \"]\" ElementType");
-//                   return nil, nil
-//             } () >>
-//             ;
-//
-// ArrayLength : Expression
-//             << func() (Attrib, error) {
-//                   fmt.Println("Expression");
-//                   return nil, nil
-//             } () >>
-//             ;
-//
-// ElementType : Type
-//             << func() (Attrib, error) {
-//                   fmt.Println("Type");
-//                   return nil, nil
-//             } () >>
-//             ;
-//
+
+// ArrayType   = "[" ArrayLength "]" ElementType .
+// ArrayLength = Expression .
+// ElementType = Type .
+ArrayType : "[" ArrayLength "]" ElementType
+                << func() (Attrib, error) {
+                        // TODO: ElementType is taken to be only int for now.
+                        return Node{fmt.Sprintf("array:%s", $1.(Node).place), []string{}}, nil
+                } () >>
+            ;
+
+// NOTE: ArrayLength is modified to be only an integer, unlike in Go where it is
+// an expression.
+ArrayLength : intLit
+                << func() (Attrib, error) {
+                        return Node{string($0.(*token.Token).Lit), []string{}}, nil
+                } () >>
+            ;
+
+ElementType : Type
+                << func() (Attrib, error) {
+                        return Node{$0.(Node).place, []string{}}, nil
+                } () >>
+            ;
+
 // // StructType    = kwdStruct "{" { FieldDecl ";" } "}" .
 // // FieldDecl     = (IdentifierList Type | EmbeddedField) [ Tag ] .
 // // EmbeddedField = [ "*" ] TypeName .
@@ -1387,7 +1390,7 @@ IdentifierList : identifier
                                 return n, nil
                         } () >>
                ;
-//
+
 FunctionName : identifier
                 << func() (Attrib, error) {
                         return Node{string($0.(*token.Token).Lit), []string{}}, nil
@@ -2096,6 +2099,13 @@ Assignment : ExpressionList assignOp ExpressionList
                         rightExpr := strings.Split($2.(Node).place, ",")
                         for k, v := range leftExpr {
                                 n.code = append(n.code, fmt.Sprintf("%s, %s, %s, %s", op, v, v, rightExpr[k]))
+                                if symTab[v][1] == "array" {
+                                        arrayInfo := strings.Split(symTab[v][0], ",")
+                                        // arrayInfo contains the following info -
+                                        //      0th index: array name
+                                        //      1st index: array index
+                                        n.code = append(n.code, fmt.Sprintf("into, %s, %s, %s, %s", arrayInfo[0], arrayInfo[0], arrayInfo[1], v))
+                                }
                         }
                         return n, nil
                 } () >>
@@ -2107,6 +2117,12 @@ Assignment : ExpressionList assignOp ExpressionList
                         rightExpr := strings.Split($2.(Node).place, ",")
                         for k, v := range leftExpr {
                                 n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, rightExpr[k]))
+                                if symTab[v][1] == "array" {
+                                        arrayInfo := strings.Split(symTab[v][0], ",")
+                                        // arrayInfo[0]: array name
+                                        // arrayInfo[1]: array index
+                                        n.code = append(n.code, fmt.Sprintf("into, %s, %s, %s, %s", arrayInfo[0], arrayInfo[0], arrayInfo[1], v))
+                                }
                         }
                         return n, nil
                 } () >>
@@ -2117,7 +2133,11 @@ ShortVarDecl : IdentifierList shortAssign ExpressionList
                         n := Node{"", $2.(Node).code}
                         expr := strings.Split($2.(Node).place, ",")
                         for k, v := range $0.(Node).code {
-                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
+                                if expr[k][:5] == "array" {
+                                        n.code = append(n.code, fmt.Sprintf("decl, %s, %s", v, expr[k][6:]))
+                                } else {
+                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
+                                }
                         }
                         return n, nil
                 } () >>
