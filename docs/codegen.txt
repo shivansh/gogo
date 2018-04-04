@@ -1,0 +1,5 @@
+Guidelines
+~~~~~~~~~~
+
+* Each function should be compulsarily accompanied by a relevant return statement.
+* The place values of an ExpressionList is a comma separated string of place values of individual Expressions.

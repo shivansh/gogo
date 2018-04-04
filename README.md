@@ -17,15 +17,16 @@ Go to MIPS compiler implemented in Go. Made as a course project for CS335 (Compi
 | Token generation / Lexer | [`test1.out`](test/lexer/test1.out) | :heavy_check_mark: |
 | Code generation | [`pascalTriangle.ir`](test/ir/pascalTriangle.ir) :arrow_right: [`pascalTriangle.asm`](test/ir/pascalTriangle.asm) | :heavy_check_mark: |
 | Parser | [`struct.go`](test/parser/struct.go) :arrow_right: [`struct.html`](https://shivanshrai84.gitlab.io/staticPages/assets/struct.html) | :heavy_check_mark: |
-| IR generation |  | In progress |
+| IR generation | [`switch.go`](test/codegen/switch.go) :arrow_right: [`switch.asm`](test/codegen/switch.asm) | :heavy_check_mark: |
 
 The file [main.go](src/main.go) contains routines described as follows corresponding to each component -
 
 |    Routine   | Description                                                                                      |
 |:------------:|--------------------------------------------------------------------------------------------------|
 | `GenToken()` | Generates the tokens returned by lexer from the input program                                    |
-|  `GenAsm()`  | Generates the assembly code using the IR generated from the input program                        |
+|  `GenAsmFromIR()`  | Generates the assembly code using the IR generated from the input program                        |
 |  `GenHTML()` | Generates the rightmost derivations used in the bottom-up parsing and pretty-prints them in HTML |
+|  `GenAsm()`  | GenAsm generates the assembly code from the input program                                        |
 
 ## Setting up
 Run `./scripts/setup.sh` from the root directory of the project to set up the pre-commit git hooks.
