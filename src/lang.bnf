@@ -89,6 +89,7 @@ runeLit  : '\'' [ '\\' ] [ . ] '\'' ;
 
 <<
 import(
+        "errors"
         "fmt"
         "regexp"
         "strings"
@@ -101,12 +102,38 @@ type Node struct {
         code []string
 }
 
+type symTabType map[string][]string
+
+type SymbolTable struct {
+        // TODO: Add separate symbol table for temporaries.
+        varSymTab symTabType
+        parent    *SymbolTable
+}
+
+var currSymTab *SymbolTable // keeps track of the current active symbol table.
+
 var tmpIndex int = 0
 var labelIndex int = 0
-var symTab map[string][]string
+var varIndex int = 0
+var symTab symTabType // symbol table for temporaries ; TODO: Update this.
 
 func init() {
-        symTab = make(map[string][]string)
+        symTab = make(symTabType)
+}
+
+// SearchInScope searches the value of the variable in current scope first. If
+// not found, keeps traversing the parent scopes until root symbol table.
+func SearchInScope(v string) (string, bool) {
+        currScope := currSymTab
+        for currScope != nil {
+                renamedVar, ok := currScope.varSymTab[v]
+                if ok {
+                        return renamedVar[0], true
+                } else {
+                        currScope = currSymTab.parent
+                }
+        }
+        return "", false
 }
 
 // NewTmp generates a unique temporary.
@@ -121,6 +148,14 @@ func NewLabel() string {
         l := fmt.Sprintf("l%d", labelIndex)
         labelIndex++
         return l
+}
+
+// NewVar generates a unique variable for renaming.
+// A variable named 'var' will be renamed to 'var.1'.
+func RenameVar(v string) string {
+        ret := fmt.Sprintf("%s.%d", v, varIndex)
+        varIndex++
+        return ret
 }
 
 >>
@@ -966,7 +1001,14 @@ LiteralValue : "{" RepeatTerminator "}"
 
 OperandName : identifier
                 << func() (Attrib, error) {
-                        return Node{string($0.(*token.Token).Lit), []string{}}, nil
+                        // return Node{string($0.(*token.Token).Lit), []string{}}, nil
+                        varName := string($0.(*token.Token).Lit)
+                        renamedVarName, found := SearchInScope(varName)
+                        if !found {
+                                return nil, errors.New(fmt.Sprintf("%s not declared", varName))
+                        } else {
+                                return Node{renamedVarName, []string{}}, nil
+                        }
                 } () >>
             ;
 
@@ -1580,11 +1622,23 @@ GotoStmt : kwdGoto Label
                 } () >>
          ;
 
-Block : "{" RepeatTerminator StatementList "}"
+Block : "{" Marker1 RepeatTerminator StatementList "}"
                 << func() (Attrib, error) {
-                        return Node{"", $2.(Node).code}, nil
+                        // start of block
+                        currSymTab = currSymTab.parent // end of block
+                        return Node{"", $3.(Node).code}, nil
                 } () >>
       ;
+
+// NOTE: Marker1 demarcates beginning of the block and the corresponding symbol
+// table is instantiated here.
+Marker1 : empty
+                << func() (Attrib, error) {
+                        childSymTab := SymbolTable{make(symTabType), currSymTab}
+                        currSymTab = &childSymTab
+                        return nil, nil
+                } () >>
+        ;
 
 // IfStmt = "if" [ SimpleStmt ";" ] Expression Block [ "else" ( IfStmt | Block ) ] .
 IfStmt : kwdIf Expression Block
@@ -2099,12 +2153,15 @@ Assignment : ExpressionList assignOp ExpressionList
                         rightExpr := strings.Split($2.(Node).place, ",")
                         for k, v := range leftExpr {
                                 n.code = append(n.code, fmt.Sprintf("%s, %s, %s, %s", op, v, v, rightExpr[k]))
-                                if symTab[v][1] == "array" {
-                                        arrayInfo := strings.Split(symTab[v][0], ",")
-                                        // arrayInfo contains the following info -
-                                        //      0th index: array name
-                                        //      1st index: array index
-                                        n.code = append(n.code, fmt.Sprintf("into, %s, %s, %s, %s", arrayInfo[0], arrayInfo[0], arrayInfo[1], v))
+                                _, ok := symTab[v]
+                                if ok {
+                                        if symTab[v][1] == "array" {
+                                                arrayInfo := strings.Split(symTab[v][0], ",")
+                                                // arrayInfo contains the following info -
+                                                //      0th index: array name
+                                                //      1st index: array index
+                                                n.code = append(n.code, fmt.Sprintf("into, %s, %s, %s, %s", arrayInfo[0], arrayInfo[0], arrayInfo[1], v))
+                                        }
                                 }
                         }
                         return n, nil
@@ -2117,11 +2174,14 @@ Assignment : ExpressionList assignOp ExpressionList
                         rightExpr := strings.Split($2.(Node).place, ",")
                         for k, v := range leftExpr {
                                 n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, rightExpr[k]))
-                                if symTab[v][1] == "array" {
-                                        arrayInfo := strings.Split(symTab[v][0], ",")
-                                        // arrayInfo[0]: array name
-                                        // arrayInfo[1]: array index
-                                        n.code = append(n.code, fmt.Sprintf("into, %s, %s, %s, %s", arrayInfo[0], arrayInfo[0], arrayInfo[1], v))
+                                _, ok := symTab[v]
+                                if ok {
+                                        if symTab[v][1] == "array" {
+                                                arrayInfo := strings.Split(symTab[v][0], ",")
+                                                // arrayInfo[0]: array name
+                                                // arrayInfo[1]: array index
+                                                n.code = append(n.code, fmt.Sprintf("into, %s, %s, %s, %s", arrayInfo[0], arrayInfo[0], arrayInfo[1], v))
+                                        }
                                 }
                         }
                         return n, nil
@@ -2133,10 +2193,17 @@ ShortVarDecl : IdentifierList shortAssign ExpressionList
                         n := Node{"", $2.(Node).code}
                         expr := strings.Split($2.(Node).place, ",")
                         for k, v := range $0.(Node).code {
-                                if len(expr[k]) >= 5 && expr[k][:5] == "array" {
-                                        n.code = append(n.code, fmt.Sprintf("decl, %s, %s", v, expr[k][6:]))
+                                renamedVar := RenameVar(v)
+                                _, ok := currSymTab.varSymTab[v]
+                                if !ok {
+                                        currSymTab.varSymTab[v] = []string{renamedVar, "int"} // TODO: All types are int currently.
                                 } else {
-                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
+                                        return nil, errors.New(fmt.Sprintf("%s already declared", v))
+                                }
+                                if len(expr[k]) >= 5 && expr[k][:5] == "array" {
+                                        n.code = append(n.code, fmt.Sprintf("decl, %s, %s", renamedVar, expr[k][6:])) // TODO: rename arrays
+                                } else {
+                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
                                 }
                         }
                         return n, nil
