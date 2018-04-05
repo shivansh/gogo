@@ -2133,7 +2133,7 @@ ShortVarDecl : IdentifierList shortAssign ExpressionList
                         n := Node{"", $2.(Node).code}
                         expr := strings.Split($2.(Node).place, ",")
                         for k, v := range $0.(Node).code {
-                                if expr[k][:5] == "array" {
+                                if len(expr[k]) >= 5 && expr[k][:5] == "array" {
                                         n.code = append(n.code, fmt.Sprintf("decl, %s, %s", v, expr[k][6:]))
                                 } else {
                                         n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
