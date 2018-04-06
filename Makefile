@@ -7,17 +7,17 @@ DEBUGFLAGS=-gcflags "-N -l"
 
 all:
 	make deps
-	make gentoken
+	make scanner
 	make tac
 	make gogo
 
-.PHONY: gentoken tac gogo clean test
+.PHONY: scanner tac gogo clean test
 
 deps: $(SRC)/lang.bnf
 	scripts/check-gocc.sh
 
-gentoken: $(SRC)/gentoken/gentoken.go
-	cd $(SRC)/gentoken; $(CC) install $(GCFLAGS)
+scanner: $(SRC)/scanner/gentoken.go
+	cd $(SRC)/scanner; $(CC) install $(GCFLAGS)
 
 tac: $(SRC)/tac/tac.go
 	cd $(SRC)/tac; $(CC) install $(GCFLAGS)

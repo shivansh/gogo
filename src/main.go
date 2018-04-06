@@ -8,14 +8,14 @@ import (
 	"os"
 
 	"gogo/src/asm"
-	"gogo/src/gentoken"
 	"gogo/src/parser"
+	"gogo/src/scanner"
 	"gogo/src/tac"
 )
 
 // GenToken generates the tokens returned by lexer from the input program.
 func GenToken(file string) {
-	gentoken.PrintTokens(file)
+	scanner.PrintTokens(file)
 }
 
 // GenIR generates the IR instructions from the input program.

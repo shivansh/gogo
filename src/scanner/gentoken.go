@@ -1,7 +1,7 @@
-// Package gentoken generate tokens and the corresponding lexemes extracted
-// from a source file.
+// Package scanner generate tokens and the corresponding lexemes extracted from
+// a source file.
 
-package gentoken
+package scanner
 
 import (
 	"fmt"

@@ -97,38 +97,42 @@ import(
         "gogo/tmp/token"
 )
 
+// Node represents a node in the AST of a given program.
 type Node struct {
-        place string
-        code []string
+        place string   // variable storing the value if node represents an expression
+        code  []string // IR instructions
 }
 
 type symTabType map[string][]string
 
-type SymbolTable struct {
+type SymInfo struct {
         // TODO: Add separate symbol table for temporaries.
         varSymTab symTabType
-        parent    *SymbolTable
+        parent    *SymInfo
 }
 
-var currSymTab *SymbolTable // keeps track of the current active symbol table.
-
-var tmpIndex int = 0
-var labelIndex int = 0
-var varIndex int = 0
-var symTab symTabType // symbol table for temporaries ; TODO: Update this.
+var (
+	tmpIndex   int
+	labelIndex int
+	varIndex   int
+	symTab     symTabType // symbol table for temporaries ; TODO: Update this.
+        // currSymTab keeps track of the currently active symbol table
+        // depending on scope.
+	currSymTab *SymInfo
+)
 
 func init() {
         symTab = make(symTabType)
 }
 
-// SearchInScope searches the value of the variable in current scope first. If
-// not found, keeps traversing the parent scopes until root symbol table.
+// SearchInScope searches the value of a variable in current scope first. If not
+// found, keeps traversing the parent scopes until topmost symbol table.
 func SearchInScope(v string) (string, bool) {
         currScope := currSymTab
         for currScope != nil {
-                renamedVar, ok := currScope.varSymTab[v]
+                symTabEntry, ok := currScope.varSymTab[v]
                 if ok {
-                        return renamedVar[0], true
+                        return symTabEntry[0], true
                 } else {
                         currScope = currSymTab.parent
                 }
@@ -136,7 +140,7 @@ func SearchInScope(v string) (string, bool) {
         return "", false
 }
 
-// NewTmp generates a unique temporary.
+// NewTmp generates a unique temporary variable.
 func NewTmp() string {
         t := fmt.Sprintf("t%d", tmpIndex)
         tmpIndex++
@@ -150,39 +154,19 @@ func NewLabel() string {
         return l
 }
 
-// NewVar generates a unique variable for renaming.
-// A variable named 'var' will be renamed to 'var.1'.
-func RenameVar(v string) string {
+// NewVar generates a unique variable name used for renaming. A variable named
+// var will be renamed to 'var.int_lit' where int_lit is an integer. Since
+// variable names cannot contain a '.', this will not result in a naming
+// conflict with an existing variable. The renamed variable will only occur in
+// the IR (there is no constraint on variable names in IR as of now).
+func RenameVariable(v string) string {
         ret := fmt.Sprintf("%s.%d", v, varIndex)
         varIndex++
         return ret
 }
-
 >>
 
 // NOTE: https://github.com/goccmack/gocc/issues/5998
-
-/*
-SourceFile: Expr ":=" Expr "+" Expr terminator
-        << func() (Attrib, error) {
-              n := Node{"", []string{}}
-              n.code = append(n.code, "+")
-              n.code = append(n.code, $0.(Node).place)
-              n.code = append(n.code, $2.(Node).place)
-              n.code = append(n.code, $4.(Node).place)
-              n.code = append(n.code, "\n")
-              return n, nil
-        } () >>
-        ;
-
-Expr : identifier
-        << func() (Attrib, error) {
-               n := Node{"", []string{}}
-               n.place = string($0.(*token.Token).Lit)
-               return n, nil
-        } () >>
-     ;
-*/
 
 // SourceFile = PackageClause ";" { ImportDecl ";" } { TopLevelDecl ";" } .
 Start : SourceFile
@@ -191,7 +175,7 @@ Start : SourceFile
                 c := $0.(Node).code
                 for _, v := range c {
                         v := strings.TrimSpace(v)
-                        // Compress multiple newlines within IR statemnets into
+                        // Compress multiple newlines within IR statements into
                         // a single newline.
                         v = re.ReplaceAllString(v, "\n")
                         if v != "" {
@@ -202,7 +186,6 @@ Start : SourceFile
         } () >>
       ;
 
-// NewTerm : terminator RepeatTerminator ;
 // SourceFile : PackageClause terminator RepeatTerminator RepeatImportDecl RepeatTopLevelDecl
 SourceFile : RepeatTopLevelDecl
                 << func() (Attrib, error) {
@@ -322,18 +305,18 @@ TopLevelDecl : Declaration RepeatTerminator
 
 // Declaration = ConstDecl | TypeDecl | VarDecl .
 Declaration : ConstDecl
-                    << func() (Attrib, error) {
-                            return Node{"", $0.(Node).code}, nil
-                    } () >>
+                << func() (Attrib, error) {
+                        return Node{"", $0.(Node).code}, nil
+                } () >>
             // | TypeDecl
             //         << func() (Attrib, error) {
             //               fmt.Println("TypeDecl");
             //               return nil, nil
             //         } () >>
             | VarDecl
-                    << func() (Attrib, error) {
-                            return Node{"", $0.(Node).code}, nil
-                    } () >>
+                << func() (Attrib, error) {
+                        return Node{"", $0.(Node).code}, nil
+                } () >>
             ;
 
 // VarDecl     = "var" ( VarSpec | "(" { VarSpec ";" } ")" ) .
@@ -363,37 +346,35 @@ VarDecl : kwdVar VarSpec
 //               ;
 //
 VarSpec : IdentifierList Type
-            << func() (Attrib, error) {
+                << func() (Attrib, error) {
                         n := Node{"", []string{}}
                         for _, v := range $0.(Node).code {
                                 n.code = append(n.code, fmt.Sprintf("=, %s, 0", v))
                         }
                         return n, nil
-            } () >>
+                } () >>
         | IdentifierList Type "=" ExpressionList
-            << func() (Attrib, error) {
+                << func() (Attrib, error) {
                         n := Node{"", $3.(Node).code}
                         expr := strings.Split($3.(Node).place, ",")
                         for k, v := range $0.(Node).code {
                                 n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
-
                         }
                         return n, nil
-            } () >>
+                } () >>
         | IdentifierList "=" ExpressionList
-            << func() (Attrib, error) {
-                n := Node{"", $2.(Node).code}
-                expr := strings.Split($2.(Node).place, ",")
-                for k, v := range $0.(Node).code {
-                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
-
-                }
-                return n, nil
-            } () >>
+                << func() (Attrib, error) {
+                        n := Node{"", $2.(Node).code}
+                        expr := strings.Split($2.(Node).place, ",")
+                        for k, v := range $0.(Node).code {
+                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
+                        }
+                        return n, nil
+                } () >>
         | empty
-            << func() (Attrib, error) {
-                    return Node{"", []string{}}, nil
-            } () >>
+                << func() (Attrib, error) {
+                        return Node{"", []string{}}, nil
+                } () >>
         ;
 
 // TypeDecl  = "type" ( TypeSpec | "(" { TypeSpec ";" } ")" ) .
@@ -460,9 +441,9 @@ VarSpec : IdentifierList Type
 // IdentifierList = identifier { "," identifier } .
 // ExpressionList = Expression { "," Expression } .
 ConstDecl : kwdConst ConstSpec
-            << func() (Attrib, error) {
-                    return Node{"", $1.(Node).code}, nil
-            } () >>
+                << func() (Attrib, error) {
+                        return Node{"", $1.(Node).code}, nil
+                } () >>
           // | kwdConst "(" RepeatTerminator RepeatConstSpec ")"
           //   << func() (Attrib, error) {
           //           fmt.Println("kwdConst \"(\" RepeatTerminator RepeatConstSpec \")\"");
@@ -512,16 +493,16 @@ ConstSpec : IdentifierList
           ;
 
 ExpressionList : Expression
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
+                        << func() (Attrib, error) {
+                                return Node{$0.(Node).place, $0.(Node).code}, nil
+                        } () >>
                | Expression "," ExpressionList
-               << func() (Attrib, error) {
-                       n := Node{"", $0.(Node).code}
-                       n.code = append(n.code, $2.(Node).code...)
-                       n.place = fmt.Sprintf("%s,%s", $0.(Node).place, $2.(Node).place)
-                       return n, nil
-               } () >>
+                        << func() (Attrib, error) {
+                                n := Node{"", $0.(Node).code}
+                                n.code = append(n.code, $2.(Node).code...)
+                                n.place = fmt.Sprintf("%s,%s", $0.(Node).place, $2.(Node).place)
+                                return n, nil
+                        } () >>
                ;
 
 // Expression = UnaryExpr | Expression binary_op Expression .
@@ -560,8 +541,6 @@ Expression : Expression BinaryOp Expression
                                 n.code = append(n.code, fmt.Sprintf("%s, %s, %s, %s", op, n.place, $0.(Node).place, $2.(Node).place))
                                 n.code = append(n.code, "\n")
                         }
-                        switch $1.(Node).place {
-                        }
                         return n, nil
               } () >>
            | UnaryExpr
@@ -580,17 +559,18 @@ Expression : Expression BinaryOp Expression
 //                 } () >>
            ;
 
+// TODO: Add support for booleans in IR.
 BinaryOp : "||"
-              << func() (Attrib, error) {
-                      fmt.Println("\"||\"");
-                      return nil, nil
-              } () >>
+                << func() (Attrib, error) {
+                        fmt.Println("\"||\"");
+                        return nil, nil
+                } () >>
 
          | "&&"
-             << func() (Attrib, error) {
-                     fmt.Println("\"&&\"");
-                     return nil, nil
-             } () >>
+                << func() (Attrib, error) {
+                        fmt.Println("\"&&\"");
+                        return nil, nil
+                } () >>
          | RelOp
                 << func() (Attrib, error) {
                         return Node{$0.(Node).place, []string{}}, nil
@@ -609,39 +589,39 @@ BinaryOp : "||"
 // unaryOp     : '+' | '-' | '!' | '^' | '*' | '&' | '<' '-' ;
 // binaryOp    : '|' '|' | '&' '&' | _relOp | _addOp | _mulOp ;
 RelOp : "=="
-       << func() (Attrib, error) {
-             return Node{"==", []string{}}, nil
-       } () >>
+        << func() (Attrib, error) {
+                return Node{"==", []string{}}, nil
+        } () >>
       | "!="
-      << func() (Attrib, error) {
-            return Node{"!=", []string{}}, nil
-      } () >>
+        << func() (Attrib, error) {
+                return Node{"!=", []string{}}, nil
+        } () >>
       | "<="
-      << func() (Attrib, error) {
-            return Node{"<=", []string{}}, nil
-      } () >>
+        << func() (Attrib, error) {
+                return Node{"<=", []string{}}, nil
+        } () >>
       | "<"
-      << func() (Attrib, error) {
-              return Node{"<", []string{}}, nil
-      } () >>
+        << func() (Attrib, error) {
+                return Node{"<", []string{}}, nil
+        } () >>
       | ">="
-      << func() (Attrib, error) {
-            return Node{">=", []string{}}, nil
-      } () >>
+        << func() (Attrib, error) {
+                return Node{">=", []string{}}, nil
+        } () >>
       | ">"
-      << func() (Attrib, error) {
-            return Node{">", []string{}}, nil
-      } () >>
+        << func() (Attrib, error) {
+                return Node{">", []string{}}, nil
+        } () >>
       ;
 
 AddOp : "+"
-       << func() (Attrib, error) {
-              return Node{"+", []string{}}, nil
-       } () >>
+        << func() (Attrib, error) {
+                return Node{"+", []string{}}, nil
+        } () >>
       | "-"
-      << func() (Attrib, error) {
-            return Node{"-", []string{}}, nil
-      } () >>
+        << func() (Attrib, error) {
+                return Node{"-", []string{}}, nil
+        } () >>
 //       | "|"
 //       << func() (Attrib, error) {
 //             fmt.Println("\"|\"");
@@ -692,9 +672,9 @@ AddOp : "+"
 //
 // // UnaryExpr  = PrimaryExpr | unary_op UnaryExpr .
 UnaryExpr : PrimaryExpr
-          << func() (Attrib, error) {
-                return Node{$0.(Node).place, $0.(Node).code}, nil
-          } () >>
+                << func() (Attrib, error) {
+                        return Node{$0.(Node).place, $0.(Node).code}, nil
+                } () >>
 //           | UnaryOp UnaryExpr
 //           << func() (Attrib, error) {
 //                 fmt.Println("UnaryOp UnaryExpr");
@@ -743,16 +723,16 @@ UnaryExpr : PrimaryExpr
 //                     return nil, nil
 //               } () >>
 //         ;
-//
-// // PrimaryExpr =
-// //  Operand |
-// //  Conversion |
-// //  MethodExpr |
-// //  PrimaryExpr Selector |
-// //  PrimaryExpr Index |
-// //  PrimaryExpr Slice |
-// //  PrimaryExpr TypeAssertion |
-// //  PrimaryExpr Arguments .
+
+// PrimaryExpr =
+//  Operand |
+//  Conversion |
+//  MethodExpr |
+//  PrimaryExpr Selector |
+//  PrimaryExpr Index |
+//  PrimaryExpr Slice |
+//  PrimaryExpr TypeAssertion |
+//  PrimaryExpr Arguments .
 PrimaryExpr : Operand
                 << func() (Attrib, error) {
                         return Node{$0.(Node).place, []string{}}, nil
@@ -798,11 +778,11 @@ PrimaryExpr : Operand
                         return n, nil
                 } () >>
             ;
-//
-// // Operand     = Literal | OperandName | "(" Expression ")" .
-// // Literal     = BasicLit | CompositeLit | FunctionLit .
-// // BasicLit    = int_lit | float_lit | imaginary_lit | rune_lit | string_lit .
-// // OperandName = identifier | QualifiedIdent.
+
+// Operand     = Literal | OperandName | "(" Expression ")" .
+// Literal     = BasicLit | CompositeLit | FunctionLit .
+// BasicLit    = int_lit | float_lit | imaginary_lit | rune_lit | string_lit .
+// OperandName = identifier | QualifiedIdent.
 Operand : Literal
                 << func() (Attrib, error) {
                         return Node{$0.(Node).place, []string{}}, nil
@@ -832,7 +812,7 @@ Literal : BasicLit
 //                       return nil, nil
 //                 } () >>
         ;
-//
+
 BasicLit : intLit
                 << func() (Attrib, error) {
                         return Node{string($0.(*token.Token).Lit), []string{}}, nil
@@ -1161,11 +1141,11 @@ FunctionDecl : kwdFunc FunctionName Signature FunctionBody
              | kwdFunc FunctionName Signature
              ;
 
-// // Signature      = Parameters [ Result ] .
-// // Result         = Parameters | Type .
-// // Parameters     = "(" [ ParameterList [ "," ] ] ")" .
-// // ParameterList  = ParameterDecl { "," ParameterDecl } .
-// // ParameterDecl  = [ IdentifierList ] [ "..." ] Type .
+// Signature      = Parameters [ Result ] .
+// Result         = Parameters | Type .
+// Parameters     = "(" [ ParameterList [ "," ] ] ")" .
+// ParameterList  = ParameterDecl { "," ParameterDecl } .
+// ParameterDecl  = [ IdentifierList ] [ "..." ] Type .
 Signature : Parameters
 //           | Parameters Result
 //                 << func() (Attrib, error) {
@@ -1185,9 +1165,9 @@ Signature : Parameters
 //                     return nil, nil
 //               } () >>
 //        ;
-//
-// // TODO: Ignore terminator
-// // TODO: Parameters cannot end in ','
+
+// TODO: Ignore terminator
+// TODO: Parameters cannot end in ','
 Parameters : "(" RepeatTerminator ")"
 //            | "(" ParameterList ")"
 //                 << func() (Attrib, error) {
@@ -1195,7 +1175,7 @@ Parameters : "(" RepeatTerminator ")"
 //                       return nil, nil
 //                 } () >>
            ;
-//
+
 // ParameterList : ParameterDecl RepeatParameterDecl
 //                 << func() (Attrib, error) {
 //                       fmt.Println("ParameterDecl RepeatParameterDecl");
@@ -1446,13 +1426,7 @@ FunctionBody : Block
              ;
 
 RepeatTerminator : terminator RepeatTerminator
-                << func() (Attrib, error) {
-                      return nil, nil
-                } () >>
                  | empty
-                << func() (Attrib, error) {
-                      return nil, nil
-                } () >>
                  ;
 
 StatementList : Statement terminator RepeatTerminator StatementList
@@ -1466,11 +1440,11 @@ StatementList : Statement terminator RepeatTerminator StatementList
                         return Node{"", $0.(Node).code}, nil
                 } () >>
               ;
-//
-// // Statement = Declaration | LabeledStmt | SimpleStmt |
-// //             GoStmt | ReturnStmt | BreakStmt | ContinueStmt | GotoStmt |
-// //             FallthroughStmt | Block | IfStmt | SwitchStmt | SelectStmt | ForStmt |
-// //             DeferStmt .
+
+// Statement = Declaration | LabeledStmt | SimpleStmt |
+//             GoStmt | ReturnStmt | BreakStmt | ContinueStmt | GotoStmt |
+//             FallthroughStmt | Block | IfStmt | SwitchStmt | SelectStmt | ForStmt |
+//             DeferStmt .
 Statement : Declaration
                 << func() (Attrib, error) {
                         return Node{"", $0.(Node).code}, nil
@@ -1491,28 +1465,28 @@ Statement : Declaration
                 << func() (Attrib, error) {
                         return Node{"", $0.(Node).code}, nil
                 } () >>
-         | ContinueStmt
+          | ContinueStmt
                 << func() (Attrib, error) {
                         return Node{"", $0.(Node).code}, nil
                 } () >>
-         | GotoStmt
+          | GotoStmt
                 << func() (Attrib, error) {
                        return Node{"", $0.(Node).code}, nil
                 } () >>
-         // TODO: FallthroughStmt is not supported currently.
-         | Block
+          // TODO: FallthroughStmt is not supported currently.
+          | Block
                 << func() (Attrib, error) {
                        return Node{"", $0.(Node).code}, nil
                 } () >>
-         | IfStmt
-               << func() (Attrib, error) {
-                       return Node{"", $0.(Node).code}, nil
-               } () >>
-         | SwitchStmt
+          | IfStmt
+                << func() (Attrib, error) {
+                        return Node{"", $0.(Node).code}, nil
+                } () >>
+          | SwitchStmt
                 << func() (Attrib, error) {
                        return Node{"", $0.(Node).code}, nil
                 } () >>
-         | ForStmt
+          | ForStmt
                 << func() (Attrib, error) {
                        return Node{"", $0.(Node).code}, nil
                 } () >>
@@ -1528,30 +1502,29 @@ LabeledStmt : Label ":" RepeatTerminator Statement
                 } () >>
             ;
 
-// // SimpleStmt = EmptyStmt | ExpressionStmt | SendStmt | IncDecStmt | Assignment | ShortVarDecl .
-// // EmptyStmt = .
-// // ExpressionStmt = Expression .
-// // IncDecStmt = Expression ( "++" | "--" ) .
-// // Assignment = ExpressionList assign_op ExpressionList .
-// // assign_op = [ add_op | mul_op ] "=" .
-// // ShortVarDecl = IdentifierList ":=" ExpressionList .
-
+// SimpleStmt = EmptyStmt | ExpressionStmt | SendStmt | IncDecStmt | Assignment | ShortVarDecl .
+// EmptyStmt = .
+// ExpressionStmt = Expression .
+// IncDecStmt = Expression ( "++" | "--" ) .
+// Assignment = ExpressionList assign_op ExpressionList .
+// assign_op = [ add_op | mul_op ] "=" .
+// ShortVarDecl = IdentifierList ":=" ExpressionList .
 SimpleStmt : EmptyStmt
                 << func() (Attrib, error) {
                         return Node{"", []string{}}, nil
                 } () >>
            | Assignment
-               << func() (Attrib, error) {
-                       return Node{"", $0.(Node).code}, nil
-               } () >>
-           | ShortVarDecl
-               << func() (Attrib, error) {
-                       return Node{"", $0.(Node).code}, nil
-               } () >>
-           | IncDecStmt
-                 << func() (Attrib, error) {
+                << func() (Attrib, error) {
                         return Node{"", $0.(Node).code}, nil
-                 } () >>
+                } () >>
+           | ShortVarDecl
+                << func() (Attrib, error) {
+                        return Node{"", $0.(Node).code}, nil
+                } () >>
+           | IncDecStmt
+                << func() (Attrib, error) {
+                       return Node{"", $0.(Node).code}, nil
+                } () >>
            ;
 
 // SimpleStmt : ExpressionStmt
@@ -1622,7 +1595,7 @@ GotoStmt : kwdGoto Label
                 } () >>
          ;
 
-Block : "{" Marker1 RepeatTerminator StatementList "}"
+Block : "{" Marker RepeatTerminator StatementList "}"
                 << func() (Attrib, error) {
                         // start of block
                         currSymTab = currSymTab.parent // end of block
@@ -1630,11 +1603,13 @@ Block : "{" Marker1 RepeatTerminator StatementList "}"
                 } () >>
       ;
 
-// NOTE: Marker1 demarcates beginning of the block and the corresponding symbol
+// NOTE: Marker demarcates the beginning of a block and the corresponding symbol
 // table is instantiated here.
-Marker1 : empty
+Marker : empty
                 << func() (Attrib, error) {
-                        childSymTab := SymbolTable{make(symTabType), currSymTab}
+                        childSymTab := SymInfo{make(symTabType), currSymTab}
+                        // Update the current symbol table to point to the newly
+                        // created symbol table.
                         currSymTab = &childSymTab
                         return nil, nil
                 } () >>
@@ -1642,7 +1617,7 @@ Marker1 : empty
 
 // IfStmt = "if" [ SimpleStmt ";" ] Expression Block [ "else" ( IfStmt | Block ) ] .
 IfStmt : kwdIf Expression Block
-              << func() (Attrib, error) {
+                << func() (Attrib, error) {
                         n := Node{"", $1.(Node).code}
                         afterLabel := NewLabel()
                         n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", afterLabel, $1.(Node).place))
@@ -1650,7 +1625,7 @@ IfStmt : kwdIf Expression Block
                         n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
                         n.code = append(n.code, "\n")
                         return n, nil
-              } () >>
+                } () >>
         | kwdIf Expression Block kwdElse Block
                 << func() (Attrib, error) {
                         n := Node{"", $1.(Node).code}
@@ -1703,7 +1678,7 @@ IfStmt : kwdIf Expression Block
 
                 } () >>
         | kwdIf SimpleStmt terminator Expression Block kwdElse Block
-                  << func() (Attrib, error) {
+                << func() (Attrib, error) {
                         n := Node{"", $1.(Node).code}
                         elseLabel := NewLabel()
                         afterLabel := NewLabel()
@@ -2129,7 +2104,6 @@ Condition : Expression
 //                       return nil, nil
 //                 } () >>
 //                ;
-
 IncDecStmt : Expression "++"
                 << func() (Attrib, error) {
                         n := Node{"", $0.(Node).code}
@@ -2193,7 +2167,7 @@ ShortVarDecl : IdentifierList shortAssign ExpressionList
                         n := Node{"", $2.(Node).code}
                         expr := strings.Split($2.(Node).place, ",")
                         for k, v := range $0.(Node).code {
-                                renamedVar := RenameVar(v)
+                                renamedVar := RenameVariable(v)
                                 _, ok := currSymTab.varSymTab[v]
                                 if !ok {
                                         currSymTab.varSymTab[v] = []string{renamedVar, "int"} // TODO: All types are int currently.
@@ -2209,6 +2183,7 @@ ShortVarDecl : IdentifierList shortAssign ExpressionList
                         return n, nil
                 } () >>
              ;
+
 Label : identifier
                  << func() (Attrib, error) {
                        return Node{string($0.(*token.Token).Lit), []string{}}, nil
