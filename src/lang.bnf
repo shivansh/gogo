@@ -506,84 +506,156 @@ ExpressionList : Expression
                ;
 
 // Expression = UnaryExpr | Expression binary_op Expression .
-Expression : Expression BinaryOp Expression
+Expression : Expression "||" Term1
                 << func() (Attrib, error) {
                         n := Node{"", $0.(Node).code}
                         n.code = append(n.code, $2.(Node).code...)
-                        op := $1.(Node).place
-                        if op == "==" || op == "!=" || op == "<=" || op == "<" || op == ">=" || op == ">" {
-                                branchOp := ""
-                                n.place = NewTmp()
-                                falseLabel := NewLabel()
-                                afterLabel := NewLabel()
-                                switch op {
-                                        case "==":
-                                                branchOp = "bne"
-                                        case "!=":
-                                                branchOp = "beq"
-                                        case "<=":
-                                                branchOp = "bgt"
-                                        case "<":
-                                                branchOp = "bge"
-                                        case ">=":
-                                                branchOp = "blt"
-                                        case ">":
-                                                branchOp = "ble"
-                                }
-                                n.code = append(n.code, fmt.Sprintf("%s, %s, %s, %s", branchOp, falseLabel, $0.(Node).place, $2.(Node).place))
-                                n.code = append(n.code, fmt.Sprintf("=, %s, 1", n.place))
-                                n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
-                                n.code = append(n.code, fmt.Sprintf("label, %s", falseLabel))
-                                n.code = append(n.code, fmt.Sprintf("=, %s, 0", n.place))
-                                n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
-                        } else if op == "+" || op == "-" || op == "*" || op == "/" {
-                                n.place = NewTmp()
-                                n.code = append(n.code, fmt.Sprintf("%s, %s, %s, %s", op, n.place, $0.(Node).place, $2.(Node).place))
-                                n.code = append(n.code, "\n")
-                        }
+                        n.place = NewTmp()
+                        n.code = append(n.code, fmt.Sprintf("or, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
+                        n.code = append(n.code, "\n")
                         return n, nil
-              } () >>
-           | UnaryExpr
+                } () >>
+           | Term1
                 << func() (Attrib, error) {
                         return Node{$0.(Node).place, $0.(Node).code}, nil
                 } () >>
-//           // Since PointerType defines "*" to be a token, expressions
-//           // like `y = x * 2` will not be parsed because parser will
-//           // expect a "BinaryOp" token but the parser will return a
-//           // "*" token. To avoid such ambiguity the following (extra)
-//           // rule is introduced.
-//           | Expression "*" Expression
-//                 << func() (Attrib, error) {
-//                         fmt.Println("Expression \"*\" Expression");
-//                         return nil, nil
-//                 } () >>
+           ;
+
+Term1 : Term1 "&&" Term2
+                << func() (Attrib, error) {
+                        n := Node{"", $0.(Node).code}
+                        n.code = append(n.code, $2.(Node).code...)
+                        n.place = NewTmp()
+                        n.code = append(n.code, fmt.Sprintf("and, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
+                        n.code = append(n.code, "\n")
+                        return n, nil
+                } () >>
+           | Term2
+                << func() (Attrib, error) {
+                        return Node{$0.(Node).place, $0.(Node).code}, nil
+                } () >>
+           ;
+
+Term2 : Term2 RelOp Term3
+                << func() (Attrib, error) {
+                        n := Node{"", $0.(Node).code}
+                        n.code = append(n.code, $2.(Node).code...)
+                        branchOp := ""
+                        n.place = NewTmp()
+                        falseLabel := NewLabel()
+                        afterLabel := NewLabel()
+                        switch $1.(Node).place {
+                                case "==":
+                                        branchOp = "bne"
+                                case "!=":
+                                        branchOp = "beq"
+                                case "<=":
+                                        branchOp = "bgt"
+                                case "<":
+                                        branchOp = "bge"
+                                case ">=":
+                                        branchOp = "blt"
+                                case ">":
+                                        branchOp = "ble"
+                        }
+                        n.code = append(n.code, fmt.Sprintf("%s, %s, %s, %s", branchOp, falseLabel, $0.(Node).place, $2.(Node).place))
+                        n.code = append(n.code, fmt.Sprintf("=, %s, 1", n.place))
+                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
+                        n.code = append(n.code, fmt.Sprintf("label, %s", falseLabel))
+                        n.code = append(n.code, fmt.Sprintf("=, %s, 0", n.place))
+                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
+                        return n, nil
+                } () >>
+           | Term3
+                << func() (Attrib, error) {
+                        return Node{$0.(Node).place, $0.(Node).code}, nil
+                } () >>
+           ;
+
+Term3 : Term3 "+" Term4
+                << func() (Attrib, error) {
+                        n := Node{"", $0.(Node).code}
+                        n.code = append(n.code, $2.(Node).code...)
+                        n.place = NewTmp()
+                        n.code = append(n.code, fmt.Sprintf("+, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
+                        n.code = append(n.code, "\n")
+                        return n, nil
+                } () >>
+            | Term4
+                << func() (Attrib, error) {
+                        return Node{$0.(Node).place, $0.(Node).code}, nil
+                } () >>
+            ;
+
+Term4 : Term4 "-" Term5
+                << func() (Attrib, error) {
+                        n := Node{"", $0.(Node).code}
+                        n.code = append(n.code, $2.(Node).code...)
+                        n.place = NewTmp()
+                        n.code = append(n.code, fmt.Sprintf("-, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
+                        n.code = append(n.code, "\n")
+                        return n, nil
+                } () >>
+      | Term5
+                << func() (Attrib, error) {
+                        return Node{$0.(Node).place, $0.(Node).code}, nil
+                } () >>
+            ;
+
+Term5 : Term5 "*" Term6
+                << func() (Attrib, error) {
+                        n := Node{"", $0.(Node).code}
+                        n.code = append(n.code, $2.(Node).code...)
+                        n.place = NewTmp()
+                        n.code = append(n.code, fmt.Sprintf("*, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
+                        n.code = append(n.code, "\n")
+                        return n, nil
+                } () >>
+      | Term6
+                << func() (Attrib, error) {
+                        return Node{$0.(Node).place, $0.(Node).code}, nil
+                } () >>
+            ;
+
+Term6 : Term6 "/" Term7
+                << func() (Attrib, error) {
+                        n := Node{"", $0.(Node).code}
+                        n.code = append(n.code, $2.(Node).code...)
+                        n.place = NewTmp()
+                        n.code = append(n.code, fmt.Sprintf("/, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
+                        n.code = append(n.code, "\n")
+                        return n, nil
+                } () >>
+      | Term7
+                << func() (Attrib, error) {
+                        return Node{$0.(Node).place, $0.(Node).code}, nil
+                } () >>
+            ;
+
+Term7 : "(" Expression ")"
+                << func() (Attrib, error) {
+                        return Node{$1.(Node).place, $1.(Node).code}, nil
+                } () >>
+      | UnaryExpr
+                << func() (Attrib, error) {
+                        return Node{$0.(Node).place, $0.(Node).code}, nil
+                } () >>
            ;
 
 // TODO: Add support for booleans in IR.
-BinaryOp : "||"
+BinaryOp : RelOp
                 << func() (Attrib, error) {
-                        fmt.Println("\"||\"");
-                        return nil, nil
+                        return Node{$0.(Node).place, []string{}}, nil
                 } () >>
-
+         | "||"
+                << func() (Attrib, error) {
+                        return Node{"or", []string{}}, nil
+                } () >>
          | "&&"
                 << func() (Attrib, error) {
-                        fmt.Println("\"&&\"");
-                        return nil, nil
+                        return Node{"and", []string{}}, nil
                 } () >>
-         | RelOp
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, []string{}}, nil
-                } () >>
-         | AddOp
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, []string{}}, nil
-                } () >>
-              // | MulOp
-              //     << func() (Attrib, error) {
-              //           return Node{$0.(Node).place, []string{}}, nil
-              //     } () >>
-              ;
+         ;
 
 // unaryOp will be used for defining UnaryExpr in parser.
 // unaryOp     : '+' | '-' | '!' | '^' | '*' | '&' | '<' '-' ;
@@ -614,63 +686,7 @@ RelOp : "=="
         } () >>
       ;
 
-AddOp : "+"
-        << func() (Attrib, error) {
-                return Node{"+", []string{}}, nil
-        } () >>
-      | "-"
-        << func() (Attrib, error) {
-                return Node{"-", []string{}}, nil
-        } () >>
-//       | "|"
-//       << func() (Attrib, error) {
-//             fmt.Println("\"|\"");
-//             return nil, nil
-//       } () >>
-//       | "^"
-//       << func() (Attrib, error) {
-//             fmt.Println("\"^\"");
-//             return nil, nil
-//       } () >>
-      ;
-//
-// MulOp : "*"
-//       << func() (Attrib, error) {
-//             fmt.Println("\"*\"");
-//             return nil, nil
-//       } () >>
-//       | "/"
-//       << func() (Attrib, error) {
-//             fmt.Println("\"/\"");
-//             return nil, nil
-//       } () >>
-//       | "%"
-//       << func() (Attrib, error) {
-//             fmt.Println("\"%\"");
-//             return nil, nil
-//       } () >>
-//       | "<<"
-//       << func() (Attrib, error) {
-//             fmt.Println("\"<<\"");
-//             return nil, nil
-//       } () >>
-//       | ">>"
-//       << func() (Attrib, error) {
-//             fmt.Println("\"<<\""); // TODO: Fix this
-//             return nil, nil
-//       } () >>
-//       | "&"
-//       << func() (Attrib, error) {
-//             fmt.Println("\"&\"");
-//             return nil, nil
-//       } () >>
-//       | "&^"
-//             fmt.Println("\"&^\"");
-//             return nil, nil
-//       } () >>
-//       ;
-//
-// // UnaryExpr  = PrimaryExpr | unary_op UnaryExpr .
+// UnaryExpr  = PrimaryExpr | unary_op UnaryExpr .
 UnaryExpr : PrimaryExpr
                 << func() (Attrib, error) {
                         return Node{$0.(Node).place, $0.(Node).code}, nil
