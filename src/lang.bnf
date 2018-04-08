@@ -691,33 +691,43 @@ UnaryExpr : PrimaryExpr
                 << func() (Attrib, error) {
                         return Node{$0.(Node).place, $0.(Node).code}, nil
                 } () >>
-//           | UnaryOp UnaryExpr
-//           << func() (Attrib, error) {
-//                 fmt.Println("UnaryOp UnaryExpr");
-//                 return nil, nil
-//           } () >>
+          | UnaryOp UnaryExpr
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        n.code = append(n.code, $1.(Node).code...)
+                        switch $0.(Node).place {
+                        case "-":
+                                n.place = NewTmp()
+                                n.code = append(n.code, fmt.Sprintf("*, %s, %s, -1", n.place, $1.(Node).place))
+                        case "!":
+                                n.place = NewTmp()
+                                n.code = append(n.code, fmt.Sprintf("not, %s, %s", n.place, $1.(Node).place))
+                        case "+":
+                                n.place = $1.(Node).place
+                        default:
+                                return n, errors.New(fmt.Sprintf("%s operator not supported", $0.(Node).place))
+                        }
+                        return n, nil
+                } () >>
 //           | "*" UnaryExpr
 //           << func() (Attrib, error) {
 //                 fmt.Println("\"*\" UnaryExpr");
 //                 return nil, nil
 //           } () >>
           ;
-//
-// UnaryOp : "+"
-//               << func() (Attrib, error) {
-//                     fmt.Println("\"+\"");
-//                     return nil, nil
-//               } () >>
-//         | "-"
-//               << func() (Attrib, error) {
-//                     fmt.Println("\"-\"");
-//                     return nil, nil
-//               } () >>
-//         | "!"
-//               << func() (Attrib, error) {
-//                     fmt.Println("\"!\"");
-//                     return nil, nil
-//               } () >>
+
+UnaryOp : "+"
+              << func() (Attrib, error) {
+                    return Node{"+", []string{}}, nil
+              } () >>
+        | "-"
+              << func() (Attrib, error) {
+                    return Node{"-", []string{}}, nil
+              } () >>
+        | "!"
+              << func() (Attrib, error) {
+                    return Node{"!", []string{}}, nil
+              } () >>
 //         | "^"
 //               << func() (Attrib, error) {
 //                     fmt.Println("\"^\"");
@@ -738,7 +748,7 @@ UnaryExpr : PrimaryExpr
 //                     fmt.Println("\"<-\"");
 //                     return nil, nil
 //               } () >>
-//         ;
+        ;
 
 // PrimaryExpr =
 //  Operand |
