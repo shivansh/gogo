@@ -30,6 +30,7 @@ type Stmt struct {
 
 type Union interface {
 	IntVal() int
+	FloatVal() float64
 	StrVal() string
 }
 
@@ -45,7 +46,7 @@ type DataSec struct {
 	Stmts []string
 	// Lookup keeps track of all the variables currently
 	// available in the data section.
-	Lookup map[string]bool
+	Lookup map[string]string
 }
 
 type TextSec struct {
@@ -75,11 +76,18 @@ type Blk struct {
 	//	* Keeps track of what is currently in each register.
 	//	* Initially all registers are empty.
 	Rdesc      map[int]string
+	// for float FRdesc and FAdesc
+	AdescFloat map[string]Addr
+	RdescFloat map[int]string
+
 	NextUseTab [][]UseInfo
+	NextUseTabFloat [][]UseInfo
 	Pq         PriorityQueue
+	PqFloat    PriorityQueue
 }
 
 type I32 int
+type F32 float64
 type Str string
 
 const (
@@ -144,7 +152,7 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 			blk.Adesc[v] = Addr{reg, blk.Adesc[v].Mem}
 			if k < lenSource-1 {
 				if !arrLookup[v] {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, %s", blk.Adesc[v].Reg, v))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, %s", blk.Adesc[v].Reg, v))	
 				} else {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", blk.Adesc[v].Reg, v))
 				}
@@ -169,6 +177,73 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 	}
 }
 
+func (blk Blk) GetRegFloat(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
+	// allocReg is a slice of all the register DS which are popped from the heap
+	// and have been assigned a variable's data. These DS are updated with the
+	// newly assigned variable's next-use info and after all the variables (x,y,z)
+	// are assigned a register, all entities in allocReg are pushed back into the
+	// heap. This ensures that the source variables' registers don't spill each other.
+	var allocReg []*UseInfo
+	var srcVars []string
+	var lenSource int
+
+	// Collect all "variables" available in stmt. Register allocation is first
+	// done for the source variables and then for the destination variable.
+	for _, v := range stmt.Src {
+		switch v := v.U.(type) {
+		case Str:
+			srcVars = append(srcVars, v.StrVal())
+		}
+	}
+	switch stmt.Op {
+	case "bgt", "bge", "blt", "ble", "beq", "bne", "j":
+		lenSource = len(srcVars) + 1
+		break
+	default:
+		srcVars = append(srcVars, stmt.Dst)
+		lenSource = len(srcVars)
+	}
+
+	for k, v := range srcVars {
+		if _, hasReg := blk.AdescFloat[v]; !hasReg {
+			item := heap.Pop(&blk.PqFloat).(*UseInfo) // element with highest next-use
+			reg, _ := strconv.Atoi(item.Name)
+			if _, ok := blk.RdescFloat[reg]; ok && !arrLookup[blk.RdescFloat[reg]] {
+				comment := fmt.Sprintf("# spilled %s, freed $t%s", blk.RdescFloat[reg], item.Name)
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%s, %s\t\t%s", item.Name, blk.RdescFloat[reg], comment))
+			}
+			allocReg = append(allocReg, &UseInfo{strconv.Itoa(reg), blk.FindNextUse(stmt.Line, v)})
+			delete(blk.AdescFloat, blk.RdescFloat[reg])
+			delete(blk.RdescFloat, reg)
+			blk.RdescFloat[reg] = v
+			blk.AdescFloat[v] = Addr{reg, blk.AdescFloat[v].Mem}
+			if k < lenSource-1 {
+				if !arrLookup[v] {
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tl.w $f%d, %s", blk.AdescFloat[v].Reg, v))	
+				} else {
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", blk.Adesc[v].Reg, v))
+				}
+			}
+		}
+	}
+
+	// Push the popped items with updated priorities back into heap.
+	for _, v := range allocReg {
+		heap.Push(&blk.PqFloat, v)
+	}
+
+	// Check if any src variable is without a register. If there is,
+	// then temporarily mark the lookup table corresponding to it to
+	// ensure that the relevant statement is correctly inserted into
+	// the text segment data structure. Once that is done, this entry
+	// will be deleted by the caller.
+	for i := 0; i < len(srcVars)-1; i++ {
+		if _, ok := blk.AdescFloat[srcVars[i]]; !ok {
+			blk.AdescFloat[srcVars[i]] = Addr{blk.AdescFloat[stmt.Dst].Reg, 0}
+		}
+	}
+}
+
 // Next-use allocation heuristic
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Traverse the statements in a basic block from bottom-up, while updating
@@ -181,30 +256,56 @@ func (blk Blk) EvalNextUseInfo() {
 	// nuSymTab is a symbol table to track next use
 	// information corresponding to all the variables.
 	nuSymTab := make(map[string]int)
+	nuSymTabFloat := make(map[string]int)
+
 	for i := len(blk.Stmts) - 1; i >= 0; i-- {
-		switch blk.Stmts[i].Op {
+		op := blk.Stmts[i].Op
+		switch op {
 		case "label", "func":
 			continue
 		}
-		s := []string{blk.Stmts[i].Dst}
-		for _, v := range blk.Stmts[i].Src {
-			switch v := v.U.(type) {
-			case Str:
-				s = append(s, v.StrVal())
+		if op[0] == 'f' && op != "func"{
+			s := []string{blk.Stmts[i].Dst}
+			for _, v := range blk.Stmts[i].Src {
+				switch v := v.U.(type) {
+				case Str:
+					s = append(s, v.StrVal())
+				}
 			}
-		}
-		// Step 1
-		for _, v := range s {
-			if _, ok := nuSymTab[v]; !ok {
-				nuSymTab[v] = MaxInt
+			// Step 1
+			for _, v := range s {
+				if _, ok := nuSymTabFloat[v]; !ok {
+					nuSymTabFloat[v] = MaxInt
+				}
+				blk.NextUseTabFloat[i] = append(blk.NextUseTabFloat[i], UseInfo{v, nuSymTabFloat[v]})
 			}
-			blk.NextUseTab[i] = append(blk.NextUseTab[i], UseInfo{v, nuSymTab[v]})
-		}
-		// Step 2
-		nuSymTab[s[0]] = MaxInt
-		// Step 3
-		for _, v := range blk.Stmts[i].Src {
-			nuSymTab[v.U.StrVal()] = i
+			// Step 2
+			nuSymTabFloat[s[0]] = MaxInt
+			// Step 3
+			for _, v := range blk.Stmts[i].Src {
+				nuSymTabFloat[v.U.StrVal()] = i
+			}
+		} else {
+			s := []string{blk.Stmts[i].Dst}
+			for _, v := range blk.Stmts[i].Src {
+				switch v := v.U.(type) {
+				case Str:
+					s = append(s, v.StrVal())
+				}
+			}
+			// Step 1
+			for _, v := range s {
+				if _, ok := nuSymTab[v]; !ok {
+					nuSymTab[v] = MaxInt
+				}
+				blk.NextUseTab[i] = append(blk.NextUseTab[i], UseInfo{v, nuSymTab[v]})
+			}
+			// Step 2
+			nuSymTab[s[0]] = MaxInt
+			// Step 3
+			for _, v := range blk.Stmts[i].Src {
+				nuSymTab[v.U.StrVal()] = i
+			}
 		}
 	}
 }
@@ -226,7 +327,7 @@ func GenTAC(file string) (tac Tac) {
 	blk := new(Blk)
 	line := 0
 	re := regexp.MustCompile("(^-?[0-9]+$)") // integers
-
+	ref := regexp.MustCompile("(^-?[0-9]*(.)?[0-9]+$)")
 	f, err := os.Open(file)
 	if err != nil {
 		log.Fatal(err)
@@ -273,6 +374,13 @@ func GenTAC(file string) (tac Tac) {
 						log.Fatal(err)
 					}
 					sv = append(sv, &SymInfo{I32(v)})
+				} else if ref.MatchString(record[i]) {
+					v, err := strconv.ParseFloat(record[i], 64)
+					if err != nil {
+						fmt.Println(record[i])
+						log.Fatal(err)
+					}
+					sv = append(sv, &SymInfo{F32(v)})
 				} else {
 					sv = append(sv, &SymInfo{Str(record[i])})
 				}
@@ -304,12 +412,36 @@ func (U I32) IntVal() int {
 	return int(U)
 }
 
+func (U I32) FloatVal() float64 {
+	return float64(U)
+}
+
 func (U I32) StrVal() string {
 	return strconv.Itoa(U.IntVal())
 }
 
+func (U F32) IntVal() int {
+	return int(U)
+}
+
+func (U F32) FloatVal() float64 {
+	return float64(U)
+}
+
+func (U F32) StrVal() string {
+	return strconv.FormatFloat(U.FloatVal(), 'f', 6, 64)
+}
+
 func (U Str) IntVal() (i int) {
 	i, err := strconv.Atoi(U.StrVal())
+	if err != nil {
+		log.Fatal(err)
+	}
+	return
+}
+
+func (U Str) FloatVal() (f float64) {
+	f, err := strconv.ParseFloat(U.StrVal(), 64)
 	if err != nil {
 		log.Fatal(err)
 	}

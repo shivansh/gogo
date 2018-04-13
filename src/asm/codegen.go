@@ -27,7 +27,7 @@ type Addr struct {
 func CodeGen(t tac.Tac) {
 	ts := new(tac.TextSec)
 	ds := new(tac.DataSec)
-	ds.Lookup = make(map[string]bool)
+	ds.Lookup = make(map[string]string)
 	// arrLookup keeps track of all the arrays declared.
 	arrLookup := make(map[string]bool)
 	funcName := ""
@@ -41,8 +41,12 @@ func CodeGen(t tac.Tac) {
 		exitStmt := ""
 		blk.Rdesc = make(map[int]string)
 		blk.Adesc = make(map[string]tac.Addr)
+		blk.RdescFloat = make(map[int]string)
+		blk.AdescFloat = make(map[string]tac.Addr)
 		blk.Pq = make(tac.PriorityQueue, tac.RegLimit)
+		blk.PqFloat = make(tac.PriorityQueue, tac.RegLimit)
 		blk.NextUseTab = make([][]tac.UseInfo, len(blk.Stmts), len(blk.Stmts))
+		blk.NextUseTabFloat = make([][]tac.UseInfo, len(blk.Stmts), len(blk.Stmts))
 
 		if len(blk.Stmts) > 0 && strings.Compare(blk.Stmts[0].Op, "func") == 0 {
 			funcName = blk.Stmts[0].Dst
@@ -53,8 +57,13 @@ func CodeGen(t tac.Tac) {
 				Name:    strconv.Itoa(i + 1),
 				Nextuse: tac.MaxInt,
 			}
+			blk.PqFloat[i] = &tac.UseInfo{
+				Name:    strconv.Itoa(i + 1),
+				Nextuse: tac.MaxInt,
+			}
 		}
 		heap.Init(&blk.Pq)
+		heap.Init(&blk.PqFloat)
 		blk.EvalNextUseInfo()
 		// Update data section data structures. For this, make a single
 		// pass through the entire three-address code and for each
@@ -64,19 +73,23 @@ func CodeGen(t tac.Tac) {
 			case "label", "func", "ret", "call", "#", "bgt", "bge", "blt", "ble", "beq", "bne", "j":
 				break
 			default:
-				if strings.Compare(stmt.Op, "decl") == 0 && !ds.Lookup[stmt.Dst] {
+				if _, ok := ds.Lookup[stmt.Dst] ; strings.Compare(stmt.Op, "decl") == 0 && !ok {
 					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.space\t%d", stmt.Dst, 4*stmt.Src[0].U.IntVal()))
-					ds.Lookup[stmt.Dst] = true
+					ds.Lookup[stmt.Dst] = "arrayInt"
 					arrLookup[stmt.Dst] = true
 					break
 				}
 				if strings.Compare(stmt.Op, "declStr") == 0 {
 					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.asciiz %s", stmt.Dst, stmt.Src[0].U.StrVal()))
-					ds.Lookup[stmt.Dst] = true
+					ds.Lookup[stmt.Dst] = "string"
 					break
 				}
-				if !ds.Lookup[stmt.Dst] {
-					ds.Lookup[stmt.Dst] = true
+				if _, ok := ds.Lookup[stmt.Dst] ; !ok {
+					if stmt.Op != "func" && stmt.Op[0] == 'f'{
+						ds.Lookup[stmt.Dst] = "float"
+					} else {
+						ds.Lookup[stmt.Dst] = "int"
+					}
 					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.word\t0", stmt.Dst))
 				}
 			}
@@ -94,6 +107,19 @@ func CodeGen(t tac.Tac) {
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove $t%d, $t%d\t\t%s",
 						blk.Adesc[stmt.Dst].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+				default:
+					log.Fatal("Unknown type %T\n", v)
+				}
+			case "f=":
+				blk.GetRegFloat(&stmt, ts, arrLookup)
+				comment := fmt.Sprintf("# %s -> $f%d", stmt.Dst, blk.AdescFloat[stmt.Dst].Reg)
+				switch v := stmt.Src[0].U.(type) {
+				case tac.F32:
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli.s $f%d, %f\t\t%s",
+						blk.AdescFloat[stmt.Dst].Reg, v, comment))
+				case tac.Str:
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmov.s $f%d, $f%d\t\t%s",
+						blk.AdescFloat[stmt.Dst].Reg, blk.AdescFloat[v.StrVal()].Reg, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -148,19 +174,6 @@ func CodeGen(t tac.Tac) {
 					default:
 						log.Fatal("Unknown type %T\n", v)
 					}
-				}
-			case "+":
-				blk.GetReg(&stmt, ts, arrLookup)
-				comment := fmt.Sprintf("# %s -> $t%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].U.(type) {
-				case tac.I32:
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\taddi $t%d, $t%d, %s\t\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), comment))
-				case tac.Str:
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tadd $t%d, $t%d, $t%d\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
-				default:
-					log.Fatal("Unknown type %T\n", v)
 				}
 			case "or":
 				blk.GetReg(&stmt, ts, arrLookup)
@@ -227,6 +240,34 @@ func CodeGen(t tac.Tac) {
 				// default:
 				// 	log.Fatal("Unknown type %T\n", v)
 				// }
+			case "+":
+				blk.GetReg(&stmt, ts, arrLookup)
+				comment := fmt.Sprintf("# %s -> $t%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
+				switch v := stmt.Src[1].U.(type) {
+				case tac.I32:
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\taddi $t%d, $t%d, %s\t\t%s",
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), comment))
+				case tac.Str:
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tadd $t%d, $t%d, $t%d\t%s",
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+				default:
+					log.Fatal("Unknown type %T\n", v)
+				}
+			case "f+":
+				blk.GetReg(&stmt, ts, arrLookup)
+				comment := fmt.Sprintf("# %s -> $f%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
+				switch v := stmt.Src[1].U.(type) {
+				case tac.F32:
+					comment1 := fmt.Sprintf("# loading immediate float value in $f0")
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli.s $f0, %s\t\t%s", v.StrVal(), comment1))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tadd.s $f%d, $f%d, $f0\t\t%s",
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, comment))
+				case tac.Str:
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tadd.s $f%d, $f%d, $f%d\t%s",
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+				default:
+					log.Fatal("Unknown type %T\n", v)
+				}
 			case "*":
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $t%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
@@ -462,6 +503,14 @@ func CodeGen(t tac.Tac) {
 			for k, v := range blk.Rdesc {
 				if !arrLookup[v] {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, %s", k, v))
+				}
+			}
+		}
+		if len(blk.RdescFloat) > 0 {
+			ts.Stmts = append(ts.Stmts, fmt.Sprintf("\t# Store variables back into memory"))
+			for k, v := range blk.RdescFloat {
+				if !arrLookup[v] {
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\ts.s $f%d, %s", k, v))
 				}
 			}
 		}
