@@ -140,6 +140,21 @@ func SearchInScope(v string) (string, bool) {
         return "", false
 }
 
+// GetSymTabEntry returns the symbol table entry for a given variable in the
+// current scope.
+func GetSymTabEntry(v string) ([]string, bool) {
+        currScope := currSymTab
+        for currScope != nil {
+                symtabEntry, ok := currScope.varSymTab[v]
+                if ok {
+                        return symtabEntry, true
+                } else {
+                        currScope = currSymTab.parent
+                }
+        }
+        return []string{}, false
+}
+
 // NewTmp generates a unique temporary variable.
 func NewTmp() string {
         t := fmt.Sprintf("t%d", tmpIndex)
@@ -308,11 +323,10 @@ Declaration : ConstDecl
                 << func() (Attrib, error) {
                         return Node{"", $0.(Node).code}, nil
                 } () >>
-            // | TypeDecl
-            //         << func() (Attrib, error) {
-            //               fmt.Println("TypeDecl");
-            //               return nil, nil
-            //         } () >>
+            | TypeDecl
+                    << func() (Attrib, error) {
+                        return Node{"", $0.(Node).code}, nil
+                    } () >>
             | VarDecl
                 << func() (Attrib, error) {
                         return Node{"", $0.(Node).code}, nil
@@ -381,17 +395,26 @@ VarSpec : IdentifierList Type
 // TypeSpec  = AliasDecl | TypeDef .
 // AliasDecl = identifier "=" Type
 // TypeDef   = identifier Type
-// TypeDecl : kwdType TypeSpec
-//                 << func() (Attrib, error) {
-//                       fmt.Println("kwdType TypeSpec");
-//                       return nil, nil
-//                 } () >>
+TypeDecl : kwdType TypeSpec
+                << func() (Attrib, error) {
+                        typeInfo := strings.Split($1.(Node).place, ",")
+                        switch strings.TrimSpace(typeInfo[0]) {
+                        case "struct":
+                                // create symbol table entry
+                                currSymTab.varSymTab[typeInfo[1]] = []string{"struct"}
+                                currSymTab.varSymTab[typeInfo[1]] = append(currSymTab.varSymTab[typeInfo[1]], $1.(Node).code...)
+                        default: // TODO: finish this
+                                return nil, errors.New("Unknown type")
+                        }
+                        // TODO: Member initialization will be done when a new object is instantiated.
+                        return Node{"", []string{}}, nil
+                } () >>
 //          | kwdType "(" RepeatTerminator RepeatTypeSpec ")"
 //                 << func() (Attrib, error) {
 //                         fmt.Println("kwdType \"(\" RepeatTerminator RepeatTypeSpec \")\"");
 //                         return nil, nil
 //                 } () >>
-//          ;
+         ;
 //
 // RepeatTypeSpec : TypeSpec terminator RepeatTerminator RepeatTypeSpec
 //                     << func() (Attrib, error) {
@@ -405,14 +428,13 @@ VarSpec : IdentifierList Type
 //                     } () >>
 //                ;
 //
-// TypeSpec : AliasDecl
+TypeSpec : TypeDef
+            << func() (Attrib, error) {
+                return Node{$0.(Node).place, $0.(Node).code}, nil
+            } () >>
+//          |    AliasDecl
 //             << func() (Attrib, error) {
 //                     fmt.Println("AliasDecl");
-//                     return nil, nil
-//             } () >>
-//          | TypeDef
-//             << func() (Attrib, error) {
-//                     fmt.Println("TypeDef");
 //                     return nil, nil
 //             } () >>
 //          | empty
@@ -420,7 +442,7 @@ VarSpec : IdentifierList Type
 //                     fmt.Println("empty");
 //                     return nil, nil
 //             } () >>
-//          ;
+         ;
 //
 // AliasDecl : identifier "=" Type
 //             << func() (Attrib, error) {
@@ -428,13 +450,12 @@ VarSpec : IdentifierList Type
 //                     return nil, nil
 //             } () >>
 //           ;
-//
-// TypeDef : identifier Type
-//             << func() (Attrib, error) {
-//                     fmt.Println("identifier Type");
-//                     return nil, nil
-//             } () >>
-//         ;
+
+TypeDef : identifier Type
+             << func() (Attrib, error) {
+                    return Node{fmt.Sprintf("%s, %s", $1.(Node).place, string($0.(*token.Token).Lit)), $1.(Node).code}, nil
+             } () >>
+        ;
 
 // ConstDecl      = "const" ( ConstSpec | "(" { ConstSpec ";" } ")" ) .
 // ConstSpec      = IdentifierList [ [ Type ] "=" ExpressionList ] .
@@ -876,7 +897,39 @@ BasicLit : intLit
 // Element       = Expression | LiteralValue .
 CompositeLit : LiteralType LiteralValue
                         << func() (Attrib, error) {
-                                return Node{$0.(Node).place, []string{}}, nil
+                                n := Node{"", []string{}}
+                                // For a struct, LiteralType stores its name.
+                                symTabEntry, found := GetSymTabEntry($0.(Node).place)
+                                if found {
+                                        switch symTabEntry[0] {
+                                        case "struct":
+                                                var varName, varType string
+                                                for k, v := range symTabEntry[1:] {
+                                                        if k % 2 == 0 {
+                                                                // variable names are present at even locations.
+                                                                varName = v
+                                                        } else {
+                                                                // variable types are present at odd locations.
+                                                                varType = v
+                                                                switch varType {
+                                                                case "int":
+                                                                        // add a symbol table entry corresponding
+                                                                        // to the struct member.
+                                                                        // The symbol table entry key is of the form:
+                                                                        //      structName.structMember
+                                                                        renamedVar := NewTmp()
+                                                                        currSymTab.varSymTab[fmt.Sprintf("%s.%s", $0.(Node).place, varName)] = []string{renamedVar, "int"}
+                                                                        n.code = append(n.code, fmt.Sprintf("=, %s, 0", renamedVar))
+                                                                default: // TODO: Handle different types
+                                                                        return nil, errors.New("Unknown type")
+                                                                }
+                                                        }
+                                                }
+                                        }
+                                } else {
+                                        return nil, errors.New("struct not in scope")
+                                }
+                                return n, nil
                         } () >>
              ;
 
@@ -884,12 +937,11 @@ LiteralType : ArrayType
                         << func() (Attrib, error) {
                                 return Node{$0.(Node).place, []string{}}, nil
                         } () >>
-//             | StructType
-//                     << func() (Attrib, error) {
-//                           fmt.Println("StructType");
-//                           return nil, nil
-//                     } () >>
-//             | "[" "..." "]" ElementType
+            // | StructType
+            //             << func() (Attrib, error) {
+            //                     return Node{$0.(Node).place, []string{}}, nil
+            //             } () >>
+            // | "[" "..." "]" ElementType
 //                     << func() (Attrib, error) {
 //                           fmt.Println("\"[\" \"...\" \"]\" ElementType");
 //                           return nil, nil
@@ -905,7 +957,19 @@ LiteralType : ArrayType
 //                         fmt.Println("type");
 //                         return nil, nil
 //                   } () >>
+            | TypeName
+                << func() (Attrib, error) {
+                        return Node{$0.(Node).place, $0.(Node).code}, nil
+                } () >>
             ;
+// TypeName  = identifier | QualifiedIdent .
+// QualifiedIdent = PackageName "." identifier .
+TypeName : identifier
+                << func() (Attrib, error) {
+                        return Node{string($0.(*token.Token).Lit), []string{}}, nil
+                } () >>
+         // | type
+         ;
 
 LiteralValue : "{" RepeatTerminator "}"
                         << func() (Attrib, error) {
@@ -913,6 +977,7 @@ LiteralValue : "{" RepeatTerminator "}"
                         } () >>
              // NOTE: We don't support adding a ',' after the last KeyedElement
              // as opposed to the official go language.
+             // TODO: Support for struct initialization.
              // | "{" RepeatTerminator ElementList "}"
              //       << func() (Attrib, error) {
              //             fmt.Println("\"{\" RepeatTerminator ElementList \"}\" ");
@@ -1242,11 +1307,11 @@ Parameters : "(" RepeatTerminator ")"
 //                       return nil, nil
 //                 } () >>
 //               ;
-//
-// // Type      = TypeName | TypeLit | "(" Type ")" .
-// // TypeName  = identifier | QualifiedIdent .
-// // TypeLit   = ArrayType | StructType | PointerType | FunctionType | InterfaceType |
-// //             SliceType | MapType | ChannelType .
+
+// Type      = TypeName | TypeLit | "(" Type ")" .
+// TypeName  = identifier | QualifiedIdent .
+// TypeLit   = ArrayType | StructType | PointerType | FunctionType | InterfaceType |
+//             SliceType | MapType | ChannelType .
 Type : type
         << func() (Attrib, error) {
               return Node{string($0.(*token.Token).Lit), []string{}}, nil
@@ -1256,28 +1321,26 @@ Type : type
 //                 fmt.Println("identifier");
 //                 return nil, nil
 //         } () >>
-//       | TypeLit
-//         << func() (Attrib, error) {
-//               fmt.Println("TypeLit");
-//               return nil, nil
-//         } () >>
+      | TypeLit
+        << func() (Attrib, error) {
+              return Node{$0.(Node).place, $0.(Node).code}, nil
+        } () >>
 //       | "(" Type ")"
 //         << func() (Attrib, error) {
 //               fmt.Println("\"(\" Type \")\"");
 //               return nil, nil
 //         } () >>
      ;
-//
-// TypeLit : ArrayType
-//         << func() (Attrib, error) {
-//               fmt.Println("ArrayType");
-//               return nil, nil
-//         } () >>
-//         | StructType
-//         << func() (Attrib, error) {
-//               fmt.Println("StructType");
-//               return nil, nil
-//         } () >>
+
+TypeLit : StructType
+                << func() (Attrib, error) {
+                        return Node{"struct", $0.(Node).code}, nil
+                } () >>
+        // | ArrayType
+        // << func() (Attrib, error) {
+        //       fmt.Println("StructType");
+        //       return nil, nil
+        // } () >>
 //         | PointerType
 //         << func() (Attrib, error) {
 //               fmt.Println("PointerType");
@@ -1293,7 +1356,7 @@ Type : type
 //               fmt.Println("SliceType");
 //               return nil, nil
 //         } () >>
-//         ;
+        ;
 
 // ArrayType   = "[" ArrayLength "]" ElementType .
 // ArrayLength = Expression .
@@ -1303,7 +1366,7 @@ ArrayType : "[" ArrayLength "]" ElementType
                         // TODO: ElementType is taken to be only int for now.
                         return Node{fmt.Sprintf("array:%s", $1.(Node).place), []string{}}, nil
                 } () >>
-            ;
+          ;
 
 // NOTE: ArrayLength is modified to be only an integer, unlike in Go where it is
 // an expression.
@@ -1319,34 +1382,37 @@ ElementType : Type
                 } () >>
             ;
 
-// // StructType    = kwdStruct "{" { FieldDecl ";" } "}" .
-// // FieldDecl     = (IdentifierList Type | EmbeddedField) [ Tag ] .
-// // EmbeddedField = [ "*" ] TypeName .
-// // Tag           = string_lit .
-// StructType : kwdStruct RepeatTerminator "{" RepeatTerminator RepeatFieldDecl "}"
-//             << func() (Attrib, error) {
-//                   fmt.Println("kwdStruct RepeatTerminator \"{\" RepeatTerminator RepeatFieldDecl \"}\"");
-//                   return nil, nil
-//             } () >>
-//            ;
-//
-// RepeatFieldDecl : FieldDecl terminator RepeatTerminator RepeatFieldDecl
-//                 << func() (Attrib, error) {
-//                       fmt.Println("FieldDecl terminator RepeatTerminator RepeatFieldDecl");
-//                       return nil, nil
-//                 } () >>
-//                 | FieldDecl RepeatTerminator
-//                 << func() (Attrib, error) {
-//                       fmt.Println("FieldDecl RepeatTerminator");
-//                       return nil, nil
-//                 } () >>
-//                 ;
-//
-// FieldDecl : IdentifierList Type
-//                 << func() (Attrib, error) {
-//                       fmt.Println("IdentifierList Type");
-//                       return nil, nil
-//                 } () >>
+// StructType    = kwdStruct "{" { FieldDecl ";" } "}" .
+// FieldDecl     = (IdentifierList Type | EmbeddedField) [ Tag ] .
+// EmbeddedField = [ "*" ] TypeName .
+// Tag           = string_lit .
+StructType : kwdStruct RepeatTerminator "{" RepeatTerminator RepeatFieldDecl "}"
+                << func() (Attrib, error) {
+                        return Node{"", $4.(Node).code}, nil
+                } () >>
+           ;
+
+RepeatFieldDecl : FieldDecl terminator RepeatTerminator RepeatFieldDecl
+                        << func() (Attrib, error) {
+                                n := Node{"", $0.(Node).code}
+                                n.code = append(n.code, $3.(Node).code...)
+                                return n, nil
+                        } () >>
+                | FieldDecl RepeatTerminator
+                        << func() (Attrib, error) {
+                                return Node{"", $0.(Node).code}, nil
+                        } () >>
+                ;
+
+FieldDecl : IdentifierList Type
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        for _, v := range $0.(Node).code {
+                                n.code = append(n.code, v)
+                                n.code = append(n.code, $1.(Node).place)
+                        }
+                        return n, nil
+                } () >>
 //           | IdentifierList Type Tag
 //                 << func() (Attrib, error) {
 //                       fmt.Println("IdentifierList Type Tag");
@@ -1362,13 +1428,12 @@ ElementType : Type
 //                       fmt.Println("EmbeddedField Tag");
 //                       return nil, nil
 //                 } () >>
-//           | empty
-//                 << func() (Attrib, error) {
-//                       fmt.Println("empty");
-//                       return nil, nil
-//                 } () >>
-//           ;
-//
+          | empty
+                << func() (Attrib, error) {
+                        return Node{"", []string{}}, nil
+                } () >>
+          ;
+
 // EmbeddedField : type
 //                 << func() (Attrib, error) {
 //                       fmt.Println("type");
