@@ -405,9 +405,11 @@ VarSpec : IdentifierList Type
 TypeDecl : kwdType TypeSpec
                 << func() (Attrib, error) {
                         typeInfo := strings.Split($1.(Node).place, ",")
+                        // return nil, errors.New(typeInfo[1])
                         switch strings.TrimSpace(typeInfo[0]) {
                         case "struct":
                                 // create symbol table entry
+                                // TODO: This should go in the global symbol table (along with functions).
                                 currSymTab.varSymTab[typeInfo[1]] = []string{"struct"}
                                 currSymTab.varSymTab[typeInfo[1]] = append(currSymTab.varSymTab[typeInfo[1]], $1.(Node).code...)
                         default: // TODO: finish this
@@ -904,38 +906,10 @@ BasicLit : intLit
 // Element       = Expression | LiteralValue .
 CompositeLit : LiteralType LiteralValue
                         << func() (Attrib, error) {
-                                n := Node{"", []string{}}
-                                // For a struct, LiteralType stores its name.
-                                symTabEntry, found := GetSymTabEntry($0.(Node).place)
-                                if found {
-                                        switch symTabEntry[0] {
-                                        case "struct":
-                                                var varName, varType string
-                                                for k, v := range symTabEntry[1:] {
-                                                        if k % 2 == 0 {
-                                                                // variable names are present at even locations.
-                                                                varName = v
-                                                        } else {
-                                                                // variable types are present at odd locations.
-                                                                varType = v
-                                                                switch varType {
-                                                                case "int":
-                                                                        // add a symbol table entry corresponding
-                                                                        // to the struct member.
-                                                                        // The symbol table entry key is of the form:
-                                                                        //      structName.structMember
-                                                                        renamedVar := NewTmp()
-                                                                        currSymTab.varSymTab[fmt.Sprintf("%s.%s", $0.(Node).place, varName)] = []string{renamedVar, "int"}
-                                                                        n.code = append(n.code, fmt.Sprintf("=, %s, 0", renamedVar))
-                                                                default: // TODO: Handle different types
-                                                                        return nil, errors.New("Unknown type")
-                                                                }
-                                                        }
-                                                }
-                                        }
-                                } else {
-                                        return nil, errors.New("struct not in scope")
-                                }
+                                // NOTE: Structs don't support initialization of members
+                                // currently. All data members are initialized to default
+                                // values when a struct instance is defined.
+                                n := Node{$0.(Node).place, $1.(Node).code}
                                 return n, nil
                         } () >>
              ;
@@ -964,6 +938,7 @@ LiteralType : ArrayType
 //                         fmt.Println("type");
 //                         return nil, nil
 //                   } () >>
+            // When initializing structs, TypeName will be used as the name of struct.
             | TypeName
                 << func() (Attrib, error) {
                         return Node{$0.(Node).place, $0.(Node).code}, nil
@@ -2272,20 +2247,58 @@ Assignment : ExpressionList assignOp ExpressionList
 ShortVarDecl : IdentifierList shortAssign ExpressionList
                 << func() (Attrib, error) {
                         n := Node{"", $2.(Node).code}
-                        expr := strings.Split($2.(Node).place, ",")
-                        for k, v := range $0.(Node).code {
-                                renamedVar := RenameVariable(v)
-                                _, ok := currSymTab.varSymTab[v]
-                                if !ok {
-                                        currSymTab.varSymTab[v] = []string{renamedVar, "int"} // TODO: All types are int currently.
-                                } else {
-                                        return nil, errors.New(fmt.Sprintf("%s already declared", v))
+                        // Expression can also be a struct.
+                        // NOTE: For a struct, place of ExpressionList stores its name.
+                        symTabEntry, found := GetSymTabEntry($2.(Node).place)
+                        // The symbol table will be searched even in case as follows -
+                        //      a := 1
+                        // If the RHS contains only a number, it is not stored in symbol
+                        // table resulting in search failure causing an error.
+                        if found {
+                                switch symTabEntry[0] {
+                                case "struct":
+                                        var varName, varType string
+                                        for k, v := range symTabEntry[1:] {
+                                                if k % 2 == 0 {
+                                                        // variable names are present at even locations.
+                                                        varName = v
+                                                } else {
+                                                        // variable types are present at odd locations.
+                                                        varType = v
+                                                        switch varType {
+                                                        case "int":
+                                                                // add a symbol table entry corresponding
+                                                                // to the struct member.
+                                                                // The symbol table entry key is of the form:
+                                                                //      structName.structMember
+                                                                renamedVar := NewTmp()
+                                                                currSymTab.varSymTab[fmt.Sprintf("%s.%s", $0.(Node).place, varName)] = []string{renamedVar, "int"}
+                                                                n.code = append(n.code, fmt.Sprintf("=, %s, 0", renamedVar))
+                                                        default: // TODO: Handle different types
+                                                                return nil, errors.New("Unknown type")
+                                                        }
+                                                }
+                                        }
+                                default:
+                                        expr := strings.Split($2.(Node).place, ",")
+                                        for k, v := range $0.(Node).code {
+                                                renamedVar := RenameVariable(v)
+                                                _, ok := currSymTab.varSymTab[v]
+                                                if !ok {
+                                                        currSymTab.varSymTab[v] = []string{renamedVar, "int"} // TODO: All types are int currently.
+                                                } else {
+                                                        return nil, errors.New(fmt.Sprintf("%s already declared", v))
+                                                }
+                                                if len(expr[k]) >= 5 && expr[k][:5] == "array" {
+                                                        n.code = append(n.code, fmt.Sprintf("decl, %s, %s", renamedVar, expr[k][6:])) // TODO: rename arrays
+                                                } else {
+                                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
+                                                }
+                                        }
                                 }
-                                if len(expr[k]) >= 5 && expr[k][:5] == "array" {
-                                        n.code = append(n.code, fmt.Sprintf("decl, %s, %s", renamedVar, expr[k][6:])) // TODO: rename arrays
-                                } else {
-                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
-                                }
+                        } else {
+                                // TODO: Update error message.
+                                return nil, errors.New("struct not in scope")
                         }
                         return n, nil
                 } () >>
