@@ -105,6 +105,8 @@ type Node struct {
 
 type symTabType map[string][]string
 
+type funcTabType map[string]bool
+
 type SymInfo struct {
         // TODO: Add separate symbol table for temporaries.
         varSymTab symTabType
@@ -118,11 +120,16 @@ var (
 	symTab     symTabType // symbol table for temporaries ; TODO: Update this.
         // currSymTab keeps track of the currently active symbol table
         // depending on scope.
+    funcTab    funcTabType
 	currSymTab *SymInfo
 )
 
 func init() {
         symTab = make(symTabType)
+}
+
+func init() {
+	funcTab = make(funcTabType)
 }
 
 // SearchInScope searches the value of a variable in current scope first. If not
@@ -1011,7 +1018,11 @@ OperandName : identifier
                         varName := string($0.(*token.Token).Lit)
                         renamedVarName, found := SearchInScope(varName)
                         if !found {
-                                return nil, errors.New(fmt.Sprintf("%s not declared", varName))
+                        		if funcTab[varName] {
+                        			return Node{varName, []string{}}, nil
+                        		} else {
+                        			return nil, errors.New(fmt.Sprintf("%s not declared", varName))
+                        		}
                         } else {
                                 return Node{renamedVarName, []string{}}, nil
                         }
@@ -1173,24 +1184,24 @@ FunctionDecl : kwdFunc FunctionName Signature FunctionBody
 // ParameterList  = ParameterDecl { "," ParameterDecl } .
 // ParameterDecl  = [ IdentifierList ] [ "..." ] Type .
 Signature : Parameters
-//           | Parameters Result
-//                 << func() (Attrib, error) {
-//                       fmt.Println("Parameters Result");
-//                       return nil, nil
-//                 } () >>
+           | Parameters Result
+                 << func() (Attrib, error) {
+                       fmt.Println("Parameters Result");
+                       return nil, nil
+                 } () >>
           ;
-//
-// Result : Parameters
-//               << func() (Attrib, error) {
-//                     fmt.Println("Parameters");
-//                     return nil, nil
-//               } () >>
-//        | Type
-//               << func() (Attrib, error) {
-//                     fmt.Println("Type");
-//                     return nil, nil
-//               } () >>
-//        ;
+
+Result : Parameters
+              << func() (Attrib, error) {
+                    fmt.Println("Parameters");
+                    return nil, nil
+              } () >>
+       | Type
+              << func() (Attrib, error) {
+                    fmt.Println("Type");
+                    return nil, nil
+              } () >>
+       ;
 
 // TODO: Ignore terminator
 // TODO: Parameters cannot end in ','
@@ -1441,6 +1452,11 @@ IdentifierList : identifier
 
 FunctionName : identifier
                 << func() (Attrib, error) {
+                		if !funcTab[string($0.(*token.Token).Lit)] {
+                			funcTab[string($0.(*token.Token).Lit)] = true
+                		} else {
+                			return nil, errors.New(fmt.Sprintf("Function %s already declared\n", string($0.(*token.Token).Lit)))
+                		}
                         return Node{string($0.(*token.Token).Lit), []string{}}, nil
                  } () >>
               ;
