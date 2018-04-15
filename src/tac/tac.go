@@ -196,7 +196,7 @@ func (blk Blk) GetRegFloat(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 		}
 	}
 	switch stmt.Op {
-	case "bgt", "bge", "blt", "ble", "beq", "bne", "j":
+	case "fbgt", "fbge", "fblt", "fble", "fbeq", "fbne", "j":
 		lenSource = len(srcVars) + 1
 		break
 	default:
@@ -209,8 +209,8 @@ func (blk Blk) GetRegFloat(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 			item := heap.Pop(&blk.PqFloat).(*UseInfo) // element with highest next-use
 			reg, _ := strconv.Atoi(item.Name)
 			if _, ok := blk.RdescFloat[reg]; ok && !arrLookup[blk.RdescFloat[reg]] {
-				comment := fmt.Sprintf("# spilled %s, freed $t%s", blk.RdescFloat[reg], item.Name)
-				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%s, %s\t\t%s", item.Name, blk.RdescFloat[reg], comment))
+				comment := fmt.Sprintf("# spilled %s, freed $f%s", blk.RdescFloat[reg], item.Name)
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\ts.s $f%s, %s\t\t%s", item.Name, blk.RdescFloat[reg], comment))
 			}
 			allocReg = append(allocReg, &UseInfo{strconv.Itoa(reg), blk.FindNextUse(stmt.Line, v)})
 			delete(blk.AdescFloat, blk.RdescFloat[reg])
@@ -219,7 +219,7 @@ func (blk Blk) GetRegFloat(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 			blk.AdescFloat[v] = Addr{reg, blk.AdescFloat[v].Mem}
 			if k < lenSource-1 {
 				if !arrLookup[v] {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tl.w $f%d, %s", blk.AdescFloat[v].Reg, v))	
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tl.s $f%d, %s", blk.AdescFloat[v].Reg, v))	
 				} else {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", blk.Adesc[v].Reg, v))
 				}

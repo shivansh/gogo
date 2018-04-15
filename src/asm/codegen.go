@@ -70,7 +70,7 @@ func CodeGen(t tac.Tac) {
 		// assignment statement, update the DS for data section.
 		for _, stmt := range blk.Stmts {
 			switch stmt.Op {
-			case "label", "func", "ret", "call", "#", "bgt", "bge", "blt", "ble", "beq", "bne", "j":
+			case "label", "func", "ret", "call", "#", "bgt", "fbgt", "bge", "fbge", "blt", "fblt", "ble", "fble", "beq", "fbeq", "bne", "fbne", "j":
 				break
 			default:
 				if _, ok := ds.Lookup[stmt.Dst] ; strings.Compare(stmt.Op, "decl") == 0 && !ok {
@@ -254,17 +254,17 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 			case "f+":
-				blk.GetReg(&stmt, ts, arrLookup)
-				comment := fmt.Sprintf("# %s -> $f%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
+				blk.GetRegFloat(&stmt, ts, arrLookup)
+				comment := fmt.Sprintf("# %s -> $f%d", stmt.Dst, blk.AdescFloat[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
 				case tac.F32:
 					comment1 := fmt.Sprintf("# loading immediate float value in $f0")
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli.s $f0, %s\t\t%s", v.StrVal(), comment1))
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tadd.s $f%d, $f%d, $f0\t\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, comment))
+						blk.AdescFloat[stmt.Dst].Reg, blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg, comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tadd.s $f%d, $f%d, $f%d\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+						blk.AdescFloat[stmt.Dst].Reg, blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg, blk.AdescFloat[v.StrVal()].Reg, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -281,6 +281,21 @@ func CodeGen(t tac.Tac) {
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
+			case "f*":
+				blk.GetRegFloat(&stmt, ts, arrLookup)
+				comment := fmt.Sprintf("# %s -> $f%d", stmt.Dst, blk.AdescFloat[stmt.Dst].Reg)
+				switch v := stmt.Src[1].U.(type) {
+				case tac.F32:
+					comment1 := fmt.Sprintf("# loading immediate float value in $f0")
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli.s $f0, %s\t\t%s", v.StrVal(), comment1))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmul.s $f%d, $f%d, $f0\t\t%s",
+						blk.AdescFloat[stmt.Dst].Reg, blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg, comment))
+				case tac.Str:
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmul.s $f%d, $f%d, $f%d\t%s",
+						blk.AdescFloat[stmt.Dst].Reg, blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg, blk.AdescFloat[v.StrVal()].Reg, comment))
+				default:
+					log.Fatal("Unknown type %T\n", v)
+				}
 			case "/":
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $t%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
@@ -294,6 +309,21 @@ func CodeGen(t tac.Tac) {
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
+			case "f/":
+				blk.GetRegFloat(&stmt, ts, arrLookup)
+				comment := fmt.Sprintf("# %s -> $f%d", stmt.Dst, blk.AdescFloat[stmt.Dst].Reg)
+				switch v := stmt.Src[1].U.(type) {
+				case tac.F32:
+					comment1 := fmt.Sprintf("# loading immediate float value in $f0")
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli.s $f0, %s\t\t%s", v.StrVal(), comment1))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tdiv.s $f%d, $f%d, $f0\t\t%s",
+						blk.AdescFloat[stmt.Dst].Reg, blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg, comment))
+				case tac.Str:
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tdiv.s $f%d, $f%d, $f%d\t%s",
+						blk.AdescFloat[stmt.Dst].Reg, blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg, blk.AdescFloat[v.StrVal()].Reg, comment))
+				default:
+					log.Fatal("Unknown type %T\n", v)
+				}
 			case "-":
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $t%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
@@ -304,6 +334,21 @@ func CodeGen(t tac.Tac) {
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsub $t%d, $t%d, $t%d\t%s",
 						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+				default:
+					log.Fatal("Unknown type %T\n", v)
+				}
+			case "f-":
+				blk.GetRegFloat(&stmt, ts, arrLookup)
+				comment := fmt.Sprintf("# %s -> $f%d", stmt.Dst, blk.AdescFloat[stmt.Dst].Reg)
+				switch v := stmt.Src[1].U.(type) {
+				case tac.F32:
+					comment1 := fmt.Sprintf("# loading immediate float value in $f0")
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli.s $f0, %s\t\t%s", v.StrVal(), comment1))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsub.s $f%d, $f%d, $f0\t\t%s",
+						blk.AdescFloat[stmt.Dst].Reg, blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg, comment))
+				case tac.Str:
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsub.s $f%d, $f%d, $f%d\t%s",
+						blk.AdescFloat[stmt.Dst].Reg, blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg, blk.AdescFloat[v.StrVal()].Reg, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -333,6 +378,23 @@ func CodeGen(t tac.Tac) {
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
+			case "fbgt":
+				blk.GetRegFloat(&stmt, ts, arrLookup)
+				// comment := fmt.Sprintf("# %s -> $f%d", stmt.Dst, blk.AdescFloat[stmt.Dst].Reg)
+				switch v := stmt.Src[1].U.(type) {
+				case tac.F32:
+					comment1 := "# loading immediate value in $f0"
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli.s $f0, %s\t\t%s", v.StrVal(), comment1))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tc.le.s $f%d, $f0",
+						blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbc1f %s", stmt.Dst))
+				case tac.Str:
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tc.gt.s $f%d, $f%d",
+						blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg, blk.AdescFloat[v.StrVal()].Reg))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbc1f %s", stmt.Dst))
+				default:
+					log.Fatal("Unknown type %T\n", v)
+				}
 			case "bge":
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $t%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
@@ -343,6 +405,23 @@ func CodeGen(t tac.Tac) {
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbge $t%d, $t%d, %s\t\t%s",
 						blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
+				default:
+					log.Fatal("Unknown type %T\n", v)
+				}
+			case "fbge":
+				blk.GetRegFloat(&stmt, ts, arrLookup)
+				// comment := fmt.Sprintf("# %s -> $f%d", stmt.Dst, blk.AdescFloat[stmt.Dst].Reg)
+				switch v := stmt.Src[1].U.(type) {
+				case tac.F32:
+					comment1 := "# loading immediate value in $f0"
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli.s $f0, %s\t\t%s", v.StrVal(), comment1))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tc.lt.s $f%d, $f0",
+						blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbc1f %s", stmt.Dst))
+				case tac.Str:
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tc.lt.s $f%d, $f%d",
+						blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg, blk.AdescFloat[v.StrVal()].Reg))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbc1f %s", stmt.Dst))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -359,6 +438,23 @@ func CodeGen(t tac.Tac) {
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
+			case "fblt":
+				blk.GetRegFloat(&stmt, ts, arrLookup)
+				// comment := fmt.Sprintf("# %s -> $f%d", stmt.Dst, blk.AdescFloat[stmt.Dst].Reg)
+				switch v := stmt.Src[1].U.(type) {
+				case tac.F32:
+					comment1 := "# loading immediate value in $f0"
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli.s $f0, %s\t\t%s", v.StrVal(), comment1))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tc.lt.s $f%d, $f0",
+						blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbc1t %s", stmt.Dst))
+				case tac.Str:
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tc.lt.s $f%d, $f%d",
+						blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg, blk.AdescFloat[v.StrVal()].Reg))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbc1t %s", stmt.Dst))
+				default:
+					log.Fatal("Unknown type %T\n", v)
+				}
 			case "ble":
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $t%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
@@ -369,6 +465,23 @@ func CodeGen(t tac.Tac) {
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tble $t%d, $t%d, %s\t\t%s",
 						blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
+				default:
+					log.Fatal("Unknown type %T\n", v)
+				}
+			case "fble":
+				blk.GetRegFloat(&stmt, ts, arrLookup)
+				// comment := fmt.Sprintf("# %s -> $f%d", stmt.Dst, blk.AdescFloat[stmt.Dst].Reg)
+				switch v := stmt.Src[1].U.(type) {
+				case tac.F32:
+					comment1 := "# loading immediate value in $f0"
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli.s $f0, %s\t\t%s", v.StrVal(), comment1))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tc.le.s $f%d, $f0",
+						blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbc1t %s", stmt.Dst))
+				case tac.Str:
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tc.le.s $f%d, $f%d",
+						blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg, blk.AdescFloat[v.StrVal()].Reg))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbc1t %s", stmt.Dst))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -385,6 +498,23 @@ func CodeGen(t tac.Tac) {
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
+			case "fbeq":
+				blk.GetRegFloat(&stmt, ts, arrLookup)
+				// comment := fmt.Sprintf("# %s -> $f%d", stmt.Dst, blk.AdescFloat[stmt.Dst].Reg)
+				switch v := stmt.Src[1].U.(type) {
+				case tac.F32:
+					comment1 := "# loading immediate value in $f0"
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli.s $f0, %s\t\t%s", v.StrVal(), comment1))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tc.eq.s $f%d, $f0",
+						blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbc1t %s", stmt.Dst))
+				case tac.Str:
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tc.eq.s $f%d, $f%d",
+						blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg, blk.AdescFloat[v.StrVal()].Reg))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbc1t %s", stmt.Dst))
+				default:
+					log.Fatal("Unknown type %T\n", v)
+				}
 			case "bne":
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $t%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
@@ -395,6 +525,23 @@ func CodeGen(t tac.Tac) {
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbne $t%d, $t%d, %s\t\t%s",
 						blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
+				default:
+					log.Fatal("Unknown type %T\n", v)
+				}
+			case "fbne":
+				blk.GetRegFloat(&stmt, ts, arrLookup)
+				// comment := fmt.Sprintf("# %s -> $f%d", stmt.Dst, blk.AdescFloat[stmt.Dst].Reg)
+				switch v := stmt.Src[1].U.(type) {
+				case tac.F32:
+					comment1 := "# loading immediate value in $f0"
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli.s $f0, %s\t\t%s", v.StrVal(), comment1))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tc.eq.s $f%d, $f0",
+						blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbc1f %s", stmt.Dst))
+				case tac.Str:
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tc.eq.s $f%d, $f%d",
+						blk.AdescFloat[stmt.Src[0].U.StrVal()].Reg, blk.AdescFloat[v.StrVal()].Reg))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbc1f %s", stmt.Dst))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -467,14 +614,28 @@ func CodeGen(t tac.Tac) {
 				ts.Stmts = append(ts.Stmts, "\tli $v0, 5\n\tsyscall")
 				blk.GetReg(&stmt, ts, arrLookup)
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove $t%d, $v0", blk.Adesc[stmt.Dst].Reg))
+			case "fscanFloat":
+				ts.Stmts = append(ts.Stmts, "\tli $v0, 6\n\tsyscall")
+				blk.GetRegFloat(&stmt, ts, arrLookup)
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmov.s $f%d, $f0", blk.AdescFloat[stmt.Dst].Reg))
 			case "printInt":
 				ts.Stmts = append(ts.Stmts, "\tli $v0, 1")
 				switch v := stmt.Src[0].U.(type) {
 				case tac.I32:
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli $a0, %s", v.IntVal()))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli $a0, %s", v.StrVal()))
 				case tac.Str:
 					blk.GetReg(&stmt, ts, arrLookup)
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove $a0, $t%d", blk.Adesc[v.StrVal()].Reg))
+				}
+				ts.Stmts = append(ts.Stmts, "\tsyscall")
+			case "fprintFloat":
+				ts.Stmts = append(ts.Stmts, "\tli $v0, 2")
+				switch v := stmt.Src[0].U.(type) {
+				case tac.F32:
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tl.s $f12, %s", v.StrVal()))
+				case tac.Str:
+					blk.GetRegFloat(&stmt, ts, arrLookup)
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmov.s $f12, $f%d", blk.AdescFloat[v.StrVal()].Reg))
 				}
 				ts.Stmts = append(ts.Stmts, "\tsyscall")
 			case "printStr":
@@ -501,7 +662,7 @@ func CodeGen(t tac.Tac) {
 		if len(blk.Rdesc) > 0 {
 			ts.Stmts = append(ts.Stmts, fmt.Sprintf("\t# Store variables back into memory"))
 			for k, v := range blk.Rdesc {
-				if !arrLookup[v] {
+				if !arrLookup[v] && ds.Lookup[v] == "int" {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, %s", k, v))
 				}
 			}
@@ -509,7 +670,7 @@ func CodeGen(t tac.Tac) {
 		if len(blk.RdescFloat) > 0 {
 			ts.Stmts = append(ts.Stmts, fmt.Sprintf("\t# Store variables back into memory"))
 			for k, v := range blk.RdescFloat {
-				if !arrLookup[v] {
+				if !arrLookup[v] && ds.Lookup[v] == "float" {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\ts.s $f%d, %s", k, v))
 				}
 			}
