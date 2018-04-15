@@ -105,8 +105,6 @@ type Node struct {
 
 type symTabType map[string][]string
 
-type funcTabType map[string]bool
-
 type SymInfo struct {
         // TODO: Add separate symbol table for temporaries.
         varSymTab symTabType
@@ -120,43 +118,37 @@ var (
 	symTab     symTabType // symbol table for temporaries ; TODO: Update this.
         // currSymTab keeps track of the currently active symbol table
         // depending on scope.
-    funcTab    funcTabType
 	currSymTab *SymInfo
+        // globalSymTab keeps track of the global struct and function declarations.
+        // NOTE: structs and functions can only be declared globally.
+        globalSymTab    symTabType
 )
 
 func init() {
         symTab = make(symTabType)
+	globalSymTab = make(symTabType)
 }
 
-func init() {
-	funcTab = make(funcTabType)
-}
-
-// SearchInScope searches the value of a variable in current scope first. If not
-// found, keeps traversing the parent scopes until topmost symbol table.
-func SearchInScope(v string) (string, bool) {
+// SearchInScope returns the symbol table entry for a given variable in the
+// current scope. If not found, the parent symbol table is looked up until the
+// topmost symbol table is reached. If not found in all these symbol tables,
+// then the global symbol table is looked up which contains the entries
+// corresponding to structs and functions.
+func SearchInScope(v string) ([]string, bool) {
         currScope := currSymTab
         for currScope != nil {
                 symTabEntry, ok := currScope.varSymTab[v]
                 if ok {
-                        return symTabEntry[0], true
+                        return symTabEntry, true
                 } else {
                         currScope = currSymTab.parent
                 }
         }
-        return "", false
-}
-
-// GetSymTabEntry returns the symbol table entry for a given variable in the
-// current scope.
-func GetSymTabEntry(v string) ([]string, bool) {
-        currScope := currSymTab
-        for currScope != nil {
-                symtabEntry, ok := currScope.varSymTab[v]
-                if ok {
-                        return symtabEntry, true
-                } else {
-                        currScope = currSymTab.parent
+        // Lookup in global scope in case the variable corresponds to a struct
+        // or a function name.
+        for k, symTabEntry := range globalSymTab {
+                if k == v {
+                        return symTabEntry, true
                 }
         }
         return []string{}, false
@@ -405,14 +397,15 @@ VarSpec : IdentifierList Type
 TypeDecl : kwdType TypeSpec
                 << func() (Attrib, error) {
                         typeInfo := strings.Split($1.(Node).place, ",")
-                        // return nil, errors.New(typeInfo[1])
+                        structName := strings.TrimSpace(typeInfo[1])
                         switch strings.TrimSpace(typeInfo[0]) {
                         case "struct":
-                                // create symbol table entry
-                                // TODO: This should go in the global symbol table (along with functions).
-                                currSymTab.varSymTab[typeInfo[1]] = []string{"struct"}
-                                currSymTab.varSymTab[typeInfo[1]] = append(currSymTab.varSymTab[typeInfo[1]], $1.(Node).code...)
-                        default: // TODO: finish this
+                                // Create a global symbol table entry.
+                                // NOTE: The symbol table entry of a struct is of the form -
+                                //      structName : []{"struct", memberName1, memberType1, memberName2, memberType2, ...}
+                                globalSymTab[structName] = []string{"struct"}
+                                globalSymTab[structName] = append(globalSymTab[structName], $1.(Node).code...)
+                        default: // TODO: Add remaining types.
                                 return nil, errors.New("Unknown type")
                         }
                         // TODO: Member initialization will be done when a new object is instantiated.
@@ -791,7 +784,7 @@ UnaryOp : "+"
 //  PrimaryExpr Arguments .
 PrimaryExpr : Operand
                 << func() (Attrib, error) {
-                        return Node{$0.(Node).place, []string{}}, nil
+                        return Node{$0.(Node).place, $0.(Node).code}, nil
                 } () >>
 //             | Conversion
 //                 << func() (Attrib, error) {
@@ -841,7 +834,7 @@ PrimaryExpr : Operand
 // OperandName = identifier | QualifiedIdent.
 Operand : Literal
                 << func() (Attrib, error) {
-                        return Node{$0.(Node).place, []string{}}, nil
+                        return Node{$0.(Node).place, $0.(Node).code}, nil
                 } () >>
         | OperandName
                 << func() (Attrib, error) {
@@ -860,7 +853,7 @@ Literal : BasicLit
                 } () >>
         | CompositeLit
                 << func() (Attrib, error) {
-                        return Node{$0.(Node).place, []string{}}, nil
+                        return Node{$0.(Node).place, $0.(Node).code}, nil
                 } () >>
 //         | FunctionLit
 //                 << func() (Attrib, error) {
@@ -909,7 +902,44 @@ CompositeLit : LiteralType LiteralValue
                                 // NOTE: Structs don't support initialization of members
                                 // currently. All data members are initialized to default
                                 // values when a struct instance is defined.
-                                n := Node{$0.(Node).place, $1.(Node).code}
+                                n := Node{$0.(Node).place, []string{}}
+                                // In case the corresponds to a struct, add the
+                                // code for its data member initialization.
+                                symTabEntry, found := SearchInScope($0.(Node).place)
+                                if found {
+                                        switch symTabEntry[0] {
+                                        case "struct":
+                                                // The place value for struct is of the form -
+                                                //      struct:<number of members of struct>:<name of struct>
+                                                n.place = fmt.Sprintf("struct:%d:%s", (len(symTabEntry)-1) / 2, n.place)
+                                                litVals := strings.Split($1.(Node).place, ",")
+                                                litValCodes := $1.(Node).code
+                                                structInit := []string{}
+                                                if len(litValCodes) == 0 {
+                                                        for k, v := range symTabEntry[1:] {
+                                                                if k % 2 == 0 {
+                                                                        structInit = append(structInit, v)
+                                                                        // TODO: Update default values depending on type
+                                                                        structInit = append(structInit, "0")
+                                                                }
+                                                        }
+                                                } else {
+                                                        for k, v := range symTabEntry[1:] {
+                                                                if k % 2 == 0 {
+                                                                        structInit = append(structInit, v)
+                                                                        structInit = append(structInit, litValCodes[k / 2])
+                                                                }
+                                                        }
+                                                }
+                                                // When these code values will be utilized above, the litValCodes will be
+                                                // placed above the code corresponding to structInit (litVals can be expressions).
+                                                n.code = append(n.code, structInit...)
+                                                n.code = append(n.code, litValCodes...)
+                                        }
+                                } else {
+                                        // TODO: Update error message.
+                                        return nil, errors.New(fmt.Sprintf("%s not in scope", $0.(Node).place))
+                                }
                                 return n, nil
                         } () >>
              ;
@@ -960,30 +990,30 @@ LiteralValue : "{" RepeatTerminator "}"
              // NOTE: We don't support adding a ',' after the last KeyedElement
              // as opposed to the official go language.
              // TODO: Support for struct initialization.
-             // | "{" RepeatTerminator ElementList "}"
-             //       << func() (Attrib, error) {
-             //             fmt.Println("\"{\" RepeatTerminator ElementList \"}\" ");
-             //             return nil, nil
-             //       } () >>
+             | "{" RepeatTerminator ElementList "}"
+                        << func() (Attrib, error) {
+                                return Node{$2.(Node).place, $2.(Node).code}, nil
+                        } () >>
              ;
 
-// ElementList : KeyedElement RepeatKeyedElement
-//                 << func() (Attrib, error) {
-//                       fmt.Println("KeyedElement RepeatKeyedElement");
-//                       return nil, nil
-//                 } () >>
-//             ;
-//
-// RepeatKeyedElement : "," RepeatTerminator KeyedElement RepeatKeyedElement
-//                         << func() (Attrib, error) {
-//                               fmt.Println("\",\" RepeatTerminator KeyedElement RepeatKeyedElement");
-//                               return nil, nil
-//                         } () >>
-//                    | RepeatTerminator
-//                         << func() (Attrib, error) {
-//                               fmt.Println("\",\" RepeatTerminator");
-//                               return nil, nil
-//                         } () >>
+ElementList : KeyedElement RepeatKeyedElement
+                << func() (Attrib, error) {
+                        n := Node{fmt.Sprintf("%s, %s", $0.(Node).place, $1.(Node).place), $0.(Node).code}
+                        n.code = append(n.code, $1.(Node).code...)
+                        return n, nil
+                } () >>
+            ;
+
+RepeatKeyedElement : "," RepeatTerminator KeyedElement RepeatKeyedElement
+                        << func() (Attrib, error) {
+                                n := Node{fmt.Sprintf("%s, %s", $2.(Node).place, $3.(Node).place), $2.(Node).code}
+                                n.code = append(n.code, $3.(Node).code...)
+                                return n, nil
+                        } () >>
+                   | RepeatTerminator
+                        << func() (Attrib, error) {
+                                return Node{"", []string{}}
+                        } () >>
 //                    // | "," RepeatTerminator
 //                    //      << func() (Attrib, error) {
 //                    //            fmt.Println("\",\" RepeatTerminator");
@@ -994,19 +1024,18 @@ LiteralValue : "{" RepeatTerminator "}"
 //                    //            fmt.Println("empty");
 //                    //            return nil, nil
 //                    //      } () >>
-//                    ;
-//
-// KeyedElement : Element
-//                 << func() (Attrib, error) {
-//                         fmt.Println("Element");
-//                         return nil, nil
-//                 } () >>
+                   ;
+
+KeyedElement : Element
+                << func() (Attrib, error) {
+                        return Node{$0.(Node).place, $0.(Node).code}
+                } () >>
 //              | Key ":" Element
 //                 << func() (Attrib, error) {
 //                         fmt.Println("Key \":\" Element");
 //                         return nil, nil
 //                 } () >>
-//              ;
+             ;
 //
 // Key : FieldName
 //         << func() (Attrib, error) {
@@ -1030,19 +1059,18 @@ LiteralValue : "{" RepeatTerminator "}"
 //                       fmt.Println("identifier");
 //                       return nil, nil
 //                 } () >>
-//           ;
-//
-// Element : Expression
-//                 << func() (Attrib, error) {
-//                       fmt.Println("Expression");
-//                       return nil, nil
-//                 } () >>
+          // ;
+
+Element : Expression
+                << func() (Attrib, error) {
+                        return Node{$0.(Node).place, $0.(Node).code}
+                } () >>
 //         | LiteralValue
 //                 << func() (Attrib, error) {
 //                       fmt.Println("LiteralValue");
 //                       return nil, nil
 //                 } () >>
-//         ;
+        ;
 //
 // // FunctionLit = "func" Signature FunctionBody .
 // FunctionLit : kwdFunc Signature FunctionBody
@@ -1056,15 +1084,15 @@ OperandName : identifier
                 << func() (Attrib, error) {
                         // return Node{string($0.(*token.Token).Lit), []string{}}, nil
                         varName := string($0.(*token.Token).Lit)
-                        renamedVarName, found := SearchInScope(varName)
-                        if !found {
-                        		if funcTab[varName] {
-                        			return Node{varName, []string{}}, nil
-                        		} else {
-                        			return nil, errors.New(fmt.Sprintf("%s not declared", varName))
-                        		}
+                        symTabEntry, found := SearchInScope(varName)
+                        if found {
+                        	if _, ok := globalSymTab[varName]; ok {
+                        		return Node{varName, []string{}}, nil
+                        	} else {
+                                        return Node{symTabEntry[0], []string{}}, nil
+                        	}
                         } else {
-                                return Node{renamedVarName, []string{}}, nil
+                        	return nil, errors.New(fmt.Sprintf("%s not declared", varName))
                         }
                 } () >>
             ;
@@ -1492,11 +1520,13 @@ IdentifierList : identifier
 
 FunctionName : identifier
                 << func() (Attrib, error) {
-                		if !funcTab[string($0.(*token.Token).Lit)] {
-                			funcTab[string($0.(*token.Token).Lit)] = true
-                		} else {
-                			return nil, errors.New(fmt.Sprintf("Function %s already declared\n", string($0.(*token.Token).Lit)))
-                		}
+                        // The symbol table entry for a function is of the form -
+                        //      functionName : ["func", (rest of the values are yet to be decided)]
+                	if _, found := globalSymTab[string($0.(*token.Token).Lit)]; !found {
+                		globalSymTab[string($0.(*token.Token).Lit)] = []string{"func"}
+                	} else {
+                		return nil, errors.New(fmt.Sprintf("Function %s already declared\n", string($0.(*token.Token).Lit)))
+                	}
                         return Node{string($0.(*token.Token).Lit), []string{}}, nil
                  } () >>
               ;
@@ -2246,59 +2276,28 @@ Assignment : ExpressionList assignOp ExpressionList
 
 ShortVarDecl : IdentifierList shortAssign ExpressionList
                 << func() (Attrib, error) {
-                        n := Node{"", $2.(Node).code}
-                        // Expression can also be a struct.
-                        // NOTE: For a struct, place of ExpressionList stores its name.
-                        symTabEntry, found := GetSymTabEntry($2.(Node).place)
-                        // The symbol table will be searched even in case as follows -
-                        //      a := 1
-                        // If the RHS contains only a number, it is not stored in symbol
-                        // table resulting in search failure causing an error.
-                        if found {
-                                switch symTabEntry[0] {
-                                case "struct":
-                                        var varName, varType string
-                                        for k, v := range symTabEntry[1:] {
-                                                if k % 2 == 0 {
-                                                        // variable names are present at even locations.
-                                                        varName = v
-                                                } else {
-                                                        // variable types are present at odd locations.
-                                                        varType = v
-                                                        switch varType {
-                                                        case "int":
-                                                                // add a symbol table entry corresponding
-                                                                // to the struct member.
-                                                                // The symbol table entry key is of the form:
-                                                                //      structName.structMember
-                                                                renamedVar := NewTmp()
-                                                                currSymTab.varSymTab[fmt.Sprintf("%s.%s", $0.(Node).place, varName)] = []string{renamedVar, "int"}
-                                                                n.code = append(n.code, fmt.Sprintf("=, %s, 0", renamedVar))
-                                                        default: // TODO: Handle different types
-                                                                return nil, errors.New("Unknown type")
-                                                        }
-                                                }
+                        exprName := $2.(Node).place
+                        if len(exprName) >= 6 && exprName[:6] == "struct" {
+                                structLen := exprName[7] // FIXME: This will fail if size of struct is >= 10
+                                structName := exprName[9:]
+
+                        } else {
+                                n := Node{"", $2.(Node).code}
+                                expr := strings.Split($2.(Node).place, ",")
+                                for k, v := range $0.(Node).code {
+                                        renamedVar := RenameVariable(v)
+                                        _, ok := currSymTab.varSymTab[v]
+                                        if !ok {
+                                                currSymTab.varSymTab[v] = []string{renamedVar, "int"} // TODO: All types are int currently.
+                                        } else {
+                                                return nil, errors.New(fmt.Sprintf("%s already declared", v))
                                         }
-                                default:
-                                        expr := strings.Split($2.(Node).place, ",")
-                                        for k, v := range $0.(Node).code {
-                                                renamedVar := RenameVariable(v)
-                                                _, ok := currSymTab.varSymTab[v]
-                                                if !ok {
-                                                        currSymTab.varSymTab[v] = []string{renamedVar, "int"} // TODO: All types are int currently.
-                                                } else {
-                                                        return nil, errors.New(fmt.Sprintf("%s already declared", v))
-                                                }
-                                                if len(expr[k]) >= 5 && expr[k][:5] == "array" {
-                                                        n.code = append(n.code, fmt.Sprintf("decl, %s, %s", renamedVar, expr[k][6:])) // TODO: rename arrays
-                                                } else {
-                                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
-                                                }
+                                        if len(expr[k]) >= 5 && expr[k][:5] == "array" {
+                                                n.code = append(n.code, fmt.Sprintf("decl, %s, %s", renamedVar, expr[k][6:])) // TODO: rename arrays
+                                        } else {
+                                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
                                         }
                                 }
-                        } else {
-                                // TODO: Update error message.
-                                return nil, errors.New("struct not in scope")
                         }
                         return n, nil
                 } () >>
