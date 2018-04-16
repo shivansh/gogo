@@ -4,6 +4,7 @@ type Node struct {
 }
 
 func main() {
-	a := Node{1 + 2, 2}
+	a := Node{}
+	b := Node{1 + 2, 3}
 	return
 }

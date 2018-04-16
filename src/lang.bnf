@@ -95,6 +95,7 @@ import(
         "strconv"
         "strings"
 
+        "gogo/src/utils"
         "gogo/tmp/token"
 )
 
@@ -370,7 +371,7 @@ VarSpec : IdentifierList Type
         | IdentifierList Type "=" ExpressionList
                 << func() (Attrib, error) {
                         n := Node{"", $3.(Node).code}
-                        expr := strings.Split($3.(Node).place, ",")
+                        expr := utils.SplitAndSanitize($3.(Node).place, ",")
                         for k, v := range $0.(Node).code {
                                 n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
                         }
@@ -379,7 +380,7 @@ VarSpec : IdentifierList Type
         | IdentifierList "=" ExpressionList
                 << func() (Attrib, error) {
                         n := Node{"", $2.(Node).code}
-                        expr := strings.Split($2.(Node).place, ",")
+                        expr := utils.SplitAndSanitize($2.(Node).place, ",")
                         for k, v := range $0.(Node).code {
                                 n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
                         }
@@ -397,7 +398,7 @@ VarSpec : IdentifierList Type
 // TypeDef   = identifier Type
 TypeDecl : kwdType TypeSpec
                 << func() (Attrib, error) {
-                        typeInfo := strings.Split($1.(Node).place, ",")
+                        typeInfo := utils.SplitAndSanitize($1.(Node).place, ",")
                         structName := strings.TrimSpace(typeInfo[1])
                         switch strings.TrimSpace(typeInfo[0]) {
                         case "struct":
@@ -498,7 +499,7 @@ ConstSpec : IdentifierList
           | IdentifierList "=" ExpressionList
                 << func() (Attrib, error) {
                         n := Node{"", $2.(Node).code}
-                        expr := strings.Split($2.(Node).place, ",")
+                        expr := utils.SplitAndSanitize($2.(Node).place, ",")
                         for k, v := range $0.(Node).code {
                                 n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
                         }
@@ -913,7 +914,7 @@ CompositeLit : LiteralType LiteralValue
                                                 // The place value for struct is of the form -
                                                 //      struct:<number of members of struct>:<name of struct>
                                                 n.place = fmt.Sprintf("struct:%d:%s", (len(symTabEntry)-1) / 2, n.place)
-                                                litVals := strings.Split($1.(Node).place, ",")
+                                                litVals := utils.SplitAndSanitize($1.(Node).place, ",")
                                                 litValCodes := $1.(Node).code
                                                 structInit := []string{}
                                                 // In case of integral (or any type) initializations, the corresponding
@@ -1830,7 +1831,7 @@ ExprSwitchStmt : kwdSwitch Expression "{" RepeatTerminator RepeatExprCaseClause 
                                 n := Node{"", $1.(Node).code}
                                 caseLabels := []string{}
                                 caseStmts := $4.(Node).code
-                                caseTemporaries := strings.Split($4.(Node).place, ",")
+                                caseTemporaries := utils.SplitAndSanitize($4.(Node).place, ",")
                                 afterLabel := NewLabel()
                                 defaultLabel := afterLabel
                                 // The last value in caseTemporaries will be the place value
@@ -2240,14 +2241,14 @@ Assignment : ExpressionList assignOp ExpressionList
                         op := string($1.(*token.Token).Lit)[0]
                         n := Node{"", $0.(Node).code}
                         n.code = append(n.code, $2.(Node).code...)
-                        leftExpr := strings.Split($0.(Node).place, ",")
-                        rightExpr := strings.Split($2.(Node).place, ",")
+                        leftExpr := utils.SplitAndSanitize($0.(Node).place, ",")
+                        rightExpr := utils.SplitAndSanitize($2.(Node).place, ",")
                         for k, v := range leftExpr {
                                 n.code = append(n.code, fmt.Sprintf("%s, %s, %s, %s", op, v, v, rightExpr[k]))
                                 _, ok := symTab[v]
                                 if ok {
                                         if symTab[v][1] == "array" {
-                                                arrayInfo := strings.Split(symTab[v][0], ",")
+                                                arrayInfo := utils.SplitAndSanitize(symTab[v][0], ",")
                                                 // arrayInfo contains the following info -
                                                 //      0th index: array name
                                                 //      1st index: array index
@@ -2261,14 +2262,14 @@ Assignment : ExpressionList assignOp ExpressionList
                 << func() (Attrib, error) {
                         n := Node{"", $0.(Node).code}
                         n.code = append(n.code, $2.(Node).code...)
-                        leftExpr := strings.Split($0.(Node).place, ",")
-                        rightExpr := strings.Split($2.(Node).place, ",")
+                        leftExpr := utils.SplitAndSanitize($0.(Node).place, ",")
+                        rightExpr := utils.SplitAndSanitize($2.(Node).place, ",")
                         for k, v := range leftExpr {
                                 n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, rightExpr[k]))
                                 _, ok := symTab[v]
                                 if ok {
                                         if symTab[v][1] == "array" {
-                                                arrayInfo := strings.Split(symTab[v][0], ",")
+                                                arrayInfo := utils.SplitAndSanitize(symTab[v][0], ",")
                                                 // arrayInfo[0]: array name
                                                 // arrayInfo[1]: array index
                                                 n.code = append(n.code, fmt.Sprintf("into, %s, %s, %s, %s", arrayInfo[0], arrayInfo[0], arrayInfo[1], v))
@@ -2315,7 +2316,7 @@ ShortVarDecl : IdentifierList shortAssign ExpressionList
                                 }
                         } else {
                                 n.code = $2.(Node).code
-                                expr := strings.Split($2.(Node).place, ",")
+                                expr := utils.SplitAndSanitize($2.(Node).place, ",")
                                 for k, v := range $0.(Node).code {
                                         renamedVar := RenameVariable(v)
                                         _, ok := currSymTab.varSymTab[v]
