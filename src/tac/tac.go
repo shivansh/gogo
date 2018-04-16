@@ -327,7 +327,7 @@ func GenTAC(file string) (tac Tac) {
 	blk := new(Blk)
 	line := 0
 	re := regexp.MustCompile("(^-?[0-9]+$)") // integers
-	ref := regexp.MustCompile("(^-?[0-9]*(.)?[0-9]+$)")
+	ref := regexp.MustCompile("(^-?[0-9]*(\\.)?[0-9]+$)")
 	f, err := os.Open(file)
 	if err != nil {
 		log.Fatal(err)
