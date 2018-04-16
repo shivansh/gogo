@@ -101,16 +101,15 @@ import(
 
 // Node represents a node in the AST of a given program.
 type Node struct {
-        place string   // variable storing the value if node represents an expression
-        code  []string // IR instructions
+	place string   // variable storing the value if node represents an expression
+	code  []string // IR instructions
 }
 
 type symTabType map[string][]string
 
 type SymInfo struct {
-        // TODO: Add separate symbol table for temporaries.
-        varSymTab symTabType
-        parent    *SymInfo
+	varSymTab symTabType
+	parent    *SymInfo
 }
 
 var (
@@ -118,16 +117,16 @@ var (
 	labelIndex int
 	varIndex   int
 	symTab     symTabType // symbol table for temporaries ; TODO: Update this.
-        // currSymTab keeps track of the currently active symbol table
-        // depending on scope.
+	// currSymTab keeps track of the currently active symbol table
+	// depending on scope.
 	currSymTab *SymInfo
-        // globalSymTab keeps track of the global struct and function declarations.
-        // NOTE: structs and functions can only be declared globally.
-        globalSymTab    symTabType
+	// globalSymTab keeps track of the global struct and function declarations.
+	// NOTE: structs and functions can only be declared globally.
+	globalSymTab symTabType
 )
 
 func init() {
-        symTab = make(symTabType)
+	symTab = make(symTabType)
 	globalSymTab = make(symTabType)
 }
 
@@ -137,37 +136,37 @@ func init() {
 // then the global symbol table is looked up which contains the entries
 // corresponding to structs and functions.
 func SearchInScope(v string) ([]string, bool) {
-        currScope := currSymTab
-        for currScope != nil {
-                symTabEntry, ok := currScope.varSymTab[v]
-                if ok {
-                        return symTabEntry, true
-                } else {
-                        currScope = currSymTab.parent
-                }
-        }
-        // Lookup in global scope in case the variable corresponds to a struct
-        // or a function name.
-        for k, symTabEntry := range globalSymTab {
-                if k == v {
-                        return symTabEntry, true
-                }
-        }
-        return []string{}, false
+	currScope := currSymTab
+	for currScope != nil {
+		symTabEntry, ok := currScope.varSymTab[v]
+		if ok {
+			return symTabEntry, true
+		} else {
+			currScope = currSymTab.parent
+		}
+	}
+	// Lookup in global scope in case the variable corresponds to a struct
+	// or a function name.
+	for k, symTabEntry := range globalSymTab {
+		if k == v {
+			return symTabEntry, true
+		}
+	}
+	return []string{}, false
 }
 
 // NewTmp generates a unique temporary variable.
 func NewTmp() string {
-        t := fmt.Sprintf("t%d", tmpIndex)
-        tmpIndex++
-        return t
+	t := fmt.Sprintf("t%d", tmpIndex)
+	tmpIndex++
+	return t
 }
 
 // NewLabel generates a unique label name.
 func NewLabel() string {
-        l := fmt.Sprintf("l%d", labelIndex)
-        labelIndex++
-        return l
+	l := fmt.Sprintf("l%d", labelIndex)
+	labelIndex++
+	return l
 }
 
 // NewVar generates a unique variable name used for renaming. A variable named
@@ -176,9 +175,9 @@ func NewLabel() string {
 // conflict with an existing variable. The renamed variable will only occur in
 // the IR (there is no constraint on variable names in IR as of now).
 func RenameVariable(v string) string {
-        ret := fmt.Sprintf("%s.%d", v, varIndex)
-        varIndex++
-        return ret
+	ret := fmt.Sprintf("%s.%d", v, varIndex)
+	varIndex++
+	return ret
 }
 >>
 
@@ -531,6 +530,9 @@ ExpressionList : Expression
                ;
 
 // Expression = UnaryExpr | Expression binary_op Expression .
+// NOTE: The original BNF corresponding to Expression is modified to take into
+// account operator precedence. The operators used are in the order of
+// increasing precedence starting from top.
 Expression : Expression "||" Term1
                 << func() (Attrib, error) {
                         n := Node{"", $0.(Node).code}
@@ -555,11 +557,11 @@ Term1 : Term1 "&&" Term2
                         n.code = append(n.code, "\n")
                         return n, nil
                 } () >>
-           | Term2
+        | Term2
                 << func() (Attrib, error) {
                         return Node{$0.(Node).place, $0.(Node).code}, nil
                 } () >>
-           ;
+        ;
 
 Term2 : Term2 RelOp Term3
                 << func() (Attrib, error) {
@@ -591,11 +593,11 @@ Term2 : Term2 RelOp Term3
                         n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
                         return n, nil
                 } () >>
-           | Term3
+        | Term3
                 << func() (Attrib, error) {
                         return Node{$0.(Node).place, $0.(Node).code}, nil
                 } () >>
-           ;
+        ;
 
 Term3 : Term3 "+" Term4
                 << func() (Attrib, error) {
@@ -606,11 +608,11 @@ Term3 : Term3 "+" Term4
                         n.code = append(n.code, "\n")
                         return n, nil
                 } () >>
-            | Term4
+        | Term4
                 << func() (Attrib, error) {
                         return Node{$0.(Node).place, $0.(Node).code}, nil
                 } () >>
-            ;
+        ;
 
 Term4 : Term4 "-" Term5
                 << func() (Attrib, error) {
@@ -625,7 +627,7 @@ Term4 : Term4 "-" Term5
                 << func() (Attrib, error) {
                         return Node{$0.(Node).place, $0.(Node).code}, nil
                 } () >>
-            ;
+      ;
 
 Term5 : Term5 "*" Term6
                 << func() (Attrib, error) {
@@ -640,7 +642,7 @@ Term5 : Term5 "*" Term6
                 << func() (Attrib, error) {
                         return Node{$0.(Node).place, $0.(Node).code}, nil
                 } () >>
-            ;
+      ;
 
 Term6 : Term6 "/" Term7
                 << func() (Attrib, error) {
@@ -655,7 +657,7 @@ Term6 : Term6 "/" Term7
                 << func() (Attrib, error) {
                         return Node{$0.(Node).place, $0.(Node).code}, nil
                 } () >>
-            ;
+      ;
 
 Term7 : "(" Expression ")"
                 << func() (Attrib, error) {
@@ -665,7 +667,7 @@ Term7 : "(" Expression ")"
                 << func() (Attrib, error) {
                         return Node{$0.(Node).place, $0.(Node).code}, nil
                 } () >>
-           ;
+      ;
 
 // TODO: Add support for booleans in IR.
 BinaryOp : RelOp
@@ -918,9 +920,10 @@ CompositeLit : LiteralType LiteralValue
                                                 litValCodes := $1.(Node).code
                                                 structInit := []string{}
                                                 // In case of integral (or any type) initializations, the corresponding
-                                                // lexeme is placed at the place value. If there are no place values for
-                                                // the data members, then initialize all to their default values. Else
-                                                // initialize them to the corresponding place value.
+                                                // lexeme is placed at the place value, justifying the length check which
+                                                // is made on `litVals` instead of `litValCodes`. If there are no place
+                                                // values for the data members, then initialize all to their default
+                                                // values. Otherwise initialize them to the corresponding place value.
                                                 if len(litVals) == 0 {
                                                         for k, v := range symTabEntry[1:] {
                                                                 if k % 2 == 0 {
@@ -1509,15 +1512,18 @@ FieldDecl : IdentifierList Type
 //                       return nil, nil
 //                 } () >>
 //           ;
-//
-// // TODO
-// // IdentifierList = identifier { "," identifier } .
+
+// IdentifierList = identifier { "," identifier } .
 IdentifierList : identifier
                         << func() (Attrib, error) {
                                 return Node{"", []string{string($0.(*token.Token).Lit)}}, nil
                         } () >>
                | identifier "," IdentifierList
                         << func() (Attrib, error) {
+                                // The lexemes corresponding to the individual identifiers
+                                // are appended to the slice for code to avoid adding
+                                // comma-separated string in place since the identifiers
+                                // don't have any IR code to be added.
                                 n := Node{"", []string{string($0.(*token.Token).Lit)}}
                                 n.code = append(n.code, $2.(Node).code...)
                                 return n, nil
