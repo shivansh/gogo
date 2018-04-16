@@ -22,6 +22,7 @@ checkBuildStatus() {
 #	"test(i).ir", i ∈ Z
 runIRTests() {
     for f in "$testDir/ir"/*.ir; do
+    	echo "$f"
 	# Remove everything after and including the last '.'
 	testName=$(echo "$f" | sed -E 's/(.*)\.(.*)/\1/')
 	rm -f "$testName.asm"
@@ -40,4 +41,5 @@ runParserTests() {
 }
 
 checkBuildStatus
-runParserTests
+# runParserTests
+runIRTests
