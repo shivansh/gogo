@@ -1,8 +1,9 @@
 type Node struct {
-	val int
+	x int
+	y int
 }
 
 func main() {
-	a := Node{}
+	a := Node{1 + 2, 2}
 	return
 }

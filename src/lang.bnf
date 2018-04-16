@@ -92,6 +92,7 @@ import(
         "errors"
         "fmt"
         "regexp"
+        "strconv"
         "strings"
 
         "gogo/tmp/token"
@@ -915,7 +916,11 @@ CompositeLit : LiteralType LiteralValue
                                                 litVals := strings.Split($1.(Node).place, ",")
                                                 litValCodes := $1.(Node).code
                                                 structInit := []string{}
-                                                if len(litValCodes) == 0 {
+                                                // In case of integral (or any type) initializations, the corresponding
+                                                // lexeme is placed at the place value. If there are no place values for
+                                                // the data members, then initialize all to their default values. Else
+                                                // initialize them to the corresponding place value.
+                                                if len(litVals) == 0 {
                                                         for k, v := range symTabEntry[1:] {
                                                                 if k % 2 == 0 {
                                                                         structInit = append(structInit, v)
@@ -927,7 +932,7 @@ CompositeLit : LiteralType LiteralValue
                                                         for k, v := range symTabEntry[1:] {
                                                                 if k % 2 == 0 {
                                                                         structInit = append(structInit, v)
-                                                                        structInit = append(structInit, litValCodes[k / 2])
+                                                                        structInit = append(structInit, litVals[k / 2])
                                                                 }
                                                         }
                                                 }
@@ -1012,7 +1017,7 @@ RepeatKeyedElement : "," RepeatTerminator KeyedElement RepeatKeyedElement
                         } () >>
                    | RepeatTerminator
                         << func() (Attrib, error) {
-                                return Node{"", []string{}}
+                                return Node{"", []string{}}, nil
                         } () >>
 //                    // | "," RepeatTerminator
 //                    //      << func() (Attrib, error) {
@@ -1028,7 +1033,7 @@ RepeatKeyedElement : "," RepeatTerminator KeyedElement RepeatKeyedElement
 
 KeyedElement : Element
                 << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}
+                        return Node{$0.(Node).place, $0.(Node).code}, nil
                 } () >>
 //              | Key ":" Element
 //                 << func() (Attrib, error) {
@@ -1063,7 +1068,7 @@ KeyedElement : Element
 
 Element : Expression
                 << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}
+                        return Node{$0.(Node).place, $0.(Node).code}, nil
                 } () >>
 //         | LiteralValue
 //                 << func() (Attrib, error) {
@@ -2276,24 +2281,53 @@ Assignment : ExpressionList assignOp ExpressionList
 
 ShortVarDecl : IdentifierList shortAssign ExpressionList
                 << func() (Attrib, error) {
+                        n := Node{"", []string{}}
                         exprName := $2.(Node).place
                         if len(exprName) >= 6 && exprName[:6] == "struct" {
-                                structLen := exprName[7] // FIXME: This will fail if size of struct is >= 10
-                                structName := exprName[9:]
-
+                                // NOTE: The following index calculations assume that
+                                // struct names cannot include a ':' character.
+                                colonIndex := strings.LastIndexAny(exprName, ":")
+                                structLen, err := strconv.Atoi(exprName[7:colonIndex])
+                                if err != nil {
+                                        return nil, err
+                                }
+                                // TODO: Multiple struct initializations are not handled currently.
+                                structName := $0.(Node).code[0]
+                                // The individual struct member initializers can contain
+                                // expressions whose code need to be added before the
+                                // members are initialized.
+                                n.code = append(n.code, $2.(Node).code[2*structLen:]...)
+                                // Add code for struct member initializations.
+                                var varName, varVal string
+                                for k, v := range $2.(Node).code[:2*structLen] {
+                                        if k % 2 == 0 {
+                                                // Member names are located at even locations.
+                                                varName = v
+                                        } else {
+                                                // (Initialized) member values are located at odd locations.
+                                                varVal = v
+                                                // TODO: Add the struct initializations to symbol table. Also,
+                                                // handle member accesses as -
+                                                //      node := Node{1}
+                                                //      b := node.val  // member access
+                                                n.code = append(n.code, fmt.Sprintf("=, %s.%s, %s", structName, varName, varVal))
+                                        }
+                                }
                         } else {
-                                n := Node{"", $2.(Node).code}
+                                n.code = $2.(Node).code
                                 expr := strings.Split($2.(Node).place, ",")
                                 for k, v := range $0.(Node).code {
                                         renamedVar := RenameVariable(v)
                                         _, ok := currSymTab.varSymTab[v]
                                         if !ok {
-                                                currSymTab.varSymTab[v] = []string{renamedVar, "int"} // TODO: All types are int currently.
+                                                // TODO: All types are int currently.
+                                                currSymTab.varSymTab[v] = []string{renamedVar, "int"}
                                         } else {
                                                 return nil, errors.New(fmt.Sprintf("%s already declared", v))
                                         }
                                         if len(expr[k]) >= 5 && expr[k][:5] == "array" {
-                                                n.code = append(n.code, fmt.Sprintf("decl, %s, %s", renamedVar, expr[k][6:])) // TODO: rename arrays
+                                                // TODO: rename arrays
+                                                n.code = append(n.code, fmt.Sprintf("decl, %s, %s", renamedVar, expr[k][6:]))
                                         } else {
                                                 n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
                                         }
