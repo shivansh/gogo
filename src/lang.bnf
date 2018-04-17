@@ -116,8 +116,15 @@ var (
 	tmpIndex   int
 	labelIndex int
 	varIndex   int
-  funcFlip   int
-	symTab     symTabType // symbol table for temporaries ; TODO: Update this.
+	// funcSymtabCreated keeps track whether a symbol table corresponding to a
+	// function declaration has to be instantiated. This is because usually
+	// a new symbol table is created when the corresponding block begins.
+	// However, in case of functions the arguments also need to be added to
+	// the symbol table. Thus the symbol table is instantiated when the
+	// production rule corresponding to the arguments is reached and not
+	// when the block begins.
+	funcSymtabCreated bool
+	symTab            symTabType // symbol table for temporaries ; TODO: Update this.
 	// currSymTab keeps track of the currently active symbol table
 	// depending on scope.
 	currSymTab *SymInfo
@@ -125,8 +132,6 @@ var (
 	// NOTE: structs and functions can only be declared globally.
 	globalSymTab symTabType
 )
-
-
 
 func init() {
 	symTab = make(symTabType)
@@ -1259,16 +1264,14 @@ FunctionDecl : kwdFunc FunctionName Signature FunctionBody
                 << func() (Attrib, error) {
                         n := Node{"", []string{fmt.Sprintf("func, %s", $1.(Node).place)}}
                         for k, v := range $2.(Node).code {
-                              // if v == "" {
-                              //       break
-                              // }
                               n.code = append(n.code, fmt.Sprintf("=, %s, %s.%d", v, $1.(Node).place, k))
                         }
                         n.code = append(n.code, $3.(Node).code...)
-                        funcFlip = 0
+                        funcSymtabCreated = false
                         return n, nil
                 } () >>
-             // | kwdFunc FunctionName Signaturer
+             // TODO Handle function declarations without body.
+             // | kwdFunc FunctionName Signature
              ;
 
 // Signature      = Parameters [ Result ] .
@@ -1278,10 +1281,12 @@ FunctionDecl : kwdFunc FunctionName Signature FunctionBody
 // ParameterDecl  = [ IdentifierList ] [ "..." ] Type .
 Signature : Parameters
             << func() (Attrib, error) {
-                      currSymTab = &SymInfo{make(symTabType), nil}
+                      // The parent symbol table in case of function declaration
+                      // will be nil as functions can only be declared globally.
+                      childSymTab := SymInfo{make(symTabType), currSymTab}
                       // Update the current symbol table to point to the newly
                       // created symbol table.
-                      // currSymTab = &childSymTab
+                      currSymTab = &childSymTab
                       for _, v := range $0.(Node).code {
                             if v == "" {
                                   break
@@ -1755,11 +1760,9 @@ Block : "{" Marker RepeatTerminator StatementList "}"
                 << func() (Attrib, error) {
                         // start of block
                         if  currSymTab.parent != nil {
-                              currSymTab = currSymTab.parent            // end of block
-
+                                currSymTab = currSymTab.parent // end of block
                         } else {
-                              currSymTab = nil
-
+                                currSymTab = nil
                         }
                         return Node{"", $3.(Node).code}, nil
                 } () >>
@@ -1769,13 +1772,16 @@ Block : "{" Marker RepeatTerminator StatementList "}"
 // table is instantiated here.
 Marker : empty
                 << func() (Attrib, error) {
-                        if funcFlip == 1{
-                              childSymTab := SymInfo{make(symTabType), currSymTab}
-                              // Update the current symbol table to point to the newly
-                              // created symbol table.
-                              currSymTab = &childSymTab
+                        if funcSymtabCreated {
+                                // The symbol table for functions is created when the
+                                // rule for Signature is reached so that the arguments
+                                // can also be added.
+                                childSymTab := SymInfo{make(symTabType), currSymTab}
+                                // Update the current symbol table to point to the newly
+                                // created symbol table.
+                                currSymTab = &childSymTab
                         } else {
-                              funcFlip = 1
+                                funcSymtabCreated = true
                         }
                         return nil, nil
                 } () >>
