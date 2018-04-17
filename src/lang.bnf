@@ -116,6 +116,7 @@ var (
 	tmpIndex   int
 	labelIndex int
 	varIndex   int
+  funcFlip   int
 	symTab     symTabType // symbol table for temporaries ; TODO: Update this.
 	// currSymTab keeps track of the currently active symbol table
 	// depending on scope.
@@ -124,6 +125,8 @@ var (
 	// NOTE: structs and functions can only be declared globally.
 	globalSymTab symTabType
 )
+
+
 
 func init() {
 	symTab = make(symTabType)
@@ -823,7 +826,11 @@ PrimaryExpr : Operand
             | PrimaryExpr Arguments
                 // This is the production rule for a function call.
                 << func() (Attrib, error) {
-                        n := Node{"", []string{}}
+                        n := Node{"", $1.(Node).code}
+                        argExpr := utils.SplitAndSanitize($1.(Node).place, ",")
+                        for k, v := range argExpr {
+                              n.code = append(n.code, fmt.Sprintf("=, %s.%d, %s", $0.(Node).place, k, v))
+                        }
                         n.place = NewTmp()
                         n.code = append(n.code, fmt.Sprintf("call, %s", $0.(Node).place))
                         n.code = append(n.code, fmt.Sprintf("store, %s", n.place))
@@ -1169,11 +1176,13 @@ Index : "[" Expression "]"
 // NOTE: Since compilation of local variables has not yet been done, only empty
 // arguments are supported for the time being.
 Arguments : "(" ")"
-//           | "(" ExpressionList ")"
-//                 << func() (Attrib, error) {
-//                       fmt.Println("\"(\" ExpressionList \")\"");
-//                       return nil, nil
-//                 } () >>
+              << func() (Attrib, error) {
+                        return Node{"", []string{}}, nil
+                } () >>
+          | "(" ExpressionList ")"
+                << func() (Attrib, error) {
+                      return Node{$1.(Node).place, $1.(Node).code}, nil
+                } () >>
 //           | "(" ExpressionList "," ")"
 //                 << func() (Attrib, error) {
 //                       fmt.Println("\"(\" ExpressionList \",\" \")\"");
@@ -1249,10 +1258,17 @@ Arguments : "(" ")"
 FunctionDecl : kwdFunc FunctionName Signature FunctionBody
                 << func() (Attrib, error) {
                         n := Node{"", []string{fmt.Sprintf("func, %s", $1.(Node).place)}}
+                        for k, v := range $2.(Node).code {
+                              // if v == "" {
+                              //       break
+                              // }
+                              n.code = append(n.code, fmt.Sprintf("=, %s, %s.%d", v, $1.(Node).place, k))
+                        }
                         n.code = append(n.code, $3.(Node).code...)
+                        funcFlip = 0
                         return n, nil
                 } () >>
-             | kwdFunc FunctionName Signature
+             // | kwdFunc FunctionName Signaturer
              ;
 
 // Signature      = Parameters [ Result ] .
@@ -1261,59 +1277,75 @@ FunctionDecl : kwdFunc FunctionName Signature FunctionBody
 // ParameterList  = ParameterDecl { "," ParameterDecl } .
 // ParameterDecl  = [ IdentifierList ] [ "..." ] Type .
 Signature : Parameters
-           | Parameters Result
-                 << func() (Attrib, error) {
-                       fmt.Println("Parameters Result");
-                       return nil, nil
-                 } () >>
+            << func() (Attrib, error) {
+                      currSymTab = &SymInfo{make(symTabType), nil}
+                      // Update the current symbol table to point to the newly
+                      // created symbol table.
+                      // currSymTab = &childSymTab
+                      for _, v := range $0.(Node).code {
+                            if v == "" {
+                                  break
+                            }
+                            currSymTab.varSymTab[v] = []string{v, "int"}
+                      }
+                      return Node{$0.(Node).place, $0.(Node).code}, nil
+                } () >>
+
+           // | Parameters Result
+           //       << func() (Attrib, error) {
+           //             fmt.Println("Parameters Result");
+           //             return nil, nil
+           //       } () >>
           ;
 
-Result : Parameters
-              << func() (Attrib, error) {
-                    fmt.Println("Parameters");
-                    return nil, nil
-              } () >>
-       | Type
-              << func() (Attrib, error) {
-                    fmt.Println("Type");
-                    return nil, nil
-              } () >>
-       ;
+// Result : Parameters
+//               << func() (Attrib, error) {
+//                     fmt.Println("Parameters");
+//                     return nil, nil
+//               } () >>
+//        | Type
+//               << func() (Attrib, error) {
+//                     fmt.Println("Type");
+//                     return nil, nil
+//               } () >>
+//        ;
 
 // TODO: Ignore terminator
 // TODO: Parameters cannot end in ','
 Parameters : "(" RepeatTerminator ")"
-//            | "(" ParameterList ")"
-//                 << func() (Attrib, error) {
-//                       fmt.Println("\"(\" ParameterList \")\"");
-//                       return nil, nil
-//                 } () >>
+                  << func() (Attrib, error) {
+                      return Node{"", []string{}}, nil
+                } () >>
+           | "(" ParameterList ")"
+                << func() (Attrib, error) {
+                      return Node{"", $1.(Node).code}, nil
+                } () >>
            ;
 
-// ParameterList : ParameterDecl RepeatParameterDecl
-//                 << func() (Attrib, error) {
-//                       fmt.Println("ParameterDecl RepeatParameterDecl");
-//                       return nil, nil
-//                 } () >>
-//               ;
+ParameterList : ParameterDecl RepeatParameterDecl
+                << func() (Attrib, error) {
+                      n := Node{"", $0.(Node).code}
+                      n.code = append(n.code, $1.(Node).code...)
+                      return n, nil
+                } () >>
+              ;
 //
-// RepeatParameterDecl : "," ParameterDecl RepeatParameterDecl
-//                         << func() (Attrib, error) {
-//                               fmt.Println("\",\" ParameterDecl RepeatParameterDecl");
-//                               return nil, nil
-//                         } () >>
-//                         | empty
-//                         << func() (Attrib, error) {
-//                               fmt.Println("empty");
-//                               return nil, nil
-//                         } () >>
-//                     ;
+RepeatParameterDecl : "," ParameterDecl RepeatParameterDecl
+                        << func() (Attrib, error) {
+                              n := Node{"", $1.(Node).code}
+                              n.code = append(n.code, $2.(Node).code...)
+                              return n, nil
+                        } () >>
+                        | empty
+                        << func() (Attrib, error) {
+                              return Node{"", []string{}}, nil
+                        } () >>
+                    ;
 //
-// ParameterDecl : IdentifierList Type
-//                 << func() (Attrib, error) {
-//                       fmt.Println("IdentifierList Type");
-//                       return nil, nil
-//                 } () >>
+ParameterDecl : IdentifierList Type
+                << func() (Attrib, error) {
+                      return Node{"", $0.(Node).code}, nil
+                } () >>
 //                 | Type
 //                 << func() (Attrib, error) {
 //                       fmt.Println("Type");
@@ -1329,7 +1361,7 @@ Parameters : "(" RepeatTerminator ")"
 //                       fmt.Println("IdentifierList \"...\" Type");
 //                       return nil, nil
 //                 } () >>
-//               ;
+              ;
 
 // Type      = TypeName | TypeLit | "(" Type ")" .
 // TypeName  = identifier | QualifiedIdent .
@@ -1722,7 +1754,13 @@ GotoStmt : kwdGoto Label
 Block : "{" Marker RepeatTerminator StatementList "}"
                 << func() (Attrib, error) {
                         // start of block
-                        currSymTab = currSymTab.parent // end of block
+                        if  currSymTab.parent != nil {
+                              currSymTab = currSymTab.parent            // end of block
+
+                        } else {
+                              currSymTab = nil
+
+                        }
                         return Node{"", $3.(Node).code}, nil
                 } () >>
       ;
@@ -1731,10 +1769,14 @@ Block : "{" Marker RepeatTerminator StatementList "}"
 // table is instantiated here.
 Marker : empty
                 << func() (Attrib, error) {
-                        childSymTab := SymInfo{make(symTabType), currSymTab}
-                        // Update the current symbol table to point to the newly
-                        // created symbol table.
-                        currSymTab = &childSymTab
+                        if funcFlip == 1{
+                              childSymTab := SymInfo{make(symTabType), currSymTab}
+                              // Update the current symbol table to point to the newly
+                              // created symbol table.
+                              currSymTab = &childSymTab
+                        } else {
+                              funcFlip = 1
+                        }
                         return nil, nil
                 } () >>
         ;
