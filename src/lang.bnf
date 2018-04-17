@@ -112,6 +112,11 @@ type SymInfo struct {
 	parent    *SymInfo
 }
 
+// DeferStackItem is an individual item stored when a call to defer is made. It
+// contains the code for the corresponding function call which is placed at the
+// end of function body.
+type DeferStackItem []string
+
 var (
 	tmpIndex   int
 	labelIndex int
@@ -124,6 +129,13 @@ var (
 	// production rule corresponding to the arguments is reached and not
 	// when the block begins.
 	funcSymtabCreated bool
+        // funcReturned keeps track whether the return statement corresponding
+        // to 'main()' has been inserted in the IR. This is introduced to handle
+        // defer statements which need to be inserted before the return stmt (and
+        // not at the end of function block as was the previous misconception).
+        // When defer stmt is used, the return stmt for main() is also inserted
+        // when all the defer calls from stack are popped and inserted in IR.
+        funcReturned bool
 	symTab            symTabType // symbol table for temporaries ; TODO: Update this.
 	// currSymTab keeps track of the currently active symbol table
 	// depending on scope.
@@ -131,11 +143,15 @@ var (
 	// globalSymTab keeps track of the global struct and function declarations.
 	// NOTE: structs and functions can only be declared globally.
 	globalSymTab symTabType
+        // deferStack stores the deferred function calls which are then called
+        // when the surrounding function block ends.
+        deferStack *utils.Stack
 )
 
 func init() {
 	symTab = make(symTabType)
 	globalSymTab = make(symTabType)
+        deferStack = utils.CreateStack()
 }
 
 // SearchInScope returns the symbol table entry for a given variable in the
@@ -1276,7 +1292,16 @@ FunctionDecl : kwdFunc FunctionName Signature FunctionBody
                               n.code = append(n.code, fmt.Sprintf("=, %s, %s.%d", v, $1.(Node).place, k))
                         }
                         n.code = append(n.code, $3.(Node).code...)
-                        funcSymtabCreated = false
+                        funcSymtabCreated = false // end of function block
+                        // All the deferred calls available in deferStack should be called now.
+                        for deferStack.Len > 0 {
+                                deferFuncCode := deferStack.Pop()
+                                n.code = append(n.code, deferFuncCode...)
+                        }
+                        if funcReturned {
+                                n.code = append(n.code, fmt.Sprintf("ret,"))
+                                funcReturned = false
+                        }
                         return n, nil
                 } () >>
              // TODO Handle function declarations without body.
@@ -1660,6 +1685,10 @@ Statement : Declaration
                 << func() (Attrib, error) {
                        return Node{"", $0.(Node).code}, nil
                 } () >>
+          | DeferStmt
+                << func() (Attrib, error) {
+                       return Node{"", $0.(Node).code}, nil
+                } () >>
           ;
 
 // LabeledStmt = Label ":" Statement .
@@ -1723,13 +1752,21 @@ EmptyStmt : empty ;
 
 ReturnStmt : kwdRet
                 << func() (Attrib, error) {
-                        return Node{"", []string{"ret,"}}, nil
+                        if funcReturned {
+                                // Return statement insertion will be handled when defer
+                                // stack is emptied and the deferred calls are inserted.
+                                return Node{"", []string{}}, nil
+                        } else {
+                                return Node{"", []string{"ret,"}}, nil
+                        }
                 } () >>
            | kwdRet ExpressionList
                 << func() (Attrib, error) {
                         n := Node{"", []string{}}
-                        n.code = append(n.code, $1.(Node).code...)
-                        n.code = append(n.code, fmt.Sprintf("ret, %s", $1.(Node).place))
+                        if !funcReturned {
+                                n.code = append(n.code, $1.(Node).code...)
+                                n.code = append(n.code, fmt.Sprintf("ret, %s", $1.(Node).place))
+                        }
                         return n, nil
                 } () >>
            ;
@@ -2276,6 +2313,29 @@ PostStmt : SimpleStmt
 Condition : Expression
                 << func() (Attrib, error) {
                         return Node{$0.(Node).place, $0.(Node).code}, nil
+                } () >>
+          ;
+
+// DeferStmt = "defer" Expression .
+// NOTE: Currently defer only handles function calls and not method calls.
+DeferStmt : "defer" PrimaryExpr Arguments
+                << func() (Attrib, error) {
+                        // Add code corresponding to the arguments.
+                        n := Node{"", $2.(Node).code}
+                        argExpr := utils.SplitAndSanitize($2.(Node).place, ",")
+                        for k, v := range argExpr {
+                              n.code = append(n.code, fmt.Sprintf("=, %s.%d, %s", $1.(Node).place, k, v))
+                        }
+                        n.place = NewTmp()
+                        // The code for the actual function call needs to be pushed to the defer stack.
+                        deferCode := make(DeferStackItem, 0)
+                        deferCode = append(deferCode, fmt.Sprintf("call, %s", $1.(Node).place))
+                        deferCode = append(deferCode, fmt.Sprintf("store, %s", n.place))
+                        deferStack.Push(deferCode)
+                        // Return statement insertion will be handled when defer
+                        // stack is emptied and the deferred calls are inserted.
+                        funcReturned = true
+                        return n, nil
                 } () >>
           ;
 
