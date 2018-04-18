@@ -6,5 +6,6 @@ type Node struct {
 func main() {
 	a := Node{}
 	b := Node{1 + 2, 3}
+	c := b.x 
 	return
 }

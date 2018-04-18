@@ -803,11 +803,21 @@ PrimaryExpr : Operand
 //                       fmt.Println("Conversion");
 //                       return nil, nil
 //                 } () >>
-//             | PrimaryExpr Selector
-//                 << func() (Attrib, error) {
-//                       fmt.Println("PrimaryExpr Selector");
-//                       return nil, nil
-//                 } () >>
+            | PrimaryExpr Selector
+                    << func() (Attrib, error) {
+                          varName := fmt.Sprintf("%s.%s", $0.(Node).place, $1.(Node).place)
+                          symTabEntry, found := SearchInScope(varName)
+                          if found {
+                                if _, ok := globalSymTab[varName]; ok {
+                                            return nil, errors.New(fmt.Sprintf("%s not in scope", varName) )
+                                   } else {
+                                            return Node{symTabEntry[0], []string{}}, nil
+                                   }
+                          } else {
+                                 return nil, errors.New(fmt.Sprintf("%s not in scope", varName) )
+                          }
+                    } () >>
+
             | PrimaryExpr Index
                 << func() (Attrib, error) {
                         n := Node{"", []string{}}
@@ -1125,13 +1135,12 @@ OperandName : identifier
 // // TypeAssertion  = "." "(" Type ")" .
 // // Arguments      = "(" [ ( ExpressionList | Type [ "," ExpressionList ] ) [ "..." ] [ "," ] ] ")" .
 // // Conversion = Type "(" Expression [ "," ] ")"
-// Selector : "." identifier
-//               << func() (Attrib, error) {
-//                     fmt.Println("\".\" identifier");
-//                     return nil, nil
-//               } () >>
-//          ;
-//
+Selector : "." identifier
+                << func() (Attrib, error) {
+                        return Node{string($1.(*token.Token).Lit), []string{}}, nil
+                } () >>
+         ;
+
 Index : "[" Expression "]"
                 << func() (Attrib, error) {
                         return Node{$1.(Node).place, $1.(Node).code}, nil
@@ -2348,6 +2357,8 @@ ShortVarDecl : IdentifierList shortAssign ExpressionList
                                 }
                                 // TODO: Multiple struct initializations are not handled currently.
                                 structName := $0.(Node).code[0]
+                                // keeping structName in the symbol table with type as Struct
+                                currSymTab.varSymTab[structName] = []string{structName, "struct"}
                                 // The individual struct member initializers can contain
                                 // expressions whose code need to be added before the
                                 // members are initialized.
@@ -2361,11 +2372,13 @@ ShortVarDecl : IdentifierList shortAssign ExpressionList
                                         } else {
                                                 // (Initialized) member values are located at odd locations.
                                                 varVal = v
+                                                renamedVar := RenameVariable(fmt.Sprintf("%s.%s", structName, varName))
+                                                currSymTab.varSymTab[fmt.Sprintf("%s.%s", structName, varName)] = []string{renamedVar, "int"}
                                                 // TODO: Add the struct initializations to symbol table. Also,
                                                 // handle member accesses as -
                                                 //      node := Node{1}
                                                 //      b := node.val  // member access
-                                                n.code = append(n.code, fmt.Sprintf("=, %s.%s, %s", structName, varName, varVal))
+                                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, varVal))
                                         }
                                 }
                         } else {
