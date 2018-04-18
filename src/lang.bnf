@@ -1302,7 +1302,7 @@ FunctionDecl : kwdFunc FunctionName Signature FunctionBody
                                 addRetStmt = true
                         }
                         for deferStack.Len > 0 {
-                                deferFuncCode := deferStack.Pop()
+                                deferFuncCode := deferStack.Pop().(DeferStackItem)
                                 n.code = append(n.code, deferFuncCode...)
                         }
                         if addRetStmt {

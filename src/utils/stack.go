@@ -4,16 +4,14 @@
 package utils
 
 type Stack struct {
-	top *Node
+	top *Item
 	Len int
 }
 
-// Node defines a single element of the stack.
-type Node struct {
-	// For the current usecase, each item of the stack for deferred calls
-	// stores the code for each function call.
-	val  []string
-	prev *Node
+// Item defines a single element of the stack.
+type Item struct {
+	val  interface{} // value can be of any type
+	prev *Item
 }
 
 // CreateStack creates a new empty stack.
@@ -22,13 +20,13 @@ func CreateStack() *Stack {
 }
 
 // Push pushes a value of any type on top of the stack.
-func (stk *Stack) Push(val []string) {
+func (stk *Stack) Push(val interface{}) {
 	stk.Len++
-	stk.top = &Node{val, stk.top}
+	stk.top = &Item{val, stk.top}
 }
 
 // Pop removes and returns the value on top of the stack.
-func (stk *Stack) Pop() []string {
+func (stk *Stack) Pop() interface{} {
 	if stk.Len > 0 {
 		retval := stk.top.val
 		stk.top = stk.top.prev
@@ -39,7 +37,7 @@ func (stk *Stack) Pop() []string {
 }
 
 // Peek returns the value on top of the stack.
-func (stk *Stack) Peek() []string {
+func (stk *Stack) Peek() interface{} {
 	if stk.Len > 0 {
 		return stk.top.val
 	}
