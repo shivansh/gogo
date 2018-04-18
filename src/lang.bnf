@@ -129,22 +129,22 @@ var (
 	// production rule corresponding to the arguments is reached and not
 	// when the block begins.
 	funcSymtabCreated bool
-	symTab symTabType // symbol table for temporaries ; TODO: Update this.
+	symTab            symTabType // symbol table for temporaries ; TODO: Update this.
 	// currSymTab keeps track of the currently active symbol table
 	// depending on scope.
 	currSymTab *SymInfo
 	// globalSymTab keeps track of the global struct and function declarations.
 	// NOTE: structs and functions can only be declared globally.
 	globalSymTab symTabType
-        // deferStack stores the deferred function calls which are then called
-        // when the surrounding function block ends.
-        deferStack *utils.Stack
+	// deferStack stores the deferred function calls which are then called
+	// when the surrounding function block ends.
+	deferStack *utils.Stack
 )
 
 func init() {
 	symTab = make(symTabType)
 	globalSymTab = make(symTabType)
-        deferStack = utils.CreateStack()
+	deferStack = utils.CreateStack()
 }
 
 // SearchInScope returns the symbol table entry for a given variable in the
@@ -938,6 +938,15 @@ CompositeLit : LiteralType LiteralValue
                                 // currently. All data members are initialized to default
                                 // values when a struct instance is defined.
                                 n := Node{$0.(Node).place, []string{}}
+                                // Check if the LiteralType corresponds to ArrayType.
+                                // This is done because unlike structs it is not required
+                                // to add a symbol table entry for place value of arrays
+                                // (which is of the form "array:<length_of_array>"), thus
+                                // returning early.
+                                typeName := $0.(Node).place
+                                if len(typeName) >= 5 && typeName[:5] == "array" {
+                                        return n, nil
+                                }
                                 // In case the corresponds to a struct, add the
                                 // code for its data member initialization.
                                 symTabEntry, found := SearchInScope($0.(Node).place)
