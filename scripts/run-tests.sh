@@ -40,6 +40,15 @@ runParserTests() {
     done
 }
 
+runCodegenTests() {
+    for f in "$testDir/codegen"/*.go; do
+    	echo "$f"
+	# Remove everything after and including the last '.'
+	testName=$(echo "$f" | sed -E 's/(.*)\.(.*)/\1/')
+	rm -f "$testName.ir"
+	"$binDir/gogo" "$f" > "$testName.ir"
+    done
+}
+
 checkBuildStatus
-# runParserTests
-runIRTests
+runCodegenTests
