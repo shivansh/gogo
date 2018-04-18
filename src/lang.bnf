@@ -129,14 +129,7 @@ var (
 	// production rule corresponding to the arguments is reached and not
 	// when the block begins.
 	funcSymtabCreated bool
-        // funcReturned keeps track whether the return statement corresponding
-        // to 'main()' has been inserted in the IR. This is introduced to handle
-        // defer statements which need to be inserted before the return stmt (and
-        // not at the end of function block as was the previous misconception).
-        // When defer stmt is used, the return stmt for main() is also inserted
-        // when all the defer calls from stack are popped and inserted in IR.
-        funcReturned bool
-	symTab            symTabType // symbol table for temporaries ; TODO: Update this.
+	symTab symTabType // symbol table for temporaries ; TODO: Update this.
 	// currSymTab keeps track of the currently active symbol table
 	// depending on scope.
 	currSymTab *SymInfo
@@ -1293,14 +1286,18 @@ FunctionDecl : kwdFunc FunctionName Signature FunctionBody
                         }
                         n.code = append(n.code, $3.(Node).code...)
                         funcSymtabCreated = false // end of function block
-                        // All the deferred calls available in deferStack should be called now.
+                        // Return statement insertion will be handled when defer
+                        // stack is emptied and the deferred calls are inserted.
+                        addRetStmt := false
+                        if deferStack.Len > 0 {
+                                addRetStmt = true
+                        }
                         for deferStack.Len > 0 {
                                 deferFuncCode := deferStack.Pop()
                                 n.code = append(n.code, deferFuncCode...)
                         }
-                        if funcReturned {
+                        if addRetStmt {
                                 n.code = append(n.code, fmt.Sprintf("ret,"))
-                                funcReturned = false
                         }
                         return n, nil
                 } () >>
@@ -1752,7 +1749,11 @@ EmptyStmt : empty ;
 
 ReturnStmt : kwdRet
                 << func() (Attrib, error) {
-                        if funcReturned {
+                        // The defer statements need to be inserted before the return stmt (and
+                        // not at the end of function block as was the previous misconception).
+                        // When defer stmt is used, the return stmt for main() is also inserted
+                        // when all the defer calls from stack are popped and inserted in IR.
+                        if deferStack.Len > 0 {
                                 // Return statement insertion will be handled when defer
                                 // stack is emptied and the deferred calls are inserted.
                                 return Node{"", []string{}}, nil
@@ -1763,7 +1764,7 @@ ReturnStmt : kwdRet
            | kwdRet ExpressionList
                 << func() (Attrib, error) {
                         n := Node{"", []string{}}
-                        if !funcReturned {
+                        if deferStack.Len == 0 {
                                 n.code = append(n.code, $1.(Node).code...)
                                 n.code = append(n.code, fmt.Sprintf("ret, %s", $1.(Node).place))
                         }
@@ -2332,9 +2333,6 @@ DeferStmt : "defer" PrimaryExpr Arguments
                         deferCode = append(deferCode, fmt.Sprintf("call, %s", $1.(Node).place))
                         deferCode = append(deferCode, fmt.Sprintf("store, %s", n.place))
                         deferStack.Push(deferCode)
-                        // Return statement insertion will be handled when defer
-                        // stack is emptied and the deferred calls are inserted.
-                        funcReturned = true
                         return n, nil
                 } () >>
           ;
