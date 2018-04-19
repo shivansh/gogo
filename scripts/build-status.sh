@@ -27,15 +27,19 @@ checkBuildStatus() {
     git checkout -b $testBranch
     git pull --rebase origin master
     make && scripts/run-tests.sh
-    # The generated file is not correctly formatted by default.
-    gofmt -w ./tmp/parser/productionstable.go
     if ! git diff-index --quiet HEAD --; then
         printf "${GREEN}Introduced changes are valid!${NORMAL}\n"
+        atExit 0
     else
         printf "${RED}Introduced changes might be invalid!${NORMAL}\n"
+        atExit 1
     fi
+}
+
+atExit() {
     git checkout -
     git branch -D $testBranch
+    exit $1
 }
 
 checkBuildStatus
