@@ -1323,22 +1323,17 @@ Arguments : "(" ")"
 //                      return nil, nil
 //                } () >>
 //            ;
-//
-// // FunctionDecl = "func" FunctionName Signature [ FunctionBody ] .
-// // FunctionName = identifier .
-// // FunctionBody = Block .
-FunctionDecl : kwdFunc FunctionName Signature FunctionBody
+
+// FunctionDecl = "func" FunctionName Signature [ FunctionBody ] .
+// FunctionName = identifier .
+// FunctionBody = Block .
+// NOTE: To support recursion, we need to add function's symbol table entry before
+// the production rule for block of its body is reached. This is to avoid errors
+// of the form "funcion not declared". A marker is introduced for the same.
+FunctionDecl : FunctionMarker FunctionBody
                 << func() (Attrib, error) {
-                        n := Node{"", []string{fmt.Sprintf("func, %s", $1.(Node).place)}}
-                        for k, v := range $2.(Node).code {
-                              n.code = append(n.code, fmt.Sprintf("=, %s, %s.%d", v, $1.(Node).place, k))
-                        }
-                        if _, found := globalSymTab[$1.(Node).place]; !found {
-                		globalSymTab[$1.(Node).place] = []string{fmt.Sprintf("func:%s", $2.(Node).place)}
-                	} else {
-                		return nil, errors.New(fmt.Sprintf("Function %s already declared\n", string($0.(*token.Token).Lit)))
-                	}
-                        n.code = append(n.code, $3.(Node).code...)
+                        n := Node{"", $0.(Node).code}
+                        n.code = append(n.code, $1.(Node).code...)
                         funcSymtabCreated = false // end of function block
                         // Return statement insertion will be handled when defer
                         // stack is emptied and the deferred calls are inserted.
@@ -1358,6 +1353,22 @@ FunctionDecl : kwdFunc FunctionName Signature FunctionBody
              // TODO Handle function declarations without body.
              // | kwdFunc FunctionName Signature
              ;
+
+FunctionMarker : kwdFunc FunctionName Signature
+                << func() (Attrib, error) {
+                        n := Node{$1.(Node).place, []string{fmt.Sprintf("func, %s", $1.(Node).place)}}
+                        // Assign values to arguments.
+                        for k, v := range $2.(Node).code {
+                                n.code = append(n.code, fmt.Sprintf("=, %s, %s.%d", v, $1.(Node).place, k))
+                        }
+                        if _, found := globalSymTab[$1.(Node).place]; !found {
+                                globalSymTab[$1.(Node).place] = []string{fmt.Sprintf("func:%s", $2.(Node).place)}
+                        } else {
+                                return nil, errors.New(fmt.Sprintf("Function %s already declared\n", string($0.(*token.Token).Lit)))
+                        }
+                        return n, nil
+                } () >>
+                ;
 
 // Signature      = Parameters [ Result ] .
 // Result         = Parameters | Type .
@@ -1671,6 +1682,7 @@ FunctionName : identifier
                 << func() (Attrib, error) {
                         // The symbol table entry for a function is of the form -
                         //      functionName : ["func", (rest of the values are yet to be decided)]
+
                         return Node{string($0.(*token.Token).Lit), []string{}}, nil
                  } () >>
               ;
@@ -1896,12 +1908,14 @@ Marker : empty
                         if funcSymtabCreated {
                                 // The symbol table for functions is created when the
                                 // rule for Signature is reached so that the arguments
-                                // can also be added.
+                                // can also be added. At this point the function block
+                                // (if there was any) has completed.
                                 childSymTab := SymInfo{make(symTabType), currSymTab}
                                 // Update the current symbol table to point to the newly
                                 // created symbol table.
                                 currSymTab = &childSymTab
                         } else {
+                                // Allow creation of symbol table for another function.
                                 funcSymtabCreated = true
                         }
                         return nil, nil
