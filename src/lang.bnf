@@ -861,13 +861,23 @@ PrimaryExpr : Operand
                 // This is the production rule for a function call.
                 << func() (Attrib, error) {
                         n := Node{"", $1.(Node).code}
+                        typeName := globalSymTab[$0.(Node).place][0]
+                        var returnLength int
+                        if len(typeName) >= 5 && typeName[:4] == "func" {
+                                returnLength, _ = strconv.Atoi(typeName[5:])
+                        } else {
+                                return nil, errors.New(fmt.Sprintf("%s not a function", $0.(Node).place))
+                        }
                         argExpr := utils.SplitAndSanitize($1.(Node).place, ",")
                         for k, v := range argExpr {
                               n.code = append(n.code, fmt.Sprintf("=, %s.%d, %s", $0.(Node).place, k, v))
                         }
-                        n.place = NewTmp()
                         n.code = append(n.code, fmt.Sprintf("call, %s", $0.(Node).place))
-                        n.code = append(n.code, fmt.Sprintf("store, %s", n.place))
+                        for k:=0 ; k < returnLength ; k++ {
+                                n.place = fmt.Sprintf("%s, return.%d", n.place, k)
+                        }
+
+                        // n.code = append(n.code, fmt.Sprintf("store, %s", n.place))
                         n.code = append(n.code, "\n")
                         return n, nil
                 } () >>
@@ -1303,6 +1313,11 @@ FunctionDecl : kwdFunc FunctionName Signature FunctionBody
                         for k, v := range $2.(Node).code {
                               n.code = append(n.code, fmt.Sprintf("=, %s, %s.%d", v, $1.(Node).place, k))
                         }
+                        if _, found := globalSymTab[$1.(Node).place]; !found {
+                		globalSymTab[$1.(Node).place] = []string{fmt.Sprintf("func:%s", $2.(Node).place)}
+                	} else {
+                		return nil, errors.New(fmt.Sprintf("Function %s already declared\n", string($0.(*token.Token).Lit)))
+                	}
                         n.code = append(n.code, $3.(Node).code...)
                         funcSymtabCreated = false // end of function block
                         // Return statement insertion will be handled when defer
@@ -1343,27 +1358,43 @@ Signature : Parameters
                             }
                             currSymTab.varSymTab[v] = []string{v, "int"}
                       }
-                      return Node{$0.(Node).place, $0.(Node).code}, nil
+                      return Node{"0", $0.(Node).code}, nil
                 } () >>
 
-           // | Parameters Result
-           //       << func() (Attrib, error) {
-           //             fmt.Println("Parameters Result");
-           //             return nil, nil
-           //       } () >>
+           | Parameters Result
+                 << func() (Attrib, error) {
+                       // The parent symbol table in case of function declaration
+                       // will be nil as functions can only be declared globally.
+                       childSymTab := SymInfo{make(symTabType), currSymTab}
+                       // Update the current symbol table to point to the newly
+                       // created symbol table.
+                       currSymTab = &childSymTab
+                       for _, v := range $0.(Node).code {
+                             if v == "" {
+                                   break
+                             }
+                             currSymTab.varSymTab[v] = []string{v, "int"}
+                       }
+                       return Node{fmt.Sprintf("%s", $1.(Node).place), $0.(Node).code}, nil
+                 } () >>
           ;
 
-// Result : Parameters
-//               << func() (Attrib, error) {
-//                     fmt.Println("Parameters");
-//                     return nil, nil
-//               } () >>
-//        | Type
-//               << func() (Attrib, error) {
-//                     fmt.Println("Type");
-//                     return nil, nil
-//               } () >>
-//        ;
+Result : Parameters
+              << func() (Attrib, error) {
+                    returnLength := 0
+                    // finding number of return variable
+                    for _, v := range $0.(Node).code {
+                            if v == "int" {
+                                    returnLength ++
+                            }
+                    }
+                    return Node{fmt.Sprintf("%d", returnLength), []string{}}, nil
+              } () >>
+       | Type
+              << func() (Attrib, error) {
+                    return Node{"1", []string{}}, nil
+              } () >>
+       ;
 
 // TODO: Ignore terminator
 // TODO: Parameters cannot end in ','
@@ -1401,11 +1432,10 @@ ParameterDecl : IdentifierList Type
                 << func() (Attrib, error) {
                       return Node{"", $0.(Node).code}, nil
                 } () >>
-//                 | Type
-//                 << func() (Attrib, error) {
-//                       fmt.Println("Type");
-//                       return nil, nil
-//                 } () >>
+                | Type
+                << func() (Attrib, error) {
+                      return Node{"", []string{fmt.Sprintf("int")}}, nil
+                } () >>
 //                 | "..." Type
 //                 << func() (Attrib, error) {
 //                       fmt.Println("\"...\" Type");
@@ -1621,11 +1651,6 @@ FunctionName : identifier
                 << func() (Attrib, error) {
                         // The symbol table entry for a function is of the form -
                         //      functionName : ["func", (rest of the values are yet to be decided)]
-                	if _, found := globalSymTab[string($0.(*token.Token).Lit)]; !found {
-                		globalSymTab[string($0.(*token.Token).Lit)] = []string{"func"}
-                	} else {
-                		return nil, errors.New(fmt.Sprintf("Function %s already declared\n", string($0.(*token.Token).Lit)))
-                	}
                         return Node{string($0.(*token.Token).Lit), []string{}}, nil
                  } () >>
               ;
@@ -1790,8 +1815,12 @@ ReturnStmt : kwdRet
                 << func() (Attrib, error) {
                         n := Node{"", []string{}}
                         if deferStack.Len == 0 {
+                                retExpr := utils.SplitAndSanitize($1.(Node).place, ",")
                                 n.code = append(n.code, $1.(Node).code...)
-                                n.code = append(n.code, fmt.Sprintf("ret, %s", $1.(Node).place))
+                                for k, v := range retExpr {
+                                      n.code = append(n.code, fmt.Sprintf("=, return.%d, %s", k, v))
+                                }
+                                n.code = append(n.code, fmt.Sprintf("ret,"))
                         }
                         return n, nil
                 } () >>
@@ -1952,7 +1981,7 @@ SwitchStmt : ExprSwitchStmt
 // ExprSwitchStmt = "switch" [ SimpleStmt ";" ] [ Expression ] "{" { ExprCaseClause } "}" .
 // ExprCaseClause = ExprSwitchCase ":" StatementList .
 // ExprSwitchCase = "case" ExpressionList | "default" .
-ExprSwitchStmt : kwdSwitch Expression "{" RepeatTerminator RepeatExprCaseClause "}"
+        ExprSwitchStmt : kwdSwitch Expression "{" RepeatTerminator RepeatExprCaseClause "}"
                         << func() (Attrib, error) {
                                 n := Node{"", $1.(Node).code}
                                 caseLabels := []string{}

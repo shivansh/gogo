@@ -1206,13 +1206,23 @@ var productionsTable = ProdTab{
 	ProdTabEntry{
 		String: `PrimaryExpr : PrimaryExpr Arguments	<< func() (Attrib, error) {
                         n := Node{"", X[1].(Node).code}
+                        typeName := globalSymTab[X[0].(Node).place][0]
+                        var returnLength int
+                        if len(typeName) >= 5 && typeName[:4] == "func" {
+                                returnLength, _ = strconv.Atoi(typeName[5:])
+                        } else {
+                                return nil, errors.New(fmt.Sprintf("%s not a function", X[0].(Node).place))
+                        }
                         argExpr := utils.SplitAndSanitize(X[1].(Node).place, ",")
                         for k, v := range argExpr {
                               n.code = append(n.code, fmt.Sprintf("=, %s.%d, %s", X[0].(Node).place, k, v))
                         }
-                        n.place = NewTmp()
                         n.code = append(n.code, fmt.Sprintf("call, %s", X[0].(Node).place))
-                        n.code = append(n.code, fmt.Sprintf("store, %s", n.place))
+                        for k:=0 ; k < returnLength ; k++ {
+                                n.place = fmt.Sprintf("%s, return.%d", n.place, k)
+                        }
+
+                        // n.code = append(n.code, fmt.Sprintf("store, %s", n.place))
                         n.code = append(n.code, "\n")
                         return n, nil
                 } () >>`,
@@ -1223,13 +1233,23 @@ var productionsTable = ProdTab{
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
 				n := Node{"", X[1].(Node).code}
+				typeName := globalSymTab[X[0].(Node).place][0]
+				var returnLength int
+				if len(typeName) >= 5 && typeName[:4] == "func" {
+					returnLength, _ = strconv.Atoi(typeName[5:])
+				} else {
+					return nil, errors.New(fmt.Sprintf("%s not a function", X[0].(Node).place))
+				}
 				argExpr := utils.SplitAndSanitize(X[1].(Node).place, ",")
 				for k, v := range argExpr {
 					n.code = append(n.code, fmt.Sprintf("=, %s.%d, %s", X[0].(Node).place, k, v))
 				}
-				n.place = NewTmp()
 				n.code = append(n.code, fmt.Sprintf("call, %s", X[0].(Node).place))
-				n.code = append(n.code, fmt.Sprintf("store, %s", n.place))
+				for k := 0; k < returnLength; k++ {
+					n.place = fmt.Sprintf("%s, return.%d", n.place, k)
+				}
+
+				// n.code = append(n.code, fmt.Sprintf("store, %s", n.place))
 				n.code = append(n.code, "\n")
 				return n, nil
 			}()
@@ -1675,6 +1695,11 @@ var productionsTable = ProdTab{
                         for k, v := range X[2].(Node).code {
                               n.code = append(n.code, fmt.Sprintf("=, %s, %s.%d", v, X[1].(Node).place, k))
                         }
+                        if _, found := globalSymTab[X[1].(Node).place]; !found {
+                		globalSymTab[X[1].(Node).place] = []string{fmt.Sprintf("func:%s", X[2].(Node).place)}
+                	} else {
+                		return nil, errors.New(fmt.Sprintf("Function %s already declared\n", string(X[0].(*token.Token).Lit)))
+                	}
                         n.code = append(n.code, X[3].(Node).code...)
                         funcSymtabCreated = false // end of function block
                         // Return statement insertion will be handled when defer
@@ -1701,6 +1726,11 @@ var productionsTable = ProdTab{
 				n := Node{"", []string{fmt.Sprintf("func, %s", X[1].(Node).place)}}
 				for k, v := range X[2].(Node).code {
 					n.code = append(n.code, fmt.Sprintf("=, %s, %s.%d", v, X[1].(Node).place, k))
+				}
+				if _, found := globalSymTab[X[1].(Node).place]; !found {
+					globalSymTab[X[1].(Node).place] = []string{fmt.Sprintf("func:%s", X[2].(Node).place)}
+				} else {
+					return nil, errors.New(fmt.Sprintf("Function %s already declared\n", string(X[0].(*token.Token).Lit)))
 				}
 				n.code = append(n.code, X[3].(Node).code...)
 				funcSymtabCreated = false // end of function block
@@ -1735,7 +1765,7 @@ var productionsTable = ProdTab{
                             }
                             currSymTab.varSymTab[v] = []string{v, "int"}
                       }
-                      return Node{X[0].(Node).place, X[0].(Node).code}, nil
+                      return Node{"0", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "Signature",
 		NTType:     43,
@@ -1755,7 +1785,87 @@ var productionsTable = ProdTab{
 					}
 					currSymTab.varSymTab[v] = []string{v, "int"}
 				}
-				return Node{X[0].(Node).place, X[0].(Node).code}, nil
+				return Node{"0", X[0].(Node).code}, nil
+			}()
+		},
+	},
+	ProdTabEntry{
+		String: `Signature : Parameters Result	<< func() (Attrib, error) {
+                       // The parent symbol table in case of function declaration
+                       // will be nil as functions can only be declared globally.
+                       childSymTab := SymInfo{make(symTabType), currSymTab}
+                       // Update the current symbol table to point to the newly
+                       // created symbol table.
+                       currSymTab = &childSymTab
+                       for _, v := range X[0].(Node).code {
+                             if v == "" {
+                                   break
+                             }
+                             currSymTab.varSymTab[v] = []string{v, "int"}
+                       }
+                       return Node{fmt.Sprintf("%s", X[1].(Node).place), X[0].(Node).code}, nil
+                 } () >>`,
+		Id:         "Signature",
+		NTType:     43,
+		Index:      80,
+		NumSymbols: 2,
+		ReduceFunc: func(X []Attrib) (Attrib, error) {
+			return func() (Attrib, error) {
+				// The parent symbol table in case of function declaration
+				// will be nil as functions can only be declared globally.
+				childSymTab := SymInfo{make(symTabType), currSymTab}
+				// Update the current symbol table to point to the newly
+				// created symbol table.
+				currSymTab = &childSymTab
+				for _, v := range X[0].(Node).code {
+					if v == "" {
+						break
+					}
+					currSymTab.varSymTab[v] = []string{v, "int"}
+				}
+				return Node{fmt.Sprintf("%s", X[1].(Node).place), X[0].(Node).code}, nil
+			}()
+		},
+	},
+	ProdTabEntry{
+		String: `Result : Parameters	<< func() (Attrib, error) {
+                    returnLength := 0
+                    // finding number of return variable
+                    for _, v := range X[0].(Node).code {
+                            if v == "int" {
+                                    returnLength ++
+                            }
+                    }
+                    return Node{fmt.Sprintf("%d", returnLength), []string{}}, nil
+              } () >>`,
+		Id:         "Result",
+		NTType:     44,
+		Index:      81,
+		NumSymbols: 1,
+		ReduceFunc: func(X []Attrib) (Attrib, error) {
+			return func() (Attrib, error) {
+				returnLength := 0
+				// finding number of return variable
+				for _, v := range X[0].(Node).code {
+					if v == "int" {
+						returnLength++
+					}
+				}
+				return Node{fmt.Sprintf("%d", returnLength), []string{}}, nil
+			}()
+		},
+	},
+	ProdTabEntry{
+		String: `Result : Type	<< func() (Attrib, error) {
+                    return Node{"1", []string{}}, nil
+              } () >>`,
+		Id:         "Result",
+		NTType:     44,
+		Index:      82,
+		NumSymbols: 1,
+		ReduceFunc: func(X []Attrib) (Attrib, error) {
+			return func() (Attrib, error) {
+				return Node{"1", []string{}}, nil
 			}()
 		},
 	},
@@ -1764,8 +1874,8 @@ var productionsTable = ProdTab{
                       return Node{"", []string{}}, nil
                 } () >>`,
 		Id:         "Parameters",
-		NTType:     44,
-		Index:      80,
+		NTType:     45,
+		Index:      83,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -1778,8 +1888,8 @@ var productionsTable = ProdTab{
                       return Node{"", X[1].(Node).code}, nil
                 } () >>`,
 		Id:         "Parameters",
-		NTType:     44,
-		Index:      81,
+		NTType:     45,
+		Index:      84,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -1794,8 +1904,8 @@ var productionsTable = ProdTab{
                       return n, nil
                 } () >>`,
 		Id:         "ParameterList",
-		NTType:     45,
-		Index:      82,
+		NTType:     46,
+		Index:      85,
 		NumSymbols: 2,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -1812,8 +1922,8 @@ var productionsTable = ProdTab{
                               return n, nil
                         } () >>`,
 		Id:         "RepeatParameterDecl",
-		NTType:     46,
-		Index:      83,
+		NTType:     47,
+		Index:      86,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -1828,8 +1938,8 @@ var productionsTable = ProdTab{
                               return Node{"", []string{}}, nil
                         } () >>`,
 		Id:         "RepeatParameterDecl",
-		NTType:     46,
-		Index:      84,
+		NTType:     47,
+		Index:      87,
 		NumSymbols: 0,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -1842,8 +1952,8 @@ var productionsTable = ProdTab{
                       return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "ParameterDecl",
-		NTType:     47,
-		Index:      85,
+		NTType:     48,
+		Index:      88,
 		NumSymbols: 2,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -1852,12 +1962,26 @@ var productionsTable = ProdTab{
 		},
 	},
 	ProdTabEntry{
+		String: `ParameterDecl : Type	<< func() (Attrib, error) {
+                      return Node{"", []string{fmt.Sprintf("int")}}, nil
+                } () >>`,
+		Id:         "ParameterDecl",
+		NTType:     48,
+		Index:      89,
+		NumSymbols: 1,
+		ReduceFunc: func(X []Attrib) (Attrib, error) {
+			return func() (Attrib, error) {
+				return Node{"", []string{fmt.Sprintf("int")}}, nil
+			}()
+		},
+	},
+	ProdTabEntry{
 		String: `Type : type	<< func() (Attrib, error) {
               return Node{string(X[0].(*token.Token).Lit), []string{}}, nil
         } () >>`,
 		Id:         "Type",
-		NTType:     48,
-		Index:      86,
+		NTType:     49,
+		Index:      90,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -1870,8 +1994,8 @@ var productionsTable = ProdTab{
               return Node{X[0].(Node).place, X[0].(Node).code}, nil
         } () >>`,
 		Id:         "Type",
-		NTType:     48,
-		Index:      87,
+		NTType:     49,
+		Index:      91,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -1884,8 +2008,8 @@ var productionsTable = ProdTab{
                         return Node{"struct", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "TypeLit",
-		NTType:     49,
-		Index:      88,
+		NTType:     50,
+		Index:      92,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -1899,8 +2023,8 @@ var productionsTable = ProdTab{
                         return Node{fmt.Sprintf("array:%s", X[1].(Node).place), []string{}}, nil
                 } () >>`,
 		Id:         "ArrayType",
-		NTType:     50,
-		Index:      89,
+		NTType:     51,
+		Index:      93,
 		NumSymbols: 4,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -1914,8 +2038,8 @@ var productionsTable = ProdTab{
                         return Node{string(X[0].(*token.Token).Lit), []string{}}, nil
                 } () >>`,
 		Id:         "ArrayLength",
-		NTType:     51,
-		Index:      90,
+		NTType:     52,
+		Index:      94,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -1928,8 +2052,8 @@ var productionsTable = ProdTab{
                         return Node{X[0].(Node).place, []string{}}, nil
                 } () >>`,
 		Id:         "ElementType",
-		NTType:     52,
-		Index:      91,
+		NTType:     53,
+		Index:      95,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -1942,8 +2066,8 @@ var productionsTable = ProdTab{
                         return Node{"", X[4].(Node).code}, nil
                 } () >>`,
 		Id:         "StructType",
-		NTType:     53,
-		Index:      92,
+		NTType:     54,
+		Index:      96,
 		NumSymbols: 6,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -1958,8 +2082,8 @@ var productionsTable = ProdTab{
                                 return n, nil
                         } () >>`,
 		Id:         "RepeatFieldDecl",
-		NTType:     54,
-		Index:      93,
+		NTType:     55,
+		Index:      97,
 		NumSymbols: 4,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -1974,8 +2098,8 @@ var productionsTable = ProdTab{
                                 return Node{"", X[0].(Node).code}, nil
                         } () >>`,
 		Id:         "RepeatFieldDecl",
-		NTType:     54,
-		Index:      94,
+		NTType:     55,
+		Index:      98,
 		NumSymbols: 2,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -1993,8 +2117,8 @@ var productionsTable = ProdTab{
                         return n, nil
                 } () >>`,
 		Id:         "FieldDecl",
-		NTType:     55,
-		Index:      95,
+		NTType:     56,
+		Index:      99,
 		NumSymbols: 2,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2012,8 +2136,8 @@ var productionsTable = ProdTab{
                         return Node{"", []string{}}, nil
                 } () >>`,
 		Id:         "FieldDecl",
-		NTType:     55,
-		Index:      96,
+		NTType:     56,
+		Index:      100,
 		NumSymbols: 0,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2026,8 +2150,8 @@ var productionsTable = ProdTab{
                                 return Node{"", []string{string(X[0].(*token.Token).Lit)}}, nil
                         } () >>`,
 		Id:         "IdentifierList",
-		NTType:     56,
-		Index:      97,
+		NTType:     57,
+		Index:      101,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2046,8 +2170,8 @@ var productionsTable = ProdTab{
                                 return n, nil
                         } () >>`,
 		Id:         "IdentifierList",
-		NTType:     56,
-		Index:      98,
+		NTType:     57,
+		Index:      102,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2065,26 +2189,16 @@ var productionsTable = ProdTab{
 		String: `FunctionName : identifier	<< func() (Attrib, error) {
                         // The symbol table entry for a function is of the form -
                         //      functionName : ["func", (rest of the values are yet to be decided)]
-                	if _, found := globalSymTab[string(X[0].(*token.Token).Lit)]; !found {
-                		globalSymTab[string(X[0].(*token.Token).Lit)] = []string{"func"}
-                	} else {
-                		return nil, errors.New(fmt.Sprintf("Function %s already declared\n", string(X[0].(*token.Token).Lit)))
-                	}
                         return Node{string(X[0].(*token.Token).Lit), []string{}}, nil
                  } () >>`,
 		Id:         "FunctionName",
-		NTType:     57,
-		Index:      99,
+		NTType:     58,
+		Index:      103,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
 				// The symbol table entry for a function is of the form -
 				//      functionName : ["func", (rest of the values are yet to be decided)]
-				if _, found := globalSymTab[string(X[0].(*token.Token).Lit)]; !found {
-					globalSymTab[string(X[0].(*token.Token).Lit)] = []string{"func"}
-				} else {
-					return nil, errors.New(fmt.Sprintf("Function %s already declared\n", string(X[0].(*token.Token).Lit)))
-				}
 				return Node{string(X[0].(*token.Token).Lit), []string{}}, nil
 			}()
 		},
@@ -2094,8 +2208,8 @@ var productionsTable = ProdTab{
                         return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "FunctionBody",
-		NTType:     58,
-		Index:      100,
+		NTType:     59,
+		Index:      104,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2106,8 +2220,8 @@ var productionsTable = ProdTab{
 	ProdTabEntry{
 		String: `RepeatTerminator : terminator RepeatTerminator	<<  >>`,
 		Id:         "RepeatTerminator",
-		NTType:     59,
-		Index:      101,
+		NTType:     60,
+		Index:      105,
 		NumSymbols: 2,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return X[0], nil
@@ -2116,8 +2230,8 @@ var productionsTable = ProdTab{
 	ProdTabEntry{
 		String: `RepeatTerminator : empty	<<  >>`,
 		Id:         "RepeatTerminator",
-		NTType:     59,
-		Index:      102,
+		NTType:     60,
+		Index:      106,
 		NumSymbols: 0,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return nil, nil
@@ -2130,8 +2244,8 @@ var productionsTable = ProdTab{
                         return n, nil
                 } () >>`,
 		Id:         "StatementList",
-		NTType:     60,
-		Index:      103,
+		NTType:     61,
+		Index:      107,
 		NumSymbols: 4,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2146,8 +2260,8 @@ var productionsTable = ProdTab{
                         return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "StatementList",
-		NTType:     60,
-		Index:      104,
+		NTType:     61,
+		Index:      108,
 		NumSymbols: 2,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2160,8 +2274,8 @@ var productionsTable = ProdTab{
                         return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "Statement",
-		NTType:     61,
-		Index:      105,
+		NTType:     62,
+		Index:      109,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2174,8 +2288,8 @@ var productionsTable = ProdTab{
                         return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "Statement",
-		NTType:     61,
-		Index:      106,
+		NTType:     62,
+		Index:      110,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2188,8 +2302,8 @@ var productionsTable = ProdTab{
                         return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "Statement",
-		NTType:     61,
-		Index:      107,
+		NTType:     62,
+		Index:      111,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2202,8 +2316,8 @@ var productionsTable = ProdTab{
                         return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "Statement",
-		NTType:     61,
-		Index:      108,
+		NTType:     62,
+		Index:      112,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2216,8 +2330,8 @@ var productionsTable = ProdTab{
                         return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "Statement",
-		NTType:     61,
-		Index:      109,
+		NTType:     62,
+		Index:      113,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2230,8 +2344,8 @@ var productionsTable = ProdTab{
                         return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "Statement",
-		NTType:     61,
-		Index:      110,
+		NTType:     62,
+		Index:      114,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2244,8 +2358,8 @@ var productionsTable = ProdTab{
                        return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "Statement",
-		NTType:     61,
-		Index:      111,
+		NTType:     62,
+		Index:      115,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2258,8 +2372,8 @@ var productionsTable = ProdTab{
                        return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "Statement",
-		NTType:     61,
-		Index:      112,
+		NTType:     62,
+		Index:      116,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2272,8 +2386,8 @@ var productionsTable = ProdTab{
                         return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "Statement",
-		NTType:     61,
-		Index:      113,
+		NTType:     62,
+		Index:      117,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2286,8 +2400,8 @@ var productionsTable = ProdTab{
                        return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "Statement",
-		NTType:     61,
-		Index:      114,
+		NTType:     62,
+		Index:      118,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2300,8 +2414,8 @@ var productionsTable = ProdTab{
                        return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "Statement",
-		NTType:     61,
-		Index:      115,
+		NTType:     62,
+		Index:      119,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2314,8 +2428,8 @@ var productionsTable = ProdTab{
                        return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "Statement",
-		NTType:     61,
-		Index:      116,
+		NTType:     62,
+		Index:      120,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2328,8 +2442,8 @@ var productionsTable = ProdTab{
                        return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "Statement",
-		NTType:     61,
-		Index:      117,
+		NTType:     62,
+		Index:      121,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2344,8 +2458,8 @@ var productionsTable = ProdTab{
                         return n, nil
                 } () >>`,
 		Id:         "LabeledStmt",
-		NTType:     62,
-		Index:      118,
+		NTType:     63,
+		Index:      122,
 		NumSymbols: 4,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2360,8 +2474,8 @@ var productionsTable = ProdTab{
                         return Node{"", []string{}}, nil
                 } () >>`,
 		Id:         "SimpleStmt",
-		NTType:     63,
-		Index:      119,
+		NTType:     64,
+		Index:      123,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2374,8 +2488,8 @@ var productionsTable = ProdTab{
                         return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "SimpleStmt",
-		NTType:     63,
-		Index:      120,
+		NTType:     64,
+		Index:      124,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2388,8 +2502,8 @@ var productionsTable = ProdTab{
                         return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "SimpleStmt",
-		NTType:     63,
-		Index:      121,
+		NTType:     64,
+		Index:      125,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2402,8 +2516,8 @@ var productionsTable = ProdTab{
                        return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "SimpleStmt",
-		NTType:     63,
-		Index:      122,
+		NTType:     64,
+		Index:      126,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2414,8 +2528,8 @@ var productionsTable = ProdTab{
 	ProdTabEntry{
 		String: `EmptyStmt : empty	<<  >>`,
 		Id:         "EmptyStmt",
-		NTType:     64,
-		Index:      123,
+		NTType:     65,
+		Index:      127,
 		NumSymbols: 0,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return nil, nil
@@ -2436,8 +2550,8 @@ var productionsTable = ProdTab{
                         }
                 } () >>`,
 		Id:         "ReturnStmt",
-		NTType:     65,
-		Index:      124,
+		NTType:     66,
+		Index:      128,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2459,21 +2573,29 @@ var productionsTable = ProdTab{
 		String: `ReturnStmt : kwdRet ExpressionList	<< func() (Attrib, error) {
                         n := Node{"", []string{}}
                         if deferStack.Len == 0 {
+                                retExpr := utils.SplitAndSanitize(X[1].(Node).place, ",")
                                 n.code = append(n.code, X[1].(Node).code...)
-                                n.code = append(n.code, fmt.Sprintf("ret, %s", X[1].(Node).place))
+                                for k, v := range retExpr {
+                                      n.code = append(n.code, fmt.Sprintf("=, return.%d, %s", k, v))
+                                }
+                                n.code = append(n.code, fmt.Sprintf("ret,"))
                         }
                         return n, nil
                 } () >>`,
 		Id:         "ReturnStmt",
-		NTType:     65,
-		Index:      125,
+		NTType:     66,
+		Index:      129,
 		NumSymbols: 2,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
 				n := Node{"", []string{}}
 				if deferStack.Len == 0 {
+					retExpr := utils.SplitAndSanitize(X[1].(Node).place, ",")
 					n.code = append(n.code, X[1].(Node).code...)
-					n.code = append(n.code, fmt.Sprintf("ret, %s", X[1].(Node).place))
+					for k, v := range retExpr {
+						n.code = append(n.code, fmt.Sprintf("=, return.%d, %s", k, v))
+					}
+					n.code = append(n.code, fmt.Sprintf("ret,"))
 				}
 				return n, nil
 			}()
@@ -2484,8 +2606,8 @@ var productionsTable = ProdTab{
                         return Node{"", []string{"break"}}, nil
                 } () >>`,
 		Id:         "BreakStmt",
-		NTType:     66,
-		Index:      126,
+		NTType:     67,
+		Index:      130,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2498,8 +2620,8 @@ var productionsTable = ProdTab{
                         return Node{"", []string{fmt.Sprintf("j, %s", X[1].(Node).place)}}, nil
                 } () >>`,
 		Id:         "BreakStmt",
-		NTType:     66,
-		Index:      127,
+		NTType:     67,
+		Index:      131,
 		NumSymbols: 2,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2512,8 +2634,8 @@ var productionsTable = ProdTab{
                         return Node{"", []string{"continue"}}, nil
                 } () >>`,
 		Id:         "ContinueStmt",
-		NTType:     67,
-		Index:      128,
+		NTType:     68,
+		Index:      132,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2526,8 +2648,8 @@ var productionsTable = ProdTab{
                         return Node{"", []string{fmt.Sprintf("j, %s", X[1].(Node).place)}}, nil
                 } () >>`,
 		Id:         "GotoStmt",
-		NTType:     68,
-		Index:      129,
+		NTType:     69,
+		Index:      133,
 		NumSymbols: 2,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2546,8 +2668,8 @@ var productionsTable = ProdTab{
                         return Node{"", X[3].(Node).code}, nil
                 } () >>`,
 		Id:         "Block",
-		NTType:     69,
-		Index:      130,
+		NTType:     70,
+		Index:      134,
 		NumSymbols: 5,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2577,8 +2699,8 @@ var productionsTable = ProdTab{
                         return nil, nil
                 } () >>`,
 		Id:         "Marker",
-		NTType:     70,
-		Index:      131,
+		NTType:     71,
+		Index:      135,
 		NumSymbols: 0,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2608,8 +2730,8 @@ var productionsTable = ProdTab{
                         return n, nil
                 } () >>`,
 		Id:         "IfStmt",
-		NTType:     71,
-		Index:      132,
+		NTType:     72,
+		Index:      136,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2637,8 +2759,8 @@ var productionsTable = ProdTab{
                         return n, nil
                 } () >>`,
 		Id:         "IfStmt",
-		NTType:     71,
-		Index:      133,
+		NTType:     72,
+		Index:      137,
 		NumSymbols: 5,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2669,8 +2791,8 @@ var productionsTable = ProdTab{
                         return n, nil
                 } () >>`,
 		Id:         "IfStmt",
-		NTType:     71,
-		Index:      134,
+		NTType:     72,
+		Index:      138,
 		NumSymbols: 5,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2698,8 +2820,8 @@ var productionsTable = ProdTab{
                         return n, nil
                 } () >>`,
 		Id:         "IfStmt",
-		NTType:     71,
-		Index:      135,
+		NTType:     72,
+		Index:      139,
 		NumSymbols: 5,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2729,8 +2851,8 @@ var productionsTable = ProdTab{
 
                 } () >>`,
 		Id:         "IfStmt",
-		NTType:     71,
-		Index:      136,
+		NTType:     72,
+		Index:      140,
 		NumSymbols: 7,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2764,8 +2886,8 @@ var productionsTable = ProdTab{
                         return n, nil
                 } () >>`,
 		Id:         "IfStmt",
-		NTType:     71,
-		Index:      137,
+		NTType:     72,
+		Index:      141,
 		NumSymbols: 7,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2788,8 +2910,8 @@ var productionsTable = ProdTab{
                         return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "SwitchStmt",
-		NTType:     72,
-		Index:      138,
+		NTType:     73,
+		Index:      142,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2828,8 +2950,8 @@ var productionsTable = ProdTab{
                                 return n, nil
                         } () >>`,
 		Id:         "ExprSwitchStmt",
-		NTType:     73,
-		Index:      139,
+		NTType:     74,
+		Index:      143,
 		NumSymbols: 6,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2871,8 +2993,8 @@ var productionsTable = ProdTab{
                                 return n, nil
                         } () >>`,
 		Id:         "RepeatExprCaseClause",
-		NTType:     74,
-		Index:      140,
+		NTType:     75,
+		Index:      144,
 		NumSymbols: 2,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2888,8 +3010,8 @@ var productionsTable = ProdTab{
                                 return Node{"", []string{}}, nil
                         } () >>`,
 		Id:         "RepeatExprCaseClause",
-		NTType:     74,
-		Index:      141,
+		NTType:     75,
+		Index:      145,
 		NumSymbols: 0,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2915,8 +3037,8 @@ var productionsTable = ProdTab{
                                 return n, nil
                         } () >>`,
 		Id:         "ExprCaseClause",
-		NTType:     75,
-		Index:      142,
+		NTType:     76,
+		Index:      146,
 		NumSymbols: 4,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2942,8 +3064,8 @@ var productionsTable = ProdTab{
                                 return Node{X[1].(Node).place, X[1].(Node).code}, nil
                         } () >>`,
 		Id:         "ExprSwitchCase",
-		NTType:     76,
-		Index:      143,
+		NTType:     77,
+		Index:      147,
 		NumSymbols: 2,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2956,8 +3078,8 @@ var productionsTable = ProdTab{
                                 return Node{"default", []string{}}, nil
                         } () >>`,
 		Id:         "ExprSwitchCase",
-		NTType:     76,
-		Index:      144,
+		NTType:     77,
+		Index:      148,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -2986,8 +3108,8 @@ var productionsTable = ProdTab{
                         return n, nil
                 } () >>`,
 		Id:         "ForStmt",
-		NTType:     77,
-		Index:      145,
+		NTType:     78,
+		Index:      149,
 		NumSymbols: 2,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3034,8 +3156,8 @@ var productionsTable = ProdTab{
                         return n, nil
                 } () >>`,
 		Id:         "ForStmt",
-		NTType:     77,
-		Index:      146,
+		NTType:     78,
+		Index:      150,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3086,8 +3208,8 @@ var productionsTable = ProdTab{
                         return n, nil
                 } () >>`,
 		Id:         "ForStmt",
-		NTType:     77,
-		Index:      147,
+		NTType:     78,
+		Index:      151,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3122,8 +3244,8 @@ var productionsTable = ProdTab{
                       return Node{"1", []string{"", "", ""}}, nil
               } () >>`,
 		Id:         "ForClause",
-		NTType:     78,
-		Index:      148,
+		NTType:     79,
+		Index:      152,
 		NumSymbols: 2,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3143,8 +3265,8 @@ var productionsTable = ProdTab{
                         return Node{"1", []string{initStmtCode, "", ""}}, nil
               } () >>`,
 		Id:         "ForClause",
-		NTType:     78,
-		Index:      149,
+		NTType:     79,
+		Index:      153,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3167,8 +3289,8 @@ var productionsTable = ProdTab{
                         return Node{X[1].(Node).place, []string{"", condCode, ""}}, nil
               } () >>`,
 		Id:         "ForClause",
-		NTType:     78,
-		Index:      150,
+		NTType:     79,
+		Index:      154,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3191,8 +3313,8 @@ var productionsTable = ProdTab{
                         return Node{"1", []string{"", "", postStmtCode}}, nil
               } () >>`,
 		Id:         "ForClause",
-		NTType:     78,
-		Index:      151,
+		NTType:     79,
+		Index:      155,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3220,8 +3342,8 @@ var productionsTable = ProdTab{
                         return Node{X[2].(Node).place, []string{initStmtCode, condCode, ""}}, nil
               } () >>`,
 		Id:         "ForClause",
-		NTType:     78,
-		Index:      152,
+		NTType:     79,
+		Index:      156,
 		NumSymbols: 4,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3254,8 +3376,8 @@ var productionsTable = ProdTab{
                         return Node{"1", []string{initStmtCode, "", postStmtCode}}, nil
               } () >>`,
 		Id:         "ForClause",
-		NTType:     78,
-		Index:      153,
+		NTType:     79,
+		Index:      157,
 		NumSymbols: 4,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3288,8 +3410,8 @@ var productionsTable = ProdTab{
                         return Node{X[1].(Node).place, []string{"", condCode, postStmtCode}}, nil
               } () >>`,
 		Id:         "ForClause",
-		NTType:     78,
-		Index:      154,
+		NTType:     79,
+		Index:      158,
 		NumSymbols: 4,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3327,8 +3449,8 @@ var productionsTable = ProdTab{
                         return Node{X[2].(Node).place, []string{initStmtCode, condCode, postStmtCode}}, nil
               } () >>`,
 		Id:         "ForClause",
-		NTType:     78,
-		Index:      155,
+		NTType:     79,
+		Index:      159,
 		NumSymbols: 5,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3356,8 +3478,8 @@ var productionsTable = ProdTab{
                         return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "InitStmt",
-		NTType:     79,
-		Index:      156,
+		NTType:     80,
+		Index:      160,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3370,8 +3492,8 @@ var productionsTable = ProdTab{
                         return Node{"", X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "PostStmt",
-		NTType:     80,
-		Index:      157,
+		NTType:     81,
+		Index:      161,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3384,8 +3506,8 @@ var productionsTable = ProdTab{
                         return Node{X[0].(Node).place, X[0].(Node).code}, nil
                 } () >>`,
 		Id:         "Condition",
-		NTType:     81,
-		Index:      158,
+		NTType:     82,
+		Index:      162,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3410,8 +3532,8 @@ var productionsTable = ProdTab{
                         return n, nil
                 } () >>`,
 		Id:         "DeferStmt",
-		NTType:     82,
-		Index:      159,
+		NTType:     83,
+		Index:      163,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3438,8 +3560,8 @@ var productionsTable = ProdTab{
                         return n, nil
                 } () >>`,
 		Id:         "PrintIntStmt",
-		NTType:     83,
-		Index:      160,
+		NTType:     84,
+		Index:      164,
 		NumSymbols: 2,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3456,8 +3578,8 @@ var productionsTable = ProdTab{
                         return n, nil
                 } () >>`,
 		Id:         "IncDecStmt",
-		NTType:     84,
-		Index:      161,
+		NTType:     85,
+		Index:      165,
 		NumSymbols: 2,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3474,8 +3596,8 @@ var productionsTable = ProdTab{
                         return n, nil
                 } () >>`,
 		Id:         "IncDecStmt",
-		NTType:     84,
-		Index:      162,
+		NTType:     85,
+		Index:      166,
 		NumSymbols: 2,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3508,8 +3630,8 @@ var productionsTable = ProdTab{
                         return n, nil
                 } () >>`,
 		Id:         "Assignment",
-		NTType:     85,
-		Index:      163,
+		NTType:     86,
+		Index:      167,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3556,8 +3678,8 @@ var productionsTable = ProdTab{
                         return n, nil
                 } () >>`,
 		Id:         "Assignment",
-		NTType:     85,
-		Index:      164,
+		NTType:     86,
+		Index:      168,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3644,8 +3766,8 @@ var productionsTable = ProdTab{
                         return n, nil
                 } () >>`,
 		Id:         "ShortVarDecl",
-		NTType:     86,
-		Index:      165,
+		NTType:     87,
+		Index:      169,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {
@@ -3716,8 +3838,8 @@ var productionsTable = ProdTab{
                        return Node{string(X[0].(*token.Token).Lit), []string{}}, nil
                  } () >>`,
 		Id:         "Label",
-		NTType:     87,
-		Index:      166,
+		NTType:     88,
+		Index:      170,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
 			return func() (Attrib, error) {

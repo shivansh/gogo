@@ -1,4 +1,4 @@
-func temp() {
+func temp() int {
 	return 1
 }
 
