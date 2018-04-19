@@ -26,9 +26,9 @@ checkBuildStatus() {
     git checkout $defaultBranch
     git checkout -b $testBranch
     git pull --rebase origin master
-    # Move to project's root and run the tests.
-    cd ..
     make && scripts/run-tests.sh
+    # The generated file is not correctly formatted by default.
+    gofmt -w ./tmp/parser/productionstable.go
     if ! git diff-index --quiet HEAD --; then
         printf "${GREEN}Introduced changes are valid!${NORMAL}\n"
     else
