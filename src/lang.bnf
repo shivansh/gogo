@@ -1650,6 +1650,8 @@ StatementList : Statement terminator RepeatTerminator StatementList
 //             GoStmt | ReturnStmt | BreakStmt | ContinueStmt | GotoStmt |
 //             FallthroughStmt | Block | IfStmt | SwitchStmt | SelectStmt | ForStmt |
 //             DeferStmt .
+// NOTE: The following additional statements are introduced.
+// PrintIntStmt
 Statement : Declaration
                 << func() (Attrib, error) {
                         return Node{"", $0.(Node).code}, nil
@@ -1696,6 +1698,10 @@ Statement : Declaration
                        return Node{"", $0.(Node).code}, nil
                 } () >>
           | DeferStmt
+                << func() (Attrib, error) {
+                       return Node{"", $0.(Node).code}, nil
+                } () >>
+          | PrintIntStmt
                 << func() (Attrib, error) {
                        return Node{"", $0.(Node).code}, nil
                 } () >>
@@ -2350,6 +2356,14 @@ DeferStmt : "defer" PrimaryExpr Arguments
                 } () >>
           ;
 
+PrintIntStmt : "printInt" Expression
+                << func() (Attrib, error) {
+                        n := Node{"", $1.(Node).code}
+                        n.code = append(n.code, fmt.Sprintf("printInt, %s, %s", $1.(Node).place, $1.(Node).place))
+                        return n, nil
+                } () >>
+             ;
+
 // ExpressionStmt : Expression
 //                 << func() (Attrib, error) {
 //                       fmt.Println("Expression");
@@ -2417,6 +2431,8 @@ Assignment : ExpressionList assignOp ExpressionList
 ShortVarDecl : IdentifierList shortAssign ExpressionList
                 << func() (Attrib, error) {
                         n := Node{"", []string{}}
+                        // TODO: Structs do not support multiple short declarations in a
+                        // single statement for now.
                         exprName := $2.(Node).place
                         if len(exprName) >= 6 && exprName[:6] == "struct" {
                                 // NOTE: The following index calculations assume that
