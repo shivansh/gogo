@@ -95,8 +95,8 @@ import(
         "strconv"
         "strings"
 
-        "gogo/src/utils"
-        "gogo/tmp/token"
+        "github.com/shivansh/gogo/src/utils"
+        "github.com/shivansh/gogo/tmp/token"
 )
 
 // Node represents a node in the AST of a given program.

@@ -8,8 +8,8 @@ import (
 	"io/ioutil"
 	"log"
 
-	"gogo/tmp/lexer"
-	"gogo/tmp/token"
+	"github.com/shivansh/gogo/tmp/lexer"
+	"github.com/shivansh/gogo/tmp/token"
 )
 
 func PrintTokens(file string) {

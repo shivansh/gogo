@@ -14,8 +14,8 @@ import (
 	"os"
 	"strings"
 
-	"gogo/tmp/lexer"
-	"gogo/tmp/parser"
+	"github.com/shivansh/gogo/tmp/lexer"
+	"github.com/shivansh/gogo/tmp/parser"
 )
 
 // Tac simulates the shell utility tac(1), only difference being that it returns a

@@ -7,10 +7,10 @@ import (
 	"log"
 	"os"
 
-	"gogo/src/asm"
-	"gogo/src/parser"
-	"gogo/src/scanner"
-	"gogo/src/tac"
+	"github.com/shivansh/gogo/src/asm"
+	"github.com/shivansh/gogo/src/parser"
+	"github.com/shivansh/gogo/src/scanner"
+	"github.com/shivansh/gogo/src/tac"
 )
 
 // GenToken generates the tokens returned by lexer from the input program.

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gogo/src/tac"
+	"github.com/shivansh/gogo/src/tac"
 )
 
 type Addr struct {
