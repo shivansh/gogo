@@ -1,7 +1,5 @@
 # Ignore executables
 bin
-# Ignore tmp directory
-tmp
 # Ignore generated files
 LR1_conflicts.txt
 test/parser/lexer_tests
