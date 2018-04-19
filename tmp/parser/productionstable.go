@@ -53,12 +53,14 @@ var (
 	// deferStack stores the deferred function calls which are then called
 	// when the surrounding function block ends.
 	deferStack *utils.Stack
+	re         *regexp.Regexp
 )
 
 func init() {
 	symTab = make(symTabType)
 	globalSymTab = make(symTabType)
 	deferStack = utils.CreateStack()
+	re = regexp.MustCompile("(^-?[0-9]+$)") // integers
 }
 
 // SearchInScope returns the symbol table entry for a given variable in the
@@ -729,16 +731,27 @@ var productionsTable = ProdTab{
 		String: `Term3 : Term3 "+" Term4	<< func() (Attrib, error) {
                         n := Node{"", X[0].(Node).code}
                         n.code = append(n.code, X[2].(Node).code...)
-                        n.place = NewTmp()
-                        // IR code doesn't support instructions of the form -
-                        //      +, dst, 1, 2
-                        // Instead, the following is the correct representation -
-                        //      =, src, 1
-                        //      +, dst, src, 2
-                        firstVar := NewTmp()
-                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", firstVar, X[0].(Node).place))
-                        n.code = append(n.code, fmt.Sprintf("+, %s, %s, %s", n.place, firstVar, X[2].(Node).place))
-                        n.code = append(n.code, "\n")
+                        if re.MatchString(X[0].(Node).place) && re.MatchString(X[2].(Node).place) {
+                                // expression is of the form 1+2
+                                term3val, err := strconv.Atoi(X[0].(Node).place)
+                                if err != nil {
+                                        return nil, err
+                                }
+                                term4val, err := strconv.Atoi(X[2].(Node).place)
+                                if err != nil {
+                                        return nil, err
+                                }
+                                n.place = strconv.Itoa(term3val + term4val)
+                        } else if re.MatchString(X[0].(Node).place) {
+                                // expression is of the form 1+b, which is to be converted to b+1
+                                n.place = NewTmp()
+                                n.code = append(n.code, fmt.Sprintf("+, %s, %s, %s", n.place, X[2].(Node).place, X[0].(Node).place))
+                                n.code = append(n.code, "\n")
+                        } else {
+                                n.place = NewTmp()
+                                n.code = append(n.code, fmt.Sprintf("+, %s, %s, %s", n.place, X[0].(Node).place, X[2].(Node).place))
+                                n.code = append(n.code, "\n")
+                        }
                         return n, nil
                 } () >>`,
 		Id:         "Term3",
@@ -749,16 +762,27 @@ var productionsTable = ProdTab{
 			return func() (Attrib, error) {
 				n := Node{"", X[0].(Node).code}
 				n.code = append(n.code, X[2].(Node).code...)
-				n.place = NewTmp()
-				// IR code doesn't support instructions of the form -
-				//      +, dst, 1, 2
-				// Instead, the following is the correct representation -
-				//      =, src, 1
-				//      +, dst, src, 2
-				firstVar := NewTmp()
-				n.code = append(n.code, fmt.Sprintf("=, %s, %s", firstVar, X[0].(Node).place))
-				n.code = append(n.code, fmt.Sprintf("+, %s, %s, %s", n.place, firstVar, X[2].(Node).place))
-				n.code = append(n.code, "\n")
+				if re.MatchString(X[0].(Node).place) && re.MatchString(X[2].(Node).place) {
+					// expression is of the form 1+2
+					term3val, err := strconv.Atoi(X[0].(Node).place)
+					if err != nil {
+						return nil, err
+					}
+					term4val, err := strconv.Atoi(X[2].(Node).place)
+					if err != nil {
+						return nil, err
+					}
+					n.place = strconv.Itoa(term3val + term4val)
+				} else if re.MatchString(X[0].(Node).place) {
+					// expression is of the form 1+b, which is to be converted to b+1
+					n.place = NewTmp()
+					n.code = append(n.code, fmt.Sprintf("+, %s, %s, %s", n.place, X[2].(Node).place, X[0].(Node).place))
+					n.code = append(n.code, "\n")
+				} else {
+					n.place = NewTmp()
+					n.code = append(n.code, fmt.Sprintf("+, %s, %s, %s", n.place, X[0].(Node).place, X[2].(Node).place))
+					n.code = append(n.code, "\n")
+				}
 				return n, nil
 			}()
 		},
