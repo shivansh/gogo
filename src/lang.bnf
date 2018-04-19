@@ -631,7 +631,14 @@ Term3 : Term3 "+" Term4
                         n := Node{"", $0.(Node).code}
                         n.code = append(n.code, $2.(Node).code...)
                         n.place = NewTmp()
-                        n.code = append(n.code, fmt.Sprintf("+, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
+                        // IR code doesn't support instructions of the form -
+                        //      +, dst, 1, 2
+                        // Instead, the following is the correct representation -
+                        //      =, src, 1
+                        //      +, dst, src, 2
+                        firstVar := NewTmp()
+                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", firstVar, $0.(Node).place))
+                        n.code = append(n.code, fmt.Sprintf("+, %s, %s, %s", n.place, firstVar, $2.(Node).place))
                         n.code = append(n.code, "\n")
                         return n, nil
                 } () >>

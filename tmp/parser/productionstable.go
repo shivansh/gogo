@@ -730,7 +730,14 @@ var productionsTable = ProdTab{
                         n := Node{"", X[0].(Node).code}
                         n.code = append(n.code, X[2].(Node).code...)
                         n.place = NewTmp()
-                        n.code = append(n.code, fmt.Sprintf("+, %s, %s, %s", n.place, X[0].(Node).place, X[2].(Node).place))
+                        // IR code doesn't support instructions of the form -
+                        //      +, dst, 1, 2
+                        // Instead, the following is the correct representation -
+                        //      =, src, 1
+                        //      +, dst, src, 2
+                        firstVar := NewTmp()
+                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", firstVar, X[0].(Node).place))
+                        n.code = append(n.code, fmt.Sprintf("+, %s, %s, %s", n.place, firstVar, X[2].(Node).place))
                         n.code = append(n.code, "\n")
                         return n, nil
                 } () >>`,
@@ -743,7 +750,14 @@ var productionsTable = ProdTab{
 				n := Node{"", X[0].(Node).code}
 				n.code = append(n.code, X[2].(Node).code...)
 				n.place = NewTmp()
-				n.code = append(n.code, fmt.Sprintf("+, %s, %s, %s", n.place, X[0].(Node).place, X[2].(Node).place))
+				// IR code doesn't support instructions of the form -
+				//      +, dst, 1, 2
+				// Instead, the following is the correct representation -
+				//      =, src, 1
+				//      +, dst, src, 2
+				firstVar := NewTmp()
+				n.code = append(n.code, fmt.Sprintf("=, %s, %s", firstVar, X[0].(Node).place))
+				n.code = append(n.code, fmt.Sprintf("+, %s, %s, %s", n.place, firstVar, X[2].(Node).place))
 				n.code = append(n.code, "\n")
 				return n, nil
 			}()
