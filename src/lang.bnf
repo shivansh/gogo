@@ -508,7 +508,9 @@ ConstSpec : IdentifierList
                 << func() (Attrib, error) {
                         n := Node{"", []string{}}
                         for _, v := range $0.(Node).code {
-                                n.code = append(n.code, fmt.Sprintf("=, %s, 0", v))
+                                renamedVar := RenameVariable(v)
+                                currSymTab.varSymTab[v] = []string{renamedVar, "int"} // TODO: Handle other types
+                                n.code = append(n.code, fmt.Sprintf("=, %s, 0", renamedVar))
                         }
                         return n, nil
                 } () >>
@@ -517,7 +519,9 @@ ConstSpec : IdentifierList
                         n := Node{"", $2.(Node).code}
                         expr := utils.SplitAndSanitize($2.(Node).place, ",")
                         for k, v := range $0.(Node).code {
-                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
+                                renamedVar := RenameVariable(v)
+                                currSymTab.varSymTab[v] = []string{renamedVar, "int"}
+                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
                         }
                         return n, nil
                 } () >>
