@@ -139,7 +139,7 @@ var (
 	// deferStack stores the deferred function calls which are then called
 	// when the surrounding function block ends.
 	deferStack *utils.Stack
-        re *regexp.Regexp
+	re         *regexp.Regexp
 )
 
 func init() {
@@ -174,17 +174,17 @@ func SearchInScope(v string) ([]string, bool) {
 	return []string{}, false
 }
 
-// Finds you the real name of renamed variable
-func getRealName(s string) string {
-    var real string
-    for i := 0; i<len(s); i++{
-        if(s[i]=='.'){
-            break;
-        } else{
-            real = real + string(s[i])
-        }
-    }
-    return real
+// GetRealName extracts the original name of variable from its renamed version.
+func GetRealName(s string) string {
+	realName := ""
+	for i := 0; i < len(s); i++ {
+		if s[i] == '.' {
+			break
+		} else {
+			realName = realName + string(s[i])
+		}
+	}
+	return realName
 }
 
 // NewTmp generates a unique temporary variable.
@@ -793,11 +793,9 @@ UnaryExpr : PrimaryExpr
                                 n.place = $1.(Node).place
                         case "&":
                                 // Place of any pointer variable starts with "pointer:" and then followed by string returned by NewTmp()
-                                n.place = "pointer:"+$1.(Node).place
-                                // n.code = append(n.code, fmt.Sprintf("laddr, %s, %s", n.place, $1.(Node).place))
+                                n.place = "pointer:" + $1.(Node).place
                         case "*":
-                                n.place = "deref:"+$1.(Node).place
-                                // n.code = append(n.code, fmt.Sprintf("lval, %s, %s", n.place, $1.(Node).place))
+                                n.place = "deref:" + $1.(Node).place
                         default:
                                 return n, errors.New(fmt.Sprintf("%s operator not supported", $0.(Node).place))
                         }
@@ -2488,7 +2486,7 @@ Assignment : ExpressionList assignOp ExpressionList
                         }
                         return n, nil
                 } () >>
-           // TODO : Redundant code     
+           // TODO : Redundant code
            | ExpressionList "=" ExpressionList
                 << func() (Attrib, error) {
                         n := Node{"", $0.(Node).code}
@@ -2496,29 +2494,29 @@ Assignment : ExpressionList assignOp ExpressionList
                         leftExpr := utils.SplitAndSanitize($0.(Node).place, ",")
                         rightExpr := utils.SplitAndSanitize($2.(Node).place, ",")
                         for k, v := range leftExpr {
-                                if len(currSymTab.varSymTab[getRealName(v)]) >= 2 && currSymTab.varSymTab[getRealName(v)][1] == "pointer" {
+                                if len(currSymTab.varSymTab[GetRealName(v)]) >= 2 && currSymTab.varSymTab[GetRealName(v)][1] == "pointer" {
                                         if len(rightExpr[k]) >= 7 && rightExpr[k][:7] == "pointer" {
-                                                currSymTab.varSymTab[getRealName(v)][3] = currSymTab.varSymTab[getRealName(rightExpr[k][8:])][0]
+                                                currSymTab.varSymTab[GetRealName(v)][3] = currSymTab.varSymTab[GetRealName(rightExpr[k][8:])][0]
                                         } else {
-                                                currSymTab.varSymTab[getRealName(v)][3] = currSymTab.varSymTab[getRealName(rightExpr[k])][3]
+                                                currSymTab.varSymTab[GetRealName(v)][3] = currSymTab.varSymTab[GetRealName(rightExpr[k])][3]
                                         }
                                 } else if len(rightExpr[k]) >= 5 && rightExpr[k][:5] == "deref" && len(v) >= 5 && v[:5] == "deref" {
-                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", currSymTab.varSymTab[getRealName(v[6:])][3], currSymTab.varSymTab[getRealName(rightExpr[k][6:])][3]))
+                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", currSymTab.varSymTab[GetRealName(v[6:])][3], currSymTab.varSymTab[GetRealName(rightExpr[k][6:])][3]))
                                 } else if len(rightExpr[k]) >= 5 && rightExpr[k][:5] == "deref" {
-                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", currSymTab.varSymTab[getRealName(v)][0], currSymTab.varSymTab[getRealName(rightExpr[k][6:])][3]))
+                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", currSymTab.varSymTab[GetRealName(v)][0], currSymTab.varSymTab[GetRealName(rightExpr[k][6:])][3]))
                                 } else if len(v) >= 5 && v[:5] == "deref" {
-                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", currSymTab.varSymTab[getRealName(v[6:])][3], rightExpr[k]))
+                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", currSymTab.varSymTab[GetRealName(v[6:])][3], rightExpr[k]))
                                 } else {
-                                    n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, rightExpr[k]))
-                                    _, ok := symTab[v]
-                                    if ok {
-                                            if symTab[v][1] == "array" {
-                                                    arrayInfo := utils.SplitAndSanitize(symTab[v][0], ",")
-                                                    // arrayInfo[0]: array name
-                                                    // arrayInfo[1]: array index
-                                                    n.code = append(n.code, fmt.Sprintf("into, %s, %s, %s, %s", arrayInfo[0], arrayInfo[0], arrayInfo[1], v))
-                                            }
-                                    }
+                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, rightExpr[k]))
+                                        _, ok := symTab[v]
+                                        if ok {
+                                                if symTab[v][1] == "array" {
+                                                        arrayInfo := utils.SplitAndSanitize(symTab[v][0], ",")
+                                                        // arrayInfo[0]: array name
+                                                        // arrayInfo[1]: array index
+                                                        n.code = append(n.code, fmt.Sprintf("into, %s, %s, %s, %s", arrayInfo[0], arrayInfo[0], arrayInfo[1], v))
+                                                }
+                                        }
                                 }
                         }
                         return n, nil
@@ -2575,8 +2573,8 @@ ShortVarDecl : IdentifierList shortAssign ExpressionList
                                                 // TODO: All types are int currently.
                                                 if len(expr[k]) >= 7 && expr[k][0:7] == "pointer" {
                                                     currSymTab.varSymTab[v] = []string{renamedVar, "pointer", "int", expr[k][8:]}
-                                                } else if len(currSymTab.varSymTab[getRealName(expr[k])]) >= 2 && currSymTab.varSymTab[getRealName(expr[k])][1] == "pointer" {
-                                                    currSymTab.varSymTab[v] = []string{renamedVar, "pointer", currSymTab.varSymTab[getRealName(expr[k])][2] , currSymTab.varSymTab[getRealName(expr[k])][3]}
+                                                } else if len(currSymTab.varSymTab[GetRealName(expr[k])]) >= 2 && currSymTab.varSymTab[GetRealName(expr[k])][1] == "pointer" {
+                                                    currSymTab.varSymTab[v] = []string{renamedVar, "pointer", currSymTab.varSymTab[GetRealName(expr[k])][2] , currSymTab.varSymTab[GetRealName(expr[k])][3]}
                                                 } else if len(expr[k]) >= 5 && expr[k][0:5] == "deref" {
                                                     currSymTab.varSymTab[v] = []string{renamedVar, "int"}
                                                 } else {
@@ -2589,10 +2587,10 @@ ShortVarDecl : IdentifierList shortAssign ExpressionList
                                                 // TODO: rename arrays
                                                 n.code = append(n.code, fmt.Sprintf("decl, %s, %s", renamedVar, expr[k][6:]))
                                         } else if len(expr[k]) >= 5 && expr[k][0:5] == "deref" {
-                                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, currSymTab.varSymTab[getRealName(expr[k][6:])][3]))        
+                                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, currSymTab.varSymTab[GetRealName(expr[k][6:])][3]))
                                         } else if len(currSymTab.varSymTab[v]) >= 2 && currSymTab.varSymTab[v][1] != "pointer" {
                                                 n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
-                                        } 
+                                        }
                                 }
                         }
                         return n, nil
