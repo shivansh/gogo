@@ -82,5 +82,5 @@ func main() {
 	if len(args) != 2 {
 		log.Fatalf("Usage: gogo <filename>")
 	}
-	GenIR(args[1])
+	GenAsm(args[1])
 }

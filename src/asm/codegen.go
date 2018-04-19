@@ -400,6 +400,17 @@ func CodeGen(t tac.Tac) {
 			case "store":
 				blk.GetReg(&stmt, ts, arrLookup)
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove $t%d, $v0", blk.Adesc[stmt.Dst].Reg))
+			case "laddr":
+				blk.GetReg(&stmt, ts, arrLookup)
+				comment := fmt.Sprintf("# loading address of %s in $t%d", stmt.Src[0].U.StrVal(), blk.Adesc[stmt.Dst].Reg)
+				if _, ok := blk.Adesc[stmt.Src[0].U.StrVal()]; ok {
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%d, %s", blk.Adesc[stmt.Src[0].U.StrVal()].Reg, stmt.Src[0].U.StrVal()))
+				}
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s\t\t%s", blk.Adesc[stmt.Dst].Reg, stmt.Src[0].U.StrVal(), comment))
+			case "lval":
+				blk.GetReg(&stmt, ts, arrLookup)
+				comment := fmt.Sprintf("# loading value of %s in $t%d", stmt.Src[0].U.StrVal(), blk.Adesc[stmt.Dst].Reg)
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, 0($t%d)\t\t%s", blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, comment))
 			case "#":
 				if stmt.Line == 0 {
 					ds.Stmts = append([]string{fmt.Sprintf("# %s\n", stmt.Dst)}, ds.Stmts...)
