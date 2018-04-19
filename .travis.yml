@@ -1,0 +1,4 @@
+language: go
+go_import_path: github.com/shivansh/gogo
+
+script: ./scripts/build-status.sh
