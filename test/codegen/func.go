@@ -1,5 +1,5 @@
-func temp(a, b int) {
-	return a + b
+func temp(a, b int) (int) {
+	return a, b
 }
 
 func main() {
