@@ -307,7 +307,9 @@ var productionsTable = ProdTab{
 		String: `VarSpec : IdentifierList Type	<< func() (Attrib, error) {
                         n := Node{"", []string{}}
                         for _, v := range X[0].(Node).code {
-                                n.code = append(n.code, fmt.Sprintf("=, %s, 0", v))
+                                renamedVar := RenameVariable(v)
+                                currSymTab.varSymTab[v] = []string{renamedVar, "int"} // TODO: Handle other types
+                                n.code = append(n.code, fmt.Sprintf("=, %s, 0", renamedVar))
                         }
                         return n, nil
                 } () >>`,
@@ -319,7 +321,9 @@ var productionsTable = ProdTab{
 			return func() (Attrib, error) {
 				n := Node{"", []string{}}
 				for _, v := range X[0].(Node).code {
-					n.code = append(n.code, fmt.Sprintf("=, %s, 0", v))
+					renamedVar := RenameVariable(v)
+					currSymTab.varSymTab[v] = []string{renamedVar, "int"} // TODO: Handle other types
+					n.code = append(n.code, fmt.Sprintf("=, %s, 0", renamedVar))
 				}
 				return n, nil
 			}()
@@ -330,7 +334,9 @@ var productionsTable = ProdTab{
                         n := Node{"", X[3].(Node).code}
                         expr := utils.SplitAndSanitize(X[3].(Node).place, ",")
                         for k, v := range X[0].(Node).code {
-                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
+                                renamedVar := RenameVariable(v)
+                                currSymTab.varSymTab[v] = []string{renamedVar, "int"} // TODO: Handle other types
+                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
                         }
                         return n, nil
                 } () >>`,
@@ -343,7 +349,9 @@ var productionsTable = ProdTab{
 				n := Node{"", X[3].(Node).code}
 				expr := utils.SplitAndSanitize(X[3].(Node).place, ",")
 				for k, v := range X[0].(Node).code {
-					n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
+					renamedVar := RenameVariable(v)
+					currSymTab.varSymTab[v] = []string{renamedVar, "int"} // TODO: Handle other types
+					n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
 				}
 				return n, nil
 			}()
@@ -354,7 +362,9 @@ var productionsTable = ProdTab{
                         n := Node{"", X[2].(Node).code}
                         expr := utils.SplitAndSanitize(X[2].(Node).place, ",")
                         for k, v := range X[0].(Node).code {
-                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
+                                renamedVar := RenameVariable(v)
+                                currSymTab.varSymTab[v] = []string{renamedVar, "int"} // TODO: Handle other types
+                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
                         }
                         return n, nil
                 } () >>`,
@@ -367,7 +377,9 @@ var productionsTable = ProdTab{
 				n := Node{"", X[2].(Node).code}
 				expr := utils.SplitAndSanitize(X[2].(Node).place, ",")
 				for k, v := range X[0].(Node).code {
-					n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, expr[k]))
+					renamedVar := RenameVariable(v)
+					currSymTab.varSymTab[v] = []string{renamedVar, "int"} // TODO: Handle other types
+					n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
 				}
 				return n, nil
 			}()
