@@ -145,6 +145,13 @@ var (
 func init() {
 	symTab = make(symTabType)
 	globalSymTab = make(symTabType)
+	// currSymTab now allocates space for a global symbol table for variable
+	// declarations. Ideally, instead of creating a new symbol table it
+	// should've been global symbol table, but since the type of
+	// currSymTab.varSymTab is not pointer, updates made elsewhere will not
+	// be reflected globally.
+	// TODO: Update type of currSymTab.varSymTab to a pointer.
+	currSymTab = &SymInfo{make(symTabType), nil}
 	deferStack = utils.CreateStack()
 	re = regexp.MustCompile("(^-?[0-9]+$)") // integers
 }
@@ -161,7 +168,7 @@ func SearchInScope(v string) ([]string, bool) {
 		if ok {
 			return symTabEntry, true
 		} else {
-			currScope = currSymTab.parent
+			currScope = currScope.parent
 		}
 	}
 	// Lookup in global scope in case the variable corresponds to a struct
@@ -1903,11 +1910,7 @@ GotoStmt : kwdGoto Label
 Block : "{" Marker RepeatTerminator StatementList "}"
                 << func() (Attrib, error) {
                         // start of block
-                        if  currSymTab.parent != nil {
-                                currSymTab = currSymTab.parent // end of block
-                        } else {
-                                currSymTab = nil
-                        }
+                        currSymTab = currSymTab.parent // end of block
                         return Node{"", $3.(Node).code}, nil
                 } () >>
       ;
