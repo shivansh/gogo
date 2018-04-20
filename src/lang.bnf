@@ -2548,6 +2548,9 @@ Assignment : ExpressionList assignOp ExpressionList
                         n.code = append(n.code, $2.(Node).code...)
                         leftExpr := utils.SplitAndSanitize($0.(Node).place, ",")
                         rightExpr := utils.SplitAndSanitize($2.(Node).place, ",")
+                        if len(leftExpr) != len(rightExpr) {
+                                return nil, errors.New("Number of values in LHS and RHS is not equal")
+                        }
                         for k, v := range leftExpr {
                                 if len(currSymTab.varSymTab[GetRealName(v)]) >= 2 && currSymTab.varSymTab[GetRealName(v)][1] == "pointer" {
                                         if len(rightExpr[k]) >= 7 && rightExpr[k][:7] == "pointer" {
@@ -2587,6 +2590,9 @@ Assignment : ExpressionList assignOp ExpressionList
                         } else {
                                 n.code = $2.(Node).code
                                 expr := utils.SplitAndSanitize($2.(Node).place, ",")
+                                if len(expr) != len($0.(Node).code) {
+                                        return nil, errors.New("Number of values in LHS and RHS is not equal")
+                                }
                                 for k, v := range $0.(Node).code {
                                         symTabEntry, found := SearchInScope(v)
                                         if found {
@@ -2648,6 +2654,9 @@ ShortVarDecl : IdentifierList shortAssign ExpressionList
                         } else {
                                 n.code = $2.(Node).code
                                 expr := utils.SplitAndSanitize($2.(Node).place, ",")
+                                if len(expr) != len($0.(Node).code) {
+                                        return nil, errors.New("Number of values in LHS and RHS is not equal")
+                                }
                                 for k, v := range $0.(Node).code {
                                         renamedVar := RenameVariable(v)
                                         _, ok := currSymTab.varSymTab[v]
