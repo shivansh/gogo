@@ -727,7 +727,22 @@ Term6 : Term6 "/" Term7
                 } () >>
       ;
 
-Term7 : "(" Expression ")"
+Term7 : Term7 "%" Term8
+                << func() (Attrib, error) {
+                        n := Node{"", $0.(Node).code}
+                        n.code = append(n.code, $2.(Node).code...)
+                        n.place = NewTmp()
+                        n.code = append(n.code, fmt.Sprintf("rem, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
+                        n.code = append(n.code, "\n")
+                        return n, nil
+                } () >>
+      | Term8
+                << func() (Attrib, error) {
+                        return Node{$0.(Node).place, $0.(Node).code}, nil
+                } () >>
+      ;
+
+Term8 : "(" Expression ")"
                 << func() (Attrib, error) {
                         return Node{$1.(Node).place, $1.(Node).code}, nil
                 } () >>
@@ -1826,13 +1841,11 @@ SimpleStmt : EmptyStmt
                 << func() (Attrib, error) {
                        return Node{"", $0.(Node).code}, nil
                 } () >>
-           ;
-
-// SimpleStmt : ExpressionStmt
-//                 << func() (Attrib, error) {
-//                       fmt.Println("ExpressionStmt");
-//                       return nil, nil
-//                 } () >>
+           | ExpressionStmt
+                << func() (Attrib, error) {
+                      return Node{$0.(Node).place, $0.(Node).code}, nil
+                } () >>
+        ;
 //            | Assignment
 //                << func() (Attrib, error) {
 //                      fmt.Println("Assignment");
@@ -2472,12 +2485,12 @@ ScanIntStmt : "scanInt" Expression
                } () >>
             ;
 
-// ExpressionStmt : Expression
-//                 << func() (Attrib, error) {
-//                       fmt.Println("Expression");
-//                       return nil, nil
-//                 } () >>
-//                ;
+ExpressionStmt : Expression
+                << func() (Attrib, error) {
+                      return Node{$0.(Node).place, $0.(Node).code}, nil
+                } () >>
+               ;
+
 IncDecStmt : Expression "++"
                 << func() (Attrib, error) {
                         n := Node{"", $0.(Node).code}
