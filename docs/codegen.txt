@@ -3,3 +3,5 @@ Guidelines
 
 * Each function should be compulsarily accompanied by a relevant return statement.
 * The place values of an ExpressionList is a comma separated string of place values of individual Expressions.
+* Conditional expressions of the form `if a < b {}` should be used as `if (a < b) {}`.
+* The variable names cannot be b and j for now (usually works, might cause unexpected behavior).
