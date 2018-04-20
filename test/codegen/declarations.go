@@ -1,14 +1,17 @@
-func temp() int {
-	return 1
+func temp() (int, int) {
+	return 1, 2
 }
 
 func main() {
 	const b = 1 + 2 + 3
 	var d int = 1 + 2
 	x := 1 + 2
-	a := b + 1
-	a = a + d
+	a := d
 	printInt a
-	c := temp()
-	return a + b
+	c, e := temp()
+	var f, g int
+	f, g = temp()
+	printInt f
+	printInt g
+	return
 }

@@ -2562,6 +2562,33 @@ Assignment : ExpressionList assignOp ExpressionList
                         }
                         return n, nil
                 } () >>
+           | IdentifierList "=" ExpressionList
+                << func() (Attrib, error) {
+                        n := Node{"", []string{}}
+                        // TODO: Structs do not support multiple short declarations in a
+                        // single statement for now.
+                        exprName := $2.(Node).place
+                        if len(exprName) >= 6 && exprName[:6] == "struct" {
+                                return nil, errors.New("Use shortAssign for declaring structs")
+                        } else {
+                                n.code = $2.(Node).code
+                                expr := utils.SplitAndSanitize($2.(Node).place, ",")
+                                for k, v := range $0.(Node).code {
+                                        symTabEntry, found := SearchInScope(v)
+                                        if found {
+                                                renamedVar := symTabEntry[0]
+                                                if len(expr[k]) >= 5 && expr[k][:5] == "array" {
+                                                        return nil, errors.New("Use shortAssign for declaring arrays")
+                                                } else if len(currSymTab.varSymTab[v]) >= 2 && currSymTab.varSymTab[v][1] != "pointer" {
+                                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
+                                                }
+                                        } else {
+                                                return nil, errors.New("Variable not declared")
+                                        }
+                                }
+                        }
+                        return n, nil
+                } () >>
            ;
 
 ShortVarDecl : IdentifierList shortAssign ExpressionList
