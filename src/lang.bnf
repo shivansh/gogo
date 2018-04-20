@@ -700,9 +700,27 @@ Term4 : Term4 "-" Term5
                 << func() (Attrib, error) {
                         n := Node{"", $0.(Node).code}
                         n.code = append(n.code, $2.(Node).code...)
-                        n.place = NewTmp()
-                        n.code = append(n.code, fmt.Sprintf("-, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
-                        n.code = append(n.code, "\n")
+                        if re.MatchString($0.(Node).place) && re.MatchString($2.(Node).place) {
+                                // expression is of the form 1+2
+                                term3val, err := strconv.Atoi($0.(Node).place)
+                                if err != nil {
+                                        return nil, err
+                                }
+                                term4val, err := strconv.Atoi($2.(Node).place)
+                                if err != nil {
+                                        return nil, err
+                                }
+                                n.place = strconv.Itoa(term3val - term4val)
+                        } else if re.MatchString($0.(Node).place) {
+                                // expression is of the form 1+b, which is to be converted to b+1
+                                n.place = NewTmp()
+                                n.code = append(n.code, fmt.Sprintf("-, %s, %s, %s", n.place, $2.(Node).place, $0.(Node).place))
+                                n.code = append(n.code, "\n")
+                        } else {
+                                n.place = NewTmp()
+                                n.code = append(n.code, fmt.Sprintf("-, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
+                                n.code = append(n.code, "\n")
+                        }
                         return n, nil
                 } () >>
       | Term5
@@ -715,9 +733,27 @@ Term5 : Term5 "*" Term6
                 << func() (Attrib, error) {
                         n := Node{"", $0.(Node).code}
                         n.code = append(n.code, $2.(Node).code...)
-                        n.place = NewTmp()
-                        n.code = append(n.code, fmt.Sprintf("*, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
-                        n.code = append(n.code, "\n")
+                        if re.MatchString($0.(Node).place) && re.MatchString($2.(Node).place) {
+                                // expression is of the form 1+2
+                                term3val, err := strconv.Atoi($0.(Node).place)
+                                if err != nil {
+                                        return nil, err
+                                }
+                                term4val, err := strconv.Atoi($2.(Node).place)
+                                if err != nil {
+                                        return nil, err
+                                }
+                                n.place = strconv.Itoa(term3val * term4val)
+                        } else if re.MatchString($0.(Node).place) {
+                                // expression is of the form 1+b, which is to be converted to b+1
+                                n.place = NewTmp()
+                                n.code = append(n.code, fmt.Sprintf("*, %s, %s, %s", n.place, $2.(Node).place, $0.(Node).place))
+                                n.code = append(n.code, "\n")
+                        } else {
+                                n.place = NewTmp()
+                                n.code = append(n.code, fmt.Sprintf("*, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
+                                n.code = append(n.code, "\n")
+                        }
                         return n, nil
                 } () >>
       | Term6
@@ -730,9 +766,27 @@ Term6 : Term6 "/" Term7
                 << func() (Attrib, error) {
                         n := Node{"", $0.(Node).code}
                         n.code = append(n.code, $2.(Node).code...)
-                        n.place = NewTmp()
-                        n.code = append(n.code, fmt.Sprintf("/, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
-                        n.code = append(n.code, "\n")
+                        if re.MatchString($0.(Node).place) && re.MatchString($2.(Node).place) {
+                                // expression is of the form 1+2
+                                term3val, err := strconv.Atoi($0.(Node).place)
+                                if err != nil {
+                                        return nil, err
+                                }
+                                term4val, err := strconv.Atoi($2.(Node).place)
+                                if err != nil {
+                                        return nil, err
+                                }
+                                n.place = strconv.Itoa(term3val / term4val)
+                        } else if re.MatchString($0.(Node).place) {
+                                // expression is of the form 1+b, which is to be converted to b+1
+                                n.place = NewTmp()
+                                n.code = append(n.code, fmt.Sprintf("/, %s, %s, %s", n.place, $2.(Node).place, $0.(Node).place))
+                                n.code = append(n.code, "\n")
+                        } else {
+                                n.place = NewTmp()
+                                n.code = append(n.code, fmt.Sprintf("/, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
+                                n.code = append(n.code, "\n")
+                        }
                         return n, nil
                 } () >>
       | Term7
@@ -745,9 +799,27 @@ Term7 : Term7 "%" Term8
                 << func() (Attrib, error) {
                         n := Node{"", $0.(Node).code}
                         n.code = append(n.code, $2.(Node).code...)
-                        n.place = NewTmp()
-                        n.code = append(n.code, fmt.Sprintf("rem, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
-                        n.code = append(n.code, "\n")
+                        if re.MatchString($0.(Node).place) && re.MatchString($2.(Node).place) {
+                                // expression is of the form 1+2
+                                term3val, err := strconv.Atoi($0.(Node).place)
+                                if err != nil {
+                                        return nil, err
+                                }
+                                term4val, err := strconv.Atoi($2.(Node).place)
+                                if err != nil {
+                                        return nil, err
+                                }
+                                n.place = strconv.Itoa(term3val % term4val)
+                        } else if re.MatchString($0.(Node).place) {
+                                // expression is of the form 1+b, which is to be converted to b+1
+                                n.place = NewTmp()
+                                n.code = append(n.code, fmt.Sprintf("rem, %s, %s, %s", n.place, $2.(Node).place, $0.(Node).place))
+                                n.code = append(n.code, "\n")
+                        } else {
+                                n.place = NewTmp()
+                                n.code = append(n.code, fmt.Sprintf("rem, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
+                                n.code = append(n.code, "\n")
+                        }
                         return n, nil
                 } () >>
       | Term8
