@@ -587,9 +587,16 @@ Expression : Expression "||" Term1
                 << func() (Attrib, error) {
                         n := Node{"", $0.(Node).code}
                         n.code = append(n.code, $2.(Node).code...)
+                        trueLabel := NewLabel()
+                        afterLabel := NewLabel()
                         n.place = NewTmp()
-                        n.code = append(n.code, fmt.Sprintf("or, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
-                        n.code = append(n.code, "\n")
+                        n.code = append(n.code, fmt.Sprintf("beq, %s, %s, 1", trueLabel, $0.(Node).place))
+                        n.code = append(n.code, fmt.Sprintf("beq, %s, %s, 1", trueLabel, $2.(Node).place))
+                        n.code = append(n.code, fmt.Sprintf("=, %s, 0", n.place))
+                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
+                        n.code = append(n.code, fmt.Sprintf("label, %s", trueLabel))
+                        n.code = append(n.code, fmt.Sprintf("=, %s, 1", n.place))
+                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
                         return n, nil
                 } () >>
            | Term1
@@ -602,9 +609,16 @@ Term1 : Term1 "&&" Term2
                 << func() (Attrib, error) {
                         n := Node{"", $0.(Node).code}
                         n.code = append(n.code, $2.(Node).code...)
+                        falseLabel := NewLabel()
+                        afterLabel := NewLabel()
                         n.place = NewTmp()
-                        n.code = append(n.code, fmt.Sprintf("and, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
-                        n.code = append(n.code, "\n")
+                        n.code = append(n.code, fmt.Sprintf("beq, %s, %s, 0", falseLabel, $0.(Node).place))
+                        n.code = append(n.code, fmt.Sprintf("beq, %s, %s, 0", falseLabel, $2.(Node).place))
+                        n.code = append(n.code, fmt.Sprintf("=, %s, 1", n.place))
+                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
+                        n.code = append(n.code, fmt.Sprintf("label, %s", falseLabel))
+                        n.code = append(n.code, fmt.Sprintf("=, %s, 0", n.place))
+                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
                         return n, nil
                 } () >>
         | Term2
@@ -616,9 +630,9 @@ Term1 : Term1 "&&" Term2
 Term2 : Term2 RelOp Term3
                 << func() (Attrib, error) {
                         n := Node{"", $0.(Node).code}
+                        n.place = NewTmp()
                         n.code = append(n.code, $2.(Node).code...)
                         branchOp := ""
-                        n.place = NewTmp()
                         falseLabel := NewLabel()
                         afterLabel := NewLabel()
                         switch $1.(Node).place {
