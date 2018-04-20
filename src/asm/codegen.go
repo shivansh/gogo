@@ -388,6 +388,9 @@ func CodeGen(t tac.Tac) {
 			case "func":
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\n\t.globl %s\n\t.ent %s", funcName, funcName))
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("%s:", stmt.Dst))
+				if funcName != "main" {
+						ts.Stmts = append(ts.Stmts, "\taddi $sp, $sp, -4\n\tsw $ra, 0($sp)")
+				}
 			case "j":
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tj %s", stmt.Dst))
 			case "call":
@@ -410,7 +413,7 @@ func CodeGen(t tac.Tac) {
 				if strings.Compare(funcName, "main") == 0 {
 					exitStmt = "\tli $v0, 10\n\tsyscall\n\t.end main"
 				} else {
-					exitStmt = fmt.Sprintf("\n\tjr $ra\n\t.end %s", funcName)
+					exitStmt = fmt.Sprintf("\n\tlw $ra, 0($sp)\n\taddi $sp, $sp, 4\n\tjr $ra\n\t.end %s", funcName)
 				}
 				// Check if the variable which is to hold the return value has a register -
 				// 	* if it does then move register's content to $v0
