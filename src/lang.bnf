@@ -129,6 +129,7 @@ var (
 	// production rule corresponding to the arguments is reached and not
 	// when the block begins.
 	funcSymtabCreated bool
+	forSymtabCreated bool
 	symTab            symTabType // symbol table for temporaries ; TODO: Update this.
 	// currSymTab keeps track of the currently active symbol table
 	// depending on scope.
@@ -1782,7 +1783,11 @@ Statement : Declaration
                 << func() (Attrib, error) {
                        return Node{"", $0.(Node).code}, nil
                 } () >>
-          | PrintIntStmt
+          | PrintStmt
+                << func() (Attrib, error) {
+                       return Node{"", $0.(Node).code}, nil
+                } () >>
+          | ScanStmt
                 << func() (Attrib, error) {
                        return Node{"", $0.(Node).code}, nil
                 } () >>
@@ -2439,6 +2444,18 @@ DeferStmt : "defer" PrimaryExpr Arguments
                 } () >>
           ;
 
+PrintStmt : PrintIntStmt
+                << func() (Attrib, error) {
+                        return Node{"", $0.(Node).code}, nil
+                } () >>
+          ;
+
+ScanStmt : ScanIntStmt
+                << func() (Attrib, error) {
+                        return Node{"", $0.(Node).code}, nil
+                } () >>
+          ;
+
 PrintIntStmt : "printInt" Expression
                 << func() (Attrib, error) {
                         n := Node{"", $1.(Node).code}
@@ -2446,6 +2463,14 @@ PrintIntStmt : "printInt" Expression
                         return n, nil
                 } () >>
              ;
+
+ScanIntStmt : "scanInt" Expression
+		<< func() (Attrib, error) {
+                        n := Node{"", $1.(Node).code}
+                        n.code = append(n.code, fmt.Sprintf("scanInt, %s", $1.(Node).place))
+                        return n, nil
+               } () >>
+            ;
 
 // ExpressionStmt : Expression
 //                 << func() (Attrib, error) {
