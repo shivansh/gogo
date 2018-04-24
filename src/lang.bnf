@@ -2137,7 +2137,10 @@ SwitchStmt : ExprSwitchStmt
                                 n := Node{"", $1.(Node).code}
                                 caseLabels := []string{}
                                 caseStmts := $4.(Node).code
-                                caseTemporaries := utils.SplitAndSanitize($4.(Node).place, ",")
+                                // SplitAndSanitize cannot be used here as removal of empty
+                                // entries seems to be causing erroneous index calculations.
+                                // Regression caused in "test/codegen/switch.go".
+                                caseTemporaries := strings.Split($4.(Node).place, ",")
                                 afterLabel := NewLabel()
                                 defaultLabel := afterLabel
                                 // The last value in caseTemporaries will be the place value
