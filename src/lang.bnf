@@ -1071,11 +1071,10 @@ BasicLit : intLit
 //                       fmt.Println("runeLit");
 //                       return nil, nil
 //                 } () >>
-//          | stringLit
-//                 << func() (Attrib, error) {
-//                       fmt.Println("stringLit");
-//                       return nil, nil
-//                 } () >>
+         | stringLit
+                << func() (Attrib, error) {
+                        return Node{fmt.Sprintf("string:%s", string($0.(*token.Token).Lit)), []string{}}, nil
+                } () >>
 //          | boolLit
 //                << func() (Attrib, error) {
 //                      fmt.Println("boolLit");
@@ -2547,6 +2546,10 @@ PrintStmt : PrintIntStmt
                 << func() (Attrib, error) {
                         return Node{"", $0.(Node).code}, nil
                 } () >>
+          | PrintStrStmt
+                << func() (Attrib, error) {
+                        return Node{"", $0.(Node).code}, nil
+                } () >>
           ;
 
 ScanStmt : ScanIntStmt
@@ -2559,6 +2562,14 @@ PrintIntStmt : "printInt" Expression
                 << func() (Attrib, error) {
                         n := Node{"", $1.(Node).code}
                         n.code = append(n.code, fmt.Sprintf("printInt, %s, %s", $1.(Node).place, $1.(Node).place))
+                        return n, nil
+                } () >>
+             ;
+
+PrintStrStmt : "printStr" Expression
+                << func() (Attrib, error) {
+                        n := Node{"", $1.(Node).code}
+                        n.code = append(n.code, fmt.Sprintf("printStr, %s", $1.(Node).place))
                         return n, nil
                 } () >>
              ;
@@ -2725,6 +2736,7 @@ ShortVarDecl : IdentifierList shortAssign ExpressionList
                                 }
                         } else {
                                 n.code = $2.(Node).code
+                                placeVals := strings.Split($2.(Node).place, ",")
                                 expr := utils.SplitAndSanitize($2.(Node).place, ",")
                                 if len(expr) != len($0.(Node).code) {
                                         return nil, errors.New("Number of values in LHS and RHS is not equal")
@@ -2751,6 +2763,9 @@ ShortVarDecl : IdentifierList shortAssign ExpressionList
                                                 n.code = append(n.code, fmt.Sprintf("decl, %s, %s", renamedVar, expr[k][6:]))
                                         } else if len(expr[k]) >= 5 && expr[k][0:5] == "deref" {
                                                 n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, currSymTab.varSymTab[GetRealName(expr[k][6:])][3]))
+                                        } else if len(placeVals[k]) >= 7 && placeVals[k][:6] == "string" {
+                                                // Check if the RHS is string.
+                                                n.code = append(n.code, fmt.Sprintf("declStr, %s, %s", renamedVar, expr[k][7:]))
                                         } else if len(currSymTab.varSymTab[v]) >= 2 && currSymTab.varSymTab[v][1] != "pointer" {
                                                 n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
                                         }
