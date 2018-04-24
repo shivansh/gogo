@@ -12,7 +12,7 @@ func SplitAndSanitize(str string, sep string) []string {
 	for _, v := range strings.Split(str, sep) {
 		entry := strings.TrimSpace(v)
 		if entry != "" {
-			ret = append(ret, v)
+			ret = append(ret, entry)
 		}
 	}
 	return ret
