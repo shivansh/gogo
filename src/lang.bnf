@@ -893,8 +893,17 @@ UnaryExpr : PrimaryExpr
                         n.code = append(n.code, $1.(Node).code...)
                         switch $0.(Node).place {
                         case "-":
-                                n.place = NewTmp()
-                                n.code = append(n.code, fmt.Sprintf("*, %s, %s, -1", n.place, $1.(Node).place))
+                                if re.MatchString($1.(Node).place) {
+                                        // expression is of the form 1+2
+                                        term3val, err := strconv.Atoi($1.(Node).place)
+                                        if err != nil {
+                                                return nil, err
+                                        }
+                                        n.place = strconv.Itoa(term3val * -1)
+                                } else {
+                                        n.place = NewTmp()
+                                        n.code = append(n.code, fmt.Sprintf("*, %s, %s, -1", n.place, $1.(Node).place))
+                                }
                         case "!":
                                 n.place = NewTmp()
                                 n.code = append(n.code, fmt.Sprintf("not, %s, %s", n.place, $1.(Node).place))
