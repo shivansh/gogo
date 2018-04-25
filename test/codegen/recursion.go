@@ -1,13 +1,18 @@
-func sum(n int) int {
+// PrintNatNums prints the first n natural numbers in decreasing order.
+func PrintNatNums(n int) int {
+        newline := "\n"
+
         if n == 0 {
                 return 0
         }
         printInt n
-        x := sum(n-1)
+        printStr newline
+        x := PrintNatNums(n-1)
+        
         return 1 + x
 }
 
 func main() {
-        x := sum(5)
+        PrintNatNums(5)
         return
 }

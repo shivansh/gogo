@@ -1,7 +1,18 @@
 func main() {
-l1:
 	a := 1
-l2:
 	b := 2
+	newline := "\n"
+
+	goto l2
+
+l1:
+	printInt a
+	printStr newline
+	return
+
+l2:
+	a = 4
+	printInt b
+	printStr newline
 	goto l1
 }

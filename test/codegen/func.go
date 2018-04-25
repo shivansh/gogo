@@ -1,8 +1,14 @@
-func temp(a, b int) (int) {
-	return a, b
+func temp(x, y int) (int, int) {
+	return x + 1, y + 1
 }
 
 func main() {
-	retval := temp(1, 2)
+	newline := "\n"
+
+	a, b := temp(1, 2)
+	printInt a
+	printStr newline
+	printInt b
+
 	return
 }

@@ -1,6 +1,12 @@
 func main() {
+	a := 0
+	newline := "\n"
+
 	for i := 0; i < 4; i++ {
-		a := 1
+		a++
+		printInt a
+		printStr newline
 	}
-	b := 1
+
+	return
 }
