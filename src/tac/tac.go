@@ -21,11 +21,12 @@ type Addr struct {
 	Mem int
 }
 
+// Stmt defines the structure of a single statement in three-address code form.
 type Stmt struct {
-	Line int
-	Op   string
-	Dst  string
-	Src  []*SymInfo
+	Line int        // line number where the statement is available
+	Op   string     // operator
+	Dst  string     // destination variable
+	Src  []*SymInfo // source variable
 }
 
 type Union interface {
@@ -83,10 +84,12 @@ type I32 int
 type Str string
 
 const (
-	// RegLimit determines the upper bound on the number of free registers at any
-	// given instant supported by the concerned architecture (MIPS in this case).
-	// Currently, for testing purposes the value is set "too" low.
-	RegLimit = 4
+	// RegLimit determines the upper bound on the number of free registers
+	// at any given instant supported by the concerned architecture (MIPS
+	// in this case).
+	// NOTE: Register $1 is reserved by assembler for pseudo instructions
+	// and hence is not assigned to variables.
+	RegLimit = 32
 	// Variables which are dead have their next-use set to MaxInt.
 	MaxInt = int(^uint(0) >> 1)
 )
@@ -97,23 +100,33 @@ const (
 //	* stmt: The allocator ensures that all the variables available in Stmt
 //		object have been allocated a register.
 //	* ts: If a register had to be spilled when GetReg() was called, the text
-//	      segment should be updated with an equivalent statement (store-word).
+//	      segment should be updated with an equivalent "sw" instruction.
 //
-// GetReg handles all the side-effects induced due to register allocation, namely -
+// GetReg handles all the side-effects induced due to register allocation -
 //	* Updating lookup tables.
-//	* Additional instructions resulting due to register spilling.
+//	* Generating additional instructions resulting due to register spilling.
+//
+// A note on register spilling
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// A variable which doesn't have a next-use in the current basic block is
+// spilled right away even if there are free registers available, resulting in
+// one "sw" instruction. In case spilling was avoided and one of the free
+// registers was used instead, that too would have resulted in one "sw"
+// instruction at the end of the basic block.
 func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
-	// allocReg is a slice of all the register DS which are popped from the heap
-	// and have been assigned a variable's data. These DS are updated with the
-	// newly assigned variable's next-use info and after all the variables (x,y,z)
-	// are assigned a register, all entities in allocReg are pushed back into the
-	// heap. This ensures that the source variables' registers don't spill each other.
+	// allocReg is a slice of all the register DS which are popped from the
+	// heap and have been assigned a variable's data. These DS are updated
+	// with the newly assigned variable's next-use info and after all the
+	// variables (x,y,z) are assigned a register, all entities in allocReg
+	// are pushed back into the heap. This ensures that the source
+	// variables' registers don't spill each other.
 	var allocReg []*UseInfo
 	var srcVars []string
 	var lenSource int
 
-	// Collect all "variables" available in stmt. Register allocation is first
-	// done for the source variables and then for the destination variable.
+	// Collect all "variables" available in stmt. Register allocation is
+	// first done for the source variables and then for the destination
+	// variable.
 	for _, v := range stmt.Src {
 		switch v := v.U.(type) {
 		case Str:
@@ -134,8 +147,8 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 			item := heap.Pop(&blk.Pq).(*UseInfo) // element with highest next-use
 			reg, _ := strconv.Atoi(item.Name)
 			if _, ok := blk.Rdesc[reg]; ok && !arrLookup[blk.Rdesc[reg]] {
-				comment := fmt.Sprintf("# spilled %s, freed $t%s", blk.Rdesc[reg], item.Name)
-				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $t%s, %s\t\t%s", item.Name, blk.Rdesc[reg], comment))
+				comment := fmt.Sprintf("# spilled %s, freed $%s", blk.Rdesc[reg], item.Name)
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $%s, %s\t\t%s", item.Name, blk.Rdesc[reg], comment))
 			}
 			allocReg = append(allocReg, &UseInfo{strconv.Itoa(reg), blk.FindNextUse(stmt.Line, v)})
 			delete(blk.Adesc, blk.Rdesc[reg])
@@ -144,9 +157,9 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 			blk.Adesc[v] = Addr{reg, blk.Adesc[v].Mem}
 			if k < lenSource-1 {
 				if !arrLookup[v] {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $t%d, %s", blk.Adesc[v].Reg, v))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $%d, %s", blk.Adesc[v].Reg, v))
 				} else {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $t%d, %s", blk.Adesc[v].Reg, v))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $%d, %s", blk.Adesc[v].Reg, v))
 				}
 			}
 		}

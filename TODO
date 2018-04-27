@@ -1,0 +1,28 @@
+This is a list of things that need to be worked on.
+
+Intermediate representation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* Support for compiling down to x86.
+
+Code generation
+~~~~~~~~~~~~~~~
+* Special registers $s1 and $s2 are being used when generating code for arrays.
+  This might create a problem when these registers ($16 and $17) are already
+  allocated to variables.
+  Somethings which are to be kept in mind while fixing this -
+    - The newly allocated registers (instead of $s1 and $s2) should be pushed
+      back into the heap when they are spilled i.e. the next-use needs to be
+      appropriately adjusted.
+    - The assembly comments currently being generated need to be somewhat more
+      informative.
+
+* Sequential register allocation
+  The current ordering of the registers returned by GetReg() are in random order
+  probably due to the way container/heap works.
+
+* Generalize the structure of GetReg() across variables and arrays.
+  Relevant commit: 52142cc
+
+Parser
+~~~~~~
+* Fix global declarations.
