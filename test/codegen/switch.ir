@@ -1,0 +1,15 @@
+func, main
+=, a.0, 1
+beq, l1, a.0, 2
+j, l2
+label, l1
++, t0, a.0, 1
+=, a.0, t0
+j, l0
+label, l2
++, t1, a.0, 4
+=, a.0, t1
+printInt, a.0, a.0
+j, l0
+label, l0
+ret,

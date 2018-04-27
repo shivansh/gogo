@@ -1,6 +1,12 @@
 language: go
-go_import_path: github.com/shivansh/gogo
+go:
+    - 1.8
 
-before_script: go get github.com/goccmack/gocc
+notifications:
+    email: false
 
-script: ./scripts/build-status.sh
+before_script:
+    - go get github.com/goccmack/gocc
+
+script:
+    - ./scripts/build-status.sh

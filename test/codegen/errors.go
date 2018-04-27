@@ -4,17 +4,18 @@ func test(a, b int) (int, int) {
 }
 
 func main() {
+	// NOTE: When testing, modify below statements to erroneous states.
 	// Variable usage withoug declaration.
-	a = 1
+	a := 1
 
 	// Variable redeclarations.
-	a := 4
+	a = 4
 
 	// Unequal values in LHS and RHS.
-	a, b := 1, 2, 3
+	b, c, d := 1, 2, 3
 
 	// Function return values.
-	a := test(1, 2)
+	e, f := test(1, 2)
 
 	return
 }

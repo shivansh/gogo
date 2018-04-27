@@ -1,0 +1,45 @@
+func, main
+=, a.0, 0
+decl, binary.1, 10
+declStr, startSen.2, "Give input number less than 1024\n"
+declStr, newline.3, "\n"
+declStr, binaryLine.4, "The binary representation of the given number is \n"
+printStr, startSen.2
+scanInt, a.0
+printStr, newline.3
+printStr, binaryLine.4
+=, i.5, 0
+label, l2
+ble, l0, a.0, 0
+=, t0, 1
+j, l1
+label, l0
+=, t0, 0
+label, l1
+blt, l3, t0, 1
+from, t1, binary.1, i.5
+rem, t2, a.0, 2
+=, t1, t2
+into, binary.1, binary.1, i.5, t1
+/, t3, a.0, 2
+=, a.0, t3
++, t4, i.5, 1
+=, i.5, t4
+j, l2
+label, l3
+-, t5, i.5, 1
+=, j.6, t5
+label, l6
+blt, l4, j.6, 0
+=, t6, 1
+j, l5
+label, l4
+=, t6, 0
+label, l5
+blt, l7, t6, 1
+from, t7, binary.1, j.6
+printInt, t7, t7
+-, j.6, j.6, 1
+j, l6
+label, l7
+ret,

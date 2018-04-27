@@ -1,0 +1,7 @@
+func, main
+=, x.0, 1
+=, z.2, x.0
+printInt, z.2, z.2
+=, x.0, 4
+printInt, x.0, x.0
+ret,

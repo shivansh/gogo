@@ -1,0 +1,29 @@
+func, firstFunc
+declStr, str.0, "First function call!\n"
+printStr, str.0
+ret,
+func, midFunc
+=, a, midFunc.0
+=, c, midFunc.1
+declStr, str.1, "Second function call! Result: "
+declStr, newline.2, "\n"
++, t0, a, c
+=, sum.3, t0
+printStr, str.1
+printInt, sum.3, sum.3
+printStr, newline.2
+ret,
+func, lastFunc
+declStr, str.4, "Last function call!\n"
+printStr, str.4
+ret,
+func, main
+=, midFunc.0, 3
+=, midFunc.1, 3
+call, firstFunc
+store, t3
+call, midFunc
+store, t2
+call, lastFunc
+store, t1
+ret,

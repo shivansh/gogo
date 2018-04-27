@@ -1,0 +1,21 @@
+func, temp
+=, return.0, 1
+=, return.1, 2
+ret,
+func, main
+=, b.0, 6
+=, d.1, 3
+=, x.2, 3
+=, a.3, d.1
+printInt, a.3, a.3
+call, temp
+=, c.4, return.0
+=, e.5, return.1
+=, f.6, 0
+=, g.7, 0
+call, temp
+=, f.6, return.0
+=, g.7, return.1
+printInt, f.6, f.6
+printInt, g.7, g.7
+ret,

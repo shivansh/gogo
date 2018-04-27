@@ -1,0 +1,14 @@
+func, main
+=, a.0, 1
+=, b.1, 2
+declStr, newline.2, "\n"
+j, l2
+label, l1
+printInt, a.0, a.0
+printStr, newline.2
+ret,
+label, l2
+=, a.0, 4
+printInt, b.1, b.1
+printStr, newline.2
+j, l1

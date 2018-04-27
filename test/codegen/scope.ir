@@ -2,11 +2,11 @@ func, main
 decl, arr.0, 2
 from, t0, arr.0, 0
 =, t0, 4
-into, arr.0, arr.0,  0, t0
+into, arr.0, arr.0, 0, t0
 decl, arr.1, 2
 from, t1, arr.1, 0
 =, t1, 5
-into, arr.1, arr.1,  0, t1
+into, arr.1, arr.1, 0, t1
 =, a.2, 1
 =, a.3, 4
 =, a.3, 2

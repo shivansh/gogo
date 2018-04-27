@@ -1,0 +1,26 @@
+func, main
+=, a.0, 1
+=, b.1, 2
+bge, l0, a.0, b.1
+=, t0, 1
+j, l1
+label, l0
+=, t0, 0
+label, l1
+bge, l2, a.0, b.1
+=, t1, 1
+j, l3
+label, l2
+=, t1, 0
+label, l3
+beq, l4, t0, 0
+beq, l4, t1, 0
+=, t2, 1
+j, l5
+label, l4
+=, t2, 0
+label, l5
+blt, l6, t2, 1
+printInt, a.0, a.0
+label, l6
+ret,
