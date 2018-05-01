@@ -23,6 +23,7 @@ tac: $(SRC)/tac/tac.go
 	cd $(SRC)/tac; $(CC) install $(GCFLAGS)
 
 gogo: $(SRC)/main.go
+	mkdir -p tmp
 	$(CC) build $(GCFLAGS) -o $(BIN)/gogo $(SRC)/main.go
 
 test:

@@ -1,5 +1,5 @@
 # gogo
-[![Build Status](https://travis-ci.com/shivansh/gogo.svg?token=yArpTxRcD4JbxKJAj2Mw&branch=master)](https://travis-ci.com/shivansh/gogo)
+[![Build Status](https://travis-ci.org/shivansh/gogo.svg?branch=master)](https://travis-ci.org/shivansh/gogo)
 
 Go to MIPS compiler implemented in Go. Made as a course project for CS335 (Compiler Design).
 
