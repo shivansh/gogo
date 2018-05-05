@@ -13,13 +13,13 @@ j, l3
 label, l2
 =, t1, 0
 label, l3
-beq, l4, t0, 0
-beq, l4, t1, 0
+beq, l5, t0, 0
+beq, l5, t1, 0
 =, t2, 1
-j, l5
-label, l4
-=, t2, 0
+j, l4
 label, l5
+=, t2, 0
+label, l4
 blt, l6, t2, 1
 printInt, a.0, a.0
 label, l6

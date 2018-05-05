@@ -9,21 +9,21 @@ j, l1
 label, l0
 =, t1, 0
 label, l1
-blt, l6, t1, 1
+blt, l7, t1, 1
 printInt, a.0, a.0
-j, l7
-label, l6
+j, l6
+label, l7
 ble, l2, b.1, 1
 =, t2, 1
 j, l3
 label, l2
 =, t2, 0
 label, l3
-blt, l4, t2, 1
+blt, l5, t2, 1
 printInt, b.1, b.1
-j, l5
-label, l4
-printInt, c.2, c.2
+j, l4
 label, l5
-label, l7
+printInt, c.2, c.2
+label, l4
+label, l6
 ret,

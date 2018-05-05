@@ -18,7 +18,7 @@ label, l0
 label, l1
 blt, l3, t0, 1
 from, t1, binary.1, i.5
-rem, t2, a.0, 2
+%, t2, a.0, 2
 =, t1, t2
 into, binary.1, binary.1, i.5, t1
 /, t3, a.0, 2
