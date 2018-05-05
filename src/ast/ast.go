@@ -461,7 +461,7 @@ func NewPrimaryExprArgs(expr, args Attrib) (Node, error) {
 	n := Node{"", args.(Node).Code}
 	typeName := globalSymTab[expr.(Node).Place][0]
 	returnLen := 0
-	if len(typeName) >= 5 && typeName[:4] == "func" {
+	if strings.HasPrefix(typeName, "func") {
 		returnLen, _ = strconv.Atoi(typeName[5:])
 	} else {
 		return Node{}, fmt.Errorf("%s is not a function", expr.(Node).Place)
@@ -488,7 +488,7 @@ func NewCompositeLit(typ, val Attrib) (Node, error) {
 	// (which is of the form "array:<length_of_array>"), thus
 	// returning early.
 	typeName := typ.(Node).Place
-	if len(typeName) >= 5 && typeName[:5] == "array" {
+	if strings.HasPrefix(typeName, "array") {
 		return n, nil
 	}
 	// In case the corresponds to a struct, add the
@@ -1078,16 +1078,16 @@ func NewAssignStmt(typ int, op, leftExpr, rightExpr Attrib) (Node, error) {
 		}
 		for k, v := range leftExpr {
 			if len(currSymTab.varSymTab[GetRealName(v)]) >= 2 && currSymTab.varSymTab[GetRealName(v)][1] == "pointer" {
-				if len(rightExpr[k]) >= 7 && rightExpr[k][:7] == "pointer" {
+				if strings.HasPrefix(rightExpr[k], "pointer") {
 					currSymTab.varSymTab[GetRealName(v)][3] = currSymTab.varSymTab[GetRealName(rightExpr[k][8:])][0]
 				} else {
 					currSymTab.varSymTab[GetRealName(v)][3] = currSymTab.varSymTab[GetRealName(rightExpr[k])][3]
 				}
-			} else if len(rightExpr[k]) >= 5 && rightExpr[k][:5] == "deref" && len(v) >= 5 && v[:5] == "deref" {
+			} else if strings.HasPrefix(rightExpr[k], "deref") && strings.HasPrefix(v, "deref") {
 				n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", currSymTab.varSymTab[GetRealName(v[6:])][3], currSymTab.varSymTab[GetRealName(rightExpr[k][6:])][3]))
-			} else if len(rightExpr[k]) >= 5 && rightExpr[k][:5] == "deref" {
+			} else if strings.HasPrefix(rightExpr[k], "deref") {
 				n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", currSymTab.varSymTab[GetRealName(v)][0], currSymTab.varSymTab[GetRealName(rightExpr[k][6:])][3]))
-			} else if len(v) >= 5 && v[:5] == "deref" {
+			} else if strings.HasPrefix(v, "deref") {
 				n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", currSymTab.varSymTab[GetRealName(v[6:])][3], rightExpr[k]))
 			} else {
 				n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", v, rightExpr[k]))
@@ -1108,7 +1108,7 @@ func NewAssignStmt(typ int, op, leftExpr, rightExpr Attrib) (Node, error) {
 		// TODO: Structs do not support multiple short declarations in a
 		// single statement for now.
 		exprName := rightExpr.(Node).Place
-		if len(exprName) >= 6 && exprName[:6] == "struct" {
+		if strings.HasPrefix(exprName, "struct") {
 			return Node{}, errors.New("Use short declaration for declaring structs")
 		} else {
 			n.Code = rightExpr.(Node).Code
@@ -1120,7 +1120,7 @@ func NewAssignStmt(typ int, op, leftExpr, rightExpr Attrib) (Node, error) {
 				symTabEntry, found := SearchInScope(v)
 				if found {
 					renamedVar := symTabEntry[0]
-					if len(expr[k]) >= 5 && expr[k][:5] == "array" {
+					if strings.HasPrefix(expr[k], "array") {
 						return Node{}, errors.New("Use short declaration for declaring arrays")
 					} else if len(currSymTab.varSymTab[v]) >= 2 && currSymTab.varSymTab[v][1] != "pointer" {
 						n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
@@ -1141,7 +1141,7 @@ func NewShortDecl(identList, exprList Attrib) (Node, error) {
 	// TODO: Structs do not support multiple short declarations in a
 	// single statement for now.
 	exprName := exprList.(Node).Place
-	if len(exprName) >= 6 && exprName[:6] == "struct" {
+	if strings.HasPrefix(exprName, "struct") {
 		// NOTE: The following index calculations assume that
 		// struct names cannot include a ':' character.
 		colonIndex := strings.LastIndexAny(exprName, ":")
@@ -1188,11 +1188,11 @@ func NewShortDecl(identList, exprList Attrib) (Node, error) {
 			_, ok := currSymTab.varSymTab[v]
 			if !ok {
 				// TODO: All types are int currently.
-				if len(expr[k]) >= 7 && expr[k][0:7] == "pointer" {
+				if strings.HasPrefix(expr[k], "pointer") {
 					currSymTab.varSymTab[v] = []string{renamedVar, "pointer", "int", expr[k][8:]}
 				} else if len(currSymTab.varSymTab[GetRealName(expr[k])]) >= 2 && currSymTab.varSymTab[GetRealName(expr[k])][1] == "pointer" {
 					currSymTab.varSymTab[v] = []string{renamedVar, "pointer", currSymTab.varSymTab[GetRealName(expr[k])][2], currSymTab.varSymTab[GetRealName(expr[k])][3]}
-				} else if len(expr[k]) >= 5 && expr[k][0:5] == "deref" {
+				} else if strings.HasPrefix(expr[k], "deref") {
 					currSymTab.varSymTab[v] = []string{renamedVar, "int"}
 				} else {
 					currSymTab.varSymTab[v] = []string{renamedVar, "int"}
@@ -1200,12 +1200,12 @@ func NewShortDecl(identList, exprList Attrib) (Node, error) {
 			} else {
 				return Node{}, fmt.Errorf("%s is already declared", v)
 			}
-			if len(expr[k]) >= 5 && expr[k][:5] == "array" {
+			if strings.HasPrefix(expr[k], "array") {
 				// TODO: rename arrays
 				n.Code = append(n.Code, fmt.Sprintf("decl, %s, %s", renamedVar, expr[k][6:]))
-			} else if len(expr[k]) >= 5 && expr[k][0:5] == "deref" {
+			} else if strings.HasPrefix(expr[k], "deref") {
 				n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", renamedVar, currSymTab.varSymTab[GetRealName(expr[k][6:])][3]))
-			} else if len(placeVals[k]) >= 7 && placeVals[k][:6] == "string" {
+			} else if strings.HasPrefix(placeVals[k], "string") {
 				// Check if the RHS is string.
 				n.Code = append(n.Code, fmt.Sprintf("declStr, %s, %s", renamedVar, expr[k][7:]))
 			} else if len(currSymTab.varSymTab[v]) >= 2 && currSymTab.varSymTab[v][1] != "pointer" {
