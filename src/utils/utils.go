@@ -2,7 +2,10 @@
 
 package utils
 
-import "strings"
+import (
+	"log"
+	"strings"
+)
 
 // SplitAndSanitize creates a slice after splitting a string at a separator. The
 // entries in resulting slice are trimmed of any whitespace and the resulting
@@ -27,6 +30,8 @@ func AppendToSlice(slice []string, args ...interface{}) []string {
 			slice = append(slice, v.(string))
 		case []string:
 			slice = append(slice, v.([]string)...)
+		default:
+			log.Fatalf("AppendToSlice: unsupported type %v", v)
 		}
 	}
 	return slice

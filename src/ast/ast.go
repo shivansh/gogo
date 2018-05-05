@@ -233,7 +233,8 @@ func NewVarSpec(typ int, args ...Attrib) (Node, error) {
 func NewTypeDecl(args ...Attrib) (Node, error) {
 	typeInfo := utils.SplitAndSanitize(args[1].(Node).Place, ",")
 	structName := strings.TrimSpace(typeInfo[1])
-	switch strings.TrimSpace(typeInfo[0]) {
+	typ := strings.TrimSpace(typeInfo[0])
+	switch typ {
 	case "struct":
 		// Create a global symbol table entry.
 		// NOTE: The symbol table entry of a struct is of the form -
@@ -241,7 +242,7 @@ func NewTypeDecl(args ...Attrib) (Node, error) {
 		globalSymTab[structName] = []string{"struct"}
 		globalSymTab[structName] = append(globalSymTab[structName], args[1].(Node).Code...)
 	default: // TODO: Add remaining types.
-		return Node{}, errors.New("Unknown type")
+		return Node{}, fmt.Errorf("Unknown type %s", typ)
 	}
 	// TODO: Member initialization will be done when a new object is
 	// instantiated.
@@ -381,7 +382,7 @@ func NewArithExpr(op, leftexpr, rightexpr Attrib) (Node, error) {
 		case "%":
 			n.Place = strconv.Itoa(leftval % rightval)
 		default:
-			return Node{}, errors.New("Invalid operation")
+			return Node{}, fmt.Errorf("Invalid operation %s", op)
 		}
 	} else if re.MatchString(leftexpr.(Node).Place) {
 		// Expression is of the form "1 + b", which needs to be
@@ -421,7 +422,7 @@ func NewUnaryExpr(op, expr Attrib) (Node, error) {
 	case "*":
 		n.Place = "deref:" + expr.(Node).Place
 	default:
-		return n, errors.New(fmt.Sprintf("%s operator not supported", op.(Node).Place))
+		return n, fmt.Errorf("%s operator not supported", op.(Node).Place)
 	}
 	return n, nil
 }
@@ -434,12 +435,12 @@ func NewPrimaryExprSel(expr, selector Attrib) (Node, error) {
 	symTabEntry, found := SearchInScope(varName)
 	if found {
 		if _, ok := globalSymTab[varName]; ok {
-			return Node{}, errors.New(fmt.Sprintf("%s not in scope", varName))
+			return Node{}, fmt.Errorf("%s not in scope", varName)
 		} else {
 			return Node{symTabEntry[0], []string{}}, nil
 		}
 	} else {
-		return Node{}, errors.New(fmt.Sprintf("%s not in scope", varName))
+		return Node{}, fmt.Errorf("%s not in scope", varName)
 	}
 }
 
@@ -463,7 +464,7 @@ func NewPrimaryExprArgs(expr, args Attrib) (Node, error) {
 	if len(typeName) >= 5 && typeName[:4] == "func" {
 		returnLen, _ = strconv.Atoi(typeName[5:])
 	} else {
-		return Node{}, errors.New(fmt.Sprintf("%s is not a function", expr.(Node).Place))
+		return Node{}, fmt.Errorf("%s is not a function", expr.(Node).Place)
 	}
 	argExpr := utils.SplitAndSanitize(args.(Node).Place, ",")
 	for k, v := range argExpr {
@@ -530,7 +531,7 @@ func NewCompositeLit(typ, val Attrib) (Node, error) {
 		}
 	} else {
 		// TODO: Update error message.
-		return Node{}, errors.New(fmt.Sprintf("%s not in scope", typ.(Node).Place))
+		return Node{}, fmt.Errorf("%s not in scope", typ.(Node).Place)
 	}
 	return n, nil
 }
@@ -546,7 +547,7 @@ func NewIdentifier(ident Attrib) (Node, error) {
 			return Node{symTabEntry[0], []string{}}, nil
 		}
 	} else {
-		return Node{}, errors.New(fmt.Sprintf("%s not declared", varName))
+		return Node{}, fmt.Errorf("%s not declared", varName)
 	}
 }
 
@@ -584,7 +585,7 @@ func NewFuncMarker(name, signature Attrib) (Node, error) {
 	if _, found := globalSymTab[name.(Node).Place]; !found {
 		globalSymTab[name.(Node).Place] = []string{fmt.Sprintf("func:%s", signature.(Node).Place)}
 	} else {
-		return Node{}, errors.New(fmt.Sprintf("Function %s already declared\n", name))
+		return Node{}, fmt.Errorf("Function %s is already declared\n", name)
 	}
 	return n, nil
 }
@@ -992,7 +993,7 @@ func NewForClause(typ int, args ...Attrib) (Node, error) {
 		}
 		return Node{args[1].(Node).Place, []string{initStmtCode, condCode, postStmtCode}}, nil
 	}
-	return Node{}, errors.New("NewForClause: Invalid type")
+	return Node{}, fmt.Errorf("NewForClause: Invalid type %d", typ)
 }
 
 // NewDeferStmt returns a defer statement.
@@ -1039,7 +1040,7 @@ func NewIncDecStmt(op, expr Attrib) (Node, error) {
 	case "--":
 		n.Code = append(n.Code, fmt.Sprintf("-, %s, %s, 1", expr.(Node).Place, expr.(Node).Place))
 	default:
-		return Node{}, errors.New(fmt.Sprintf("Invalid operator %s", op))
+		return Node{}, fmt.Errorf("Invalid operator %s", op)
 	}
 	return n, nil
 }
@@ -1073,7 +1074,7 @@ func NewAssignStmt(typ int, op, leftExpr, rightExpr Attrib) (Node, error) {
 		leftExpr := utils.SplitAndSanitize(leftExpr.(Node).Place, ",")
 		rightExpr := utils.SplitAndSanitize(rightExpr.(Node).Place, ",")
 		if len(leftExpr) != len(rightExpr) {
-			return Node{}, errors.New("Number of values in LHS and RHS is not equal")
+			return Node{}, errors.New("No. of entities in LHS ≠ RHS")
 		}
 		for k, v := range leftExpr {
 			if len(currSymTab.varSymTab[GetRealName(v)]) >= 2 && currSymTab.varSymTab[GetRealName(v)][1] == "pointer" {
@@ -1108,24 +1109,24 @@ func NewAssignStmt(typ int, op, leftExpr, rightExpr Attrib) (Node, error) {
 		// single statement for now.
 		exprName := rightExpr.(Node).Place
 		if len(exprName) >= 6 && exprName[:6] == "struct" {
-			return Node{}, errors.New("Use shortAssign for declaring structs")
+			return Node{}, errors.New("Use short declaration for declaring structs")
 		} else {
 			n.Code = rightExpr.(Node).Code
 			expr := utils.SplitAndSanitize(rightExpr.(Node).Place, ",")
 			if len(expr) != len(leftExpr.(Node).Code) {
-				return Node{}, errors.New("hola:Number of values in LHS and RHS is not equal")
+				return Node{}, errors.New("No. of entities in LHS ≠ RHS")
 			}
 			for k, v := range leftExpr.(Node).Code {
 				symTabEntry, found := SearchInScope(v)
 				if found {
 					renamedVar := symTabEntry[0]
 					if len(expr[k]) >= 5 && expr[k][:5] == "array" {
-						return Node{}, errors.New("Use shortAssign for declaring arrays")
+						return Node{}, errors.New("Use short declaration for declaring arrays")
 					} else if len(currSymTab.varSymTab[v]) >= 2 && currSymTab.varSymTab[v][1] != "pointer" {
 						n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
 					}
 				} else {
-					return Node{}, errors.New("Variable not declared")
+					return Node{}, fmt.Errorf("%s not declared", v)
 				}
 			}
 		}
@@ -1180,7 +1181,7 @@ func NewShortDecl(identList, exprList Attrib) (Node, error) {
 		placeVals := strings.Split(exprList.(Node).Place, ",")
 		expr := utils.SplitAndSanitize(exprList.(Node).Place, ",")
 		if len(expr) != len(identList.(Node).Code) {
-			return Node{}, errors.New("Number of values in LHS and RHS is not equal")
+			return Node{}, errors.New("No. of entities in LHS ≠ RHS")
 		}
 		for k, v := range identList.(Node).Code {
 			renamedVar := RenameVariable(v)
@@ -1197,7 +1198,7 @@ func NewShortDecl(identList, exprList Attrib) (Node, error) {
 					currSymTab.varSymTab[v] = []string{renamedVar, "int"}
 				}
 			} else {
-				return Node{}, errors.New(fmt.Sprintf("%s already declared", v))
+				return Node{}, fmt.Errorf("%s is already declared", v)
 			}
 			if len(expr[k]) >= 5 && expr[k][:5] == "array" {
 				// TODO: rename arrays
