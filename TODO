@@ -3,7 +3,6 @@ This is a list of things that need to be worked on.
 Intermediate representation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 * Support for compiling down to x86.
-* Check if `%` works ; The IR is now containing '%' instead of "rem" (as it used to).
 
 Code generation
 ~~~~~~~~~~~~~~~

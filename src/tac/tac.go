@@ -89,7 +89,7 @@ const (
 	// in this case).
 	// NOTE: Register $1 is reserved by assembler for pseudo instructions
 	// and hence is not assigned to variables.
-	RegLimit = 32
+	RegLimit = 31
 	// Variables which are dead have their next-use set to MaxInt.
 	MaxInt = int(^uint(0) >> 1)
 )
