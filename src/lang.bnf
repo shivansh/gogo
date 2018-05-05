@@ -1,9 +1,8 @@
-/* Lexical part */
+// === [ Lexical part] =========================================================
 
-// separator  : ',' | ':' ;
 terminator : ';' '\n' | ';' | '\n' ;
 
-/* Keywords */
+// --- [ Keywords ] ------------------------------------------------------------
 kwdBreak    : 'b' 'r' 'e' 'a' 'k' ;
 kwdCase     : 'c' 'a' 's' 'e' ;
 kwdConst    : 'c' 'o' 'n' 's' 't' ;
@@ -23,17 +22,17 @@ kwdSwitch   : 's' 'w' 'i' 't' 'c' 'h' ;
 kwdType     : 't' 'y' 'p' 'e' ;
 kwdVar      : 'v' 'a' 'r' ;
 
-/* Types */
+// --- [ Types ] ---------------------------------------------------------------
 type : 'b' 'o' 'o' 'l'
      | 'i' 'n' 't' | 'f' 'l' 'o' 'a' 't' '3' '2' | 'f' 'l' 'o' 'a' 't' '6' '4'
      | 'b' 'y' 't' 'e'
      | 's' 't' 'r' 'i' 'n' 'g'
      ;
 
-/* Predeclared contants */
+// --- [ Predeclared constants ] -----------------------------------------------
 boolLit : 't' 'r' 'u' 'e' | 'f' 'a' 'l' 's' 'e' ;
 
-/* Operators */
+// --- [ Operators ] -----------------------------------------------------------
 _relOp      : '=' '=' | '!' '=' | '<' | '<' '=' | '>' | '>' '=' ;
 _addOp      : '+' | '-' | '|' | '^' ;
 _mulOp      : '*' | '/' | '%' | '<' '<' | '>' '>' | '&' | '&' '^' ;
@@ -41,33 +40,33 @@ assignOp    : [ _addOp | _mulOp ] '=' ;
 shortAssign : ':' '=' ;
 // dotOp       : '.' ;
 
-/* Whitespaces (suppressed) */
+// --- [ Whitespaces (suppressed) ] --------------------------------------------
 !whitespace : ' ' | '\t' | '\r' ;
 
-/* Comments (suppressed) */
+// --- [ Comments (suppressed) ] -----------------------------------------------
 !comment      : _lineComment | _blockComment ;
 _lineComment  : '/' '/' { . } '\n' ;
 _blockComment : '/' '*' { . | '*' } '*' '/' ;
 
-/* Letters and digits */
+// --- [ Letters and digits ] --------------------------------------------------
 _letter        : _unicodeLetter | '_' ;
 _unicodeLetter : 'a' - 'z' | 'A' - 'Z' ;
 _decimalDigit  : '0' - '9' ;
 _octalDigit    : '0' - '7' ;
 _hexDigit      : _decimalDigit | 'a' - 'f' | 'A' - 'F' ;
 
-/* Identifiers */
+// --- [ Identifiers ] ---------------------------------------------------------
 // TODO: Check this
 // blankIdent : '_' ;
 identifier : _letter { _letter | _decimalDigit } ;
 
-/* Integer literals */
+// --- [ Integer literals ] ----------------------------------------------------
 intLit      : _decimalLit | _octalLit | _hexLit ;
 _decimalLit : '1' - '9' { _decimalDigit } ;
 _octalLit   : '0' { _octalDigit } ;
 _hexLit     : '0' ( 'x' | 'X' ) _hexDigit { _hexDigit } ;
 
-/* Floating-point literals */
+// --- [ Floating-point literals ] ---------------------------------------------
 floatLit  : _decimals '.' [ _decimals ] [ _exponent ]
           | _decimals _exponent
           | '.' _decimals [ _exponent ]
@@ -75,185 +74,49 @@ floatLit  : _decimals '.' [ _decimals ] [ _exponent ]
 _decimals : _decimalDigit { _decimalDigit } ;
 _exponent : ( 'e' | 'E' ) [ '+' | '-' ] _decimals ;
 
-/* String literals */
+// --- [ String literals ] -----------------------------------------------------
 stringLit          :  _rawStrLit | _interpretedStrLit ;
 _rawStrLit         : '`' { . } '`' ;
 _interpretedStrLit : '"' { . | '\\' '"' | _escapeChar } '"' ;
-/* Single-character escapes */
+
+// --- [ Single-character escapes ] --------------------------------------------
 _escapeChar : '\\' 'n' | '\\' 'r' | '\\' 't' ;
 
-/* Rune literals */
+// --- [ Rune literals ] -------------------------------------------------------
 runeLit  : '\'' [ '\\' ] [ . ] '\'' ;
 
-/* Syntax part */
+// === [ Syntax part] ==========================================================
 
 <<
-import(
-        "errors"
+import (
         "fmt"
-        "regexp"
-        "strconv"
-        "strings"
 
-        "github.com/shivansh/gogo/src/utils"
+        "github.com/shivansh/gogo/src/ast"
         "github.com/shivansh/gogo/tmp/token"
 )
-
-// Node represents a node in the AST of a given program.
-type Node struct {
-	place string   // variable storing the value if node represents an expression
-	code  []string // IR instructions
-}
-
-type symTabType map[string][]string
-
-type SymInfo struct {
-	varSymTab symTabType
-	parent    *SymInfo
-}
-
-// DeferStackItem is an individual item stored when a call to defer is made. It
-// contains the code for the corresponding function call which is placed at the
-// end of function body.
-type DeferStackItem []string
-
-var (
-	tmpIndex   int
-	labelIndex int
-	varIndex   int
-	// funcSymtabCreated keeps track whether a symbol table corresponding to a
-	// function declaration has to be instantiated. This is because usually
-	// a new symbol table is created when the corresponding block begins.
-	// However, in case of functions the arguments also need to be added to
-	// the symbol table. Thus the symbol table is instantiated when the
-	// production rule corresponding to the arguments is reached and not
-	// when the block begins.
-	funcSymtabCreated bool
-	forSymtabCreated bool
-	symTab            symTabType // symbol table for temporaries ; TODO: Update this.
-	// currSymTab keeps track of the currently active symbol table
-	// depending on scope.
-	currSymTab *SymInfo
-	// globalSymTab keeps track of the global struct and function declarations.
-	// NOTE: structs and functions can only be declared globally.
-	globalSymTab symTabType
-	// deferStack stores the deferred function calls which are then called
-	// when the surrounding function block ends.
-	deferStack *utils.Stack
-	re         *regexp.Regexp
-)
-
-func init() {
-	symTab = make(symTabType)
-	globalSymTab = make(symTabType)
-	// currSymTab now allocates space for a global symbol table for variable
-	// declarations. Ideally, instead of creating a new symbol table it
-	// should've been global symbol table, but since the type of
-	// currSymTab.varSymTab is not pointer, updates made elsewhere will not
-	// be reflected globally.
-	// TODO: Update type of currSymTab.varSymTab to a pointer.
-	currSymTab = &SymInfo{make(symTabType), nil}
-	deferStack = utils.CreateStack()
-	re = regexp.MustCompile("(^-?[0-9]+$)") // integers
-}
-
-// SearchInScope returns the symbol table entry for a given variable in the
-// current scope. If not found, the parent symbol table is looked up until the
-// topmost symbol table is reached. If not found in all these symbol tables,
-// then the global symbol table is looked up which contains the entries
-// corresponding to structs and functions.
-func SearchInScope(v string) ([]string, bool) {
-	currScope := currSymTab
-	for currScope != nil {
-		symTabEntry, ok := currScope.varSymTab[v]
-		if ok {
-			return symTabEntry, true
-		} else {
-			currScope = currScope.parent
-		}
-	}
-	// Lookup in global scope in case the variable corresponds to a struct
-	// or a function name.
-	for k, symTabEntry := range globalSymTab {
-		if k == v {
-			return symTabEntry, true
-		}
-	}
-	return []string{}, false
-}
-
-// GetRealName extracts the original name of variable from its renamed version.
-func GetRealName(s string) string {
-	realName := ""
-	for i := 0; i < len(s); i++ {
-		if s[i] == '.' {
-			break
-		} else {
-			realName = realName + string(s[i])
-		}
-	}
-	return realName
-}
-
-// NewTmp generates a unique temporary variable.
-func NewTmp() string {
-	t := fmt.Sprintf("t%d", tmpIndex)
-	tmpIndex++
-	return t
-}
-
-// NewLabel generates a unique label name.
-func NewLabel() string {
-	l := fmt.Sprintf("l%d", labelIndex)
-	labelIndex++
-	return l
-}
-
-// NewVar generates a unique variable name used for renaming. A variable named
-// var will be renamed to 'var.int_lit' where int_lit is an integer. Since
-// variable names cannot contain a '.', this will not result in a naming
-// conflict with an existing variable. The renamed variable will only occur in
-// the IR (there is no constraint on variable names in IR as of now).
-func RenameVariable(v string) string {
-	ret := fmt.Sprintf("%s.%d", v, varIndex)
-	varIndex++
-	return ret
-}
 >>
 
-// NOTE: https://github.com/goccmack/gocc/issues/5998
+// NOTE
+//      - https://github.com/goccmack/gocc/issues/5998
+//      - The commented production rules below are not supported yet.
+//      - Before each production rule, the corresponding rules from the go
+//        language specification are written in comments.
 
-// SourceFile = PackageClause ";" { ImportDecl ";" } { TopLevelDecl ";" } .
-Start : SourceFile
-        << func() (Attrib, error) {
-	        re := regexp.MustCompile("\n(\n)*")
-                c := $0.(Node).code
-                for _, v := range c {
-                        v := strings.TrimSpace(v)
-                        // Compress multiple newlines within IR statements into
-                        // a single newline.
-                        v = re.ReplaceAllString(v, "\n")
-                        if v != "" {
-                                fmt.Println(v)
-                        }
-                }
-                return nil, nil
-        } () >>
-      ;
+Start
+        : SourceFile  << ast.PrintIR($0) >>
+        ;
 
 // SourceFile : PackageClause terminator RepeatTerminator RepeatImportDecl RepeatTopLevelDecl
-SourceFile : RepeatTopLevelDecl
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-           ;
+SourceFile
+        : RepeatTopLevelDecl  << ast.InitNode("", $0.(ast.Node).Code) >>
+        ;
 
 // RepeatImportDecl : ImportDecl terminator RepeatTerminator RepeatImportDecl
 //                         << func() (Attrib, error) {
 //                                 n := Node{"", []string{}}
-//                                 n.code = append(n.code, $0.(Node).code...)
-//                                 n.code = append(n.code, $3.(Node).code...)
-//                                 n.code = append(n.code, "\n")
+//                                 n.Code = append(n.Code, $0.(ast.Node).Code...)
+//                                 n.Code = append(n.Code, $3.(ast.Node).Code...)
+//                                 n.Code = append(n.Code, "\n")
 //                                 return nil, nil
 //                         } () >>
 //                  | empty
@@ -334,135 +197,55 @@ SourceFile : RepeatTopLevelDecl
 //                 } () >>
 //             ;
 
+// --- [ Top level declarations ] ----------------------------------------------
+
 // TODO: MethodDecl is not supported at the moment.
 // TopLevelDecl  = Declaration | FunctionDecl | MethodDecl .
-RepeatTopLevelDecl : TopLevelDecl RepeatTopLevelDecl
-                        << func() (Attrib, error) {
-                              n := Node{"", $0.(Node).code}
-                              n.code = append(n.code, $1.(Node).code...)
-                              return n, nil
-                        } () >>
-                   | empty
-                        << func() (Attrib, error) {
-                              return Node{"", []string{}}, nil
-                        } () >>
-                   ;
+RepeatTopLevelDecl
+        : TopLevelDecl RepeatTopLevelDecl  << ast.NewTopLevelDecl($0, $1) >>
+        | empty                            << ast.InitNode("", []string{}) >>
+        ;
 
-TopLevelDecl : Declaration RepeatTerminator
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-             | FunctionDecl RepeatTerminator
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-             ;
+TopLevelDecl
+        : Declaration RepeatTerminator   << ast.InitNode("", $0.(ast.Node).Code) >>
+        | FunctionDecl RepeatTerminator  << ast.InitNode("", $0.(ast.Node).Code) >>
+        ;
 
 // Declaration = ConstDecl | TypeDecl | VarDecl .
-Declaration : ConstDecl
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-            | TypeDecl
-                    << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                    } () >>
-            | VarDecl
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-            ;
+Declaration
+        : ConstDecl  << ast.InitNode("", $0.(ast.Node).Code) >>
+        | TypeDecl   << ast.InitNode("", $0.(ast.Node).Code) >>
+        | VarDecl    << ast.InitNode("", $0.(ast.Node).Code) >>
+        ;
+
+// --- [ Variable declarations ] -----------------------------------------------
 
 // VarDecl     = "var" ( VarSpec | "(" { VarSpec ";" } ")" ) .
 // VarSpec     = IdentifierList ( Type [ "=" ExpressionList ] | "=" ExpressionList ) .
-VarDecl : kwdVar VarSpec
-            << func() (Attrib, error) {
-                    return Node{"", $1.(Node).code}, nil
-            } () >>
+VarDecl
+        : kwdVar VarSpec  << ast.InitNode("", $1.(ast.Node).Code) >>
 //         | kwdVar "(" RepeatTerminator RepeatVarSpec ")"
 //             << func() (Attrib, error) {
 //                   fmt.Println("kwdVar \"(\" RepeatTerminator RepeatVarSpec \")\"");
 //                   return nil, nil
 //             } () >>
         ;
-//
-// // VarSpec     = IdentifierList ( Type [ "=" ExpressionList ] | "=" ExpressionList ) .
-// RepeatVarSpec : VarSpec terminator RepeatTerminator RepeatVarSpec
-//                 << func() (Attrib, error) {
-//                       fmt.Println("VarSpec terminator RepeatTerminator RepeatVarSpec");
-//                       return nil, nil
-//                 } () >>
-//               | VarSpec RepeatTerminator
-//                 << func() (Attrib, error) {
-//                       fmt.Println("VarSpec RepeatTerminator");
-//                       return nil, nil
-//                 } () >>
-//               ;
-//
-VarSpec : IdentifierList Type
-                << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        for _, v := range $0.(Node).code {
-                                renamedVar := RenameVariable(v)
-                                currSymTab.varSymTab[v] = []string{renamedVar, "int"} // TODO: Handle other types
-                                n.code = append(n.code, fmt.Sprintf("=, %s, 0", renamedVar))
-                        }
-                        return n, nil
-                } () >>
-        | IdentifierList Type "=" ExpressionList
-                << func() (Attrib, error) {
-                        n := Node{"", $3.(Node).code}
-                        expr := utils.SplitAndSanitize($3.(Node).place, ",")
-                        for k, v := range $0.(Node).code {
-                                renamedVar := RenameVariable(v)
-                                currSymTab.varSymTab[v] = []string{renamedVar, "int"} // TODO: Handle other types
-                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
-                        }
-                        return n, nil
-                } () >>
-        | IdentifierList "=" ExpressionList
-                << func() (Attrib, error) {
-                        n := Node{"", $2.(Node).code}
-                        expr := utils.SplitAndSanitize($2.(Node).place, ",")
-                        for k, v := range $0.(Node).code {
-                                renamedVar := RenameVariable(v)
-                                currSymTab.varSymTab[v] = []string{renamedVar, "int"} // TODO: Handle other types
-                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
-                        }
-                        return n, nil
-                } () >>
-        | empty
-                << func() (Attrib, error) {
-                        return Node{"", []string{}}, nil
-                } () >>
+
+VarSpec
+        : IdentifierList Type                     << ast.NewVarSpec(0, $0, $1) >>
+        | IdentifierList Type "=" ExpressionList  << ast.NewVarSpec(1, $0, $1, $3) >>
+        | IdentifierList "=" ExpressionList       << ast.NewVarSpec(2, $0, $2) >>
+        | empty                                   << ast.NewVarSpec(3) >>
         ;
+
+// --- [ Type declarations ] ---------------------------------------------------
 
 // TypeDecl  = "type" ( TypeSpec | "(" { TypeSpec ";" } ")" ) .
 // TypeSpec  = AliasDecl | TypeDef .
 // AliasDecl = identifier "=" Type
 // TypeDef   = identifier Type
-TypeDecl : kwdType TypeSpec
-                << func() (Attrib, error) {
-                        typeInfo := utils.SplitAndSanitize($1.(Node).place, ",")
-                        structName := strings.TrimSpace(typeInfo[1])
-                        switch strings.TrimSpace(typeInfo[0]) {
-                        case "struct":
-                                // Create a global symbol table entry.
-                                // NOTE: The symbol table entry of a struct is of the form -
-                                //      structName : []{"struct", memberName1, memberType1, memberName2, memberType2, ...}
-                                globalSymTab[structName] = []string{"struct"}
-                                globalSymTab[structName] = append(globalSymTab[structName], $1.(Node).code...)
-                        default: // TODO: Add remaining types.
-                                return nil, errors.New("Unknown type")
-                        }
-                        // TODO: Member initialization will be done when a new object is instantiated.
-                        return Node{"", []string{}}, nil
-                } () >>
+TypeDecl : kwdType TypeSpec   << ast.NewTypeDecl($0, $1) >>
 //          | kwdType "(" RepeatTerminator RepeatTypeSpec ")"
-//                 << func() (Attrib, error) {
-//                         fmt.Println("kwdType \"(\" RepeatTerminator RepeatTypeSpec \")\"");
-//                         return nil, nil
-//                 } () >>
          ;
 //
 // RepeatTypeSpec : TypeSpec terminator RepeatTerminator RepeatTypeSpec
@@ -477,10 +260,8 @@ TypeDecl : kwdType TypeSpec
 //                     } () >>
 //                ;
 //
-TypeSpec : TypeDef
-            << func() (Attrib, error) {
-                return Node{$0.(Node).place, $0.(Node).code}, nil
-            } () >>
+TypeSpec
+        : TypeDef  << ast.NewNode($0) >>
 //          |    AliasDecl
 //             << func() (Attrib, error) {
 //                     fmt.Println("AliasDecl");
@@ -491,7 +272,7 @@ TypeSpec : TypeDef
 //                     fmt.Println("empty");
 //                     return nil, nil
 //             } () >>
-         ;
+        ;
 //
 // AliasDecl : identifier "=" Type
 //             << func() (Attrib, error) {
@@ -500,26 +281,24 @@ TypeSpec : TypeDef
 //             } () >>
 //           ;
 
-TypeDef : identifier Type
-             << func() (Attrib, error) {
-                    return Node{fmt.Sprintf("%s, %s", $1.(Node).place, string($0.(*token.Token).Lit)), $1.(Node).code}, nil
-             } () >>
+TypeDef
+        : identifier Type  << ast.NewTypeDef($0, $1) >>
         ;
+
+// --- [ Constant declarations ] -----------------------------------------------
 
 // ConstDecl      = "const" ( ConstSpec | "(" { ConstSpec ";" } ")" ) .
 // ConstSpec      = IdentifierList [ [ Type ] "=" ExpressionList ] .
 // IdentifierList = identifier { "," identifier } .
 // ExpressionList = Expression { "," Expression } .
-ConstDecl : kwdConst ConstSpec
-                << func() (Attrib, error) {
-                        return Node{"", $1.(Node).code}, nil
-                } () >>
+ConstDecl
+        : kwdConst ConstSpec  << ast.InitNode("", $1.(ast.Node).Code) >>
           // | kwdConst "(" RepeatTerminator RepeatConstSpec ")"
           //   << func() (Attrib, error) {
           //           fmt.Println("kwdConst \"(\" RepeatTerminator RepeatConstSpec \")\"");
           //           return nil, nil
           //   } () >>
-          ;
+        ;
 
 // RepeatConstSpec : ConstSpec terminator RepeatTerminator RepeatConstSpec
 //                 << func() (Attrib, error) {
@@ -533,27 +312,9 @@ ConstDecl : kwdConst ConstSpec
 //                 } () >>
 //                 ;
 
-ConstSpec : IdentifierList
-                << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        for _, v := range $0.(Node).code {
-                                renamedVar := RenameVariable(v)
-                                currSymTab.varSymTab[v] = []string{renamedVar, "int"} // TODO: Handle other types
-                                n.code = append(n.code, fmt.Sprintf("=, %s, 0", renamedVar))
-                        }
-                        return n, nil
-                } () >>
-          | IdentifierList "=" ExpressionList
-                << func() (Attrib, error) {
-                        n := Node{"", $2.(Node).code}
-                        expr := utils.SplitAndSanitize($2.(Node).place, ",")
-                        for k, v := range $0.(Node).code {
-                                renamedVar := RenameVariable(v)
-                                currSymTab.varSymTab[v] = []string{renamedVar, "int"}
-                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
-                        }
-                        return n, nil
-                } () >>
+ConstSpec
+        : IdentifierList                     << ast.NewConstSpec(0, $0) >>
+        | IdentifierList "=" ExpressionList  << ast.NewConstSpec(1, $0, $2) >>
           // | IdentifierList Type "=" ExpressionList
           //       << func() (Attrib, error) {
           //               fmt.Println("IdentifierList Type \"=\" ExpressionList");
@@ -564,388 +325,100 @@ ConstSpec : IdentifierList
           //               fmt.Println("empty");
           //               return nil, nil
           //       } () >>
-          ;
+        ;
 
-ExpressionList : Expression
-                        << func() (Attrib, error) {
-                                return Node{$0.(Node).place, $0.(Node).code}, nil
-                        } () >>
-               | Expression "," ExpressionList
-                        << func() (Attrib, error) {
-                                n := Node{"", $0.(Node).code}
-                                n.code = append(n.code, $2.(Node).code...)
-                                n.place = fmt.Sprintf("%s,%s", $0.(Node).place, $2.(Node).place)
-                                return n, nil
-                        } () >>
-               ;
+// --- [ Expressions ] ---------------------------------------------------------
+
+ExpressionList
+        : Expression                     << ast.NewExpr($0) >>
+        | Expression "," ExpressionList  << ast.AppendExpr($0, $2) >>
+        ;
 
 // Expression = UnaryExpr | Expression binary_op Expression .
 // NOTE: The original BNF corresponding to Expression is modified to take into
 // account operator precedence. The operators used are in the order of
 // increasing precedence starting from top.
-Expression : Expression "||" Term1
-                << func() (Attrib, error) {
-                        n := Node{"", $0.(Node).code}
-                        n.code = append(n.code, $2.(Node).code...)
-                        trueLabel := NewLabel()
-                        afterLabel := NewLabel()
-                        n.place = NewTmp()
-                        n.code = append(n.code, fmt.Sprintf("beq, %s, %s, 1", trueLabel, $0.(Node).place))
-                        n.code = append(n.code, fmt.Sprintf("beq, %s, %s, 1", trueLabel, $2.(Node).place))
-                        n.code = append(n.code, fmt.Sprintf("=, %s, 0", n.place))
-                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
-                        n.code = append(n.code, fmt.Sprintf("label, %s", trueLabel))
-                        n.code = append(n.code, fmt.Sprintf("=, %s, 1", n.place))
-                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
-                        return n, nil
-                } () >>
-           | Term1
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
-           ;
-
-Term1 : Term1 "&&" Term2
-                << func() (Attrib, error) {
-                        n := Node{"", $0.(Node).code}
-                        n.code = append(n.code, $2.(Node).code...)
-                        falseLabel := NewLabel()
-                        afterLabel := NewLabel()
-                        n.place = NewTmp()
-                        n.code = append(n.code, fmt.Sprintf("beq, %s, %s, 0", falseLabel, $0.(Node).place))
-                        n.code = append(n.code, fmt.Sprintf("beq, %s, %s, 0", falseLabel, $2.(Node).place))
-                        n.code = append(n.code, fmt.Sprintf("=, %s, 1", n.place))
-                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
-                        n.code = append(n.code, fmt.Sprintf("label, %s", falseLabel))
-                        n.code = append(n.code, fmt.Sprintf("=, %s, 0", n.place))
-                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
-                        return n, nil
-                } () >>
-        | Term2
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
+Expression
+        : Expression "||" Term1  << ast.NewBoolExpr($1, $0, $2) >>
+        | Term1                  << ast.NewExpr($0) >>
         ;
 
-Term2 : Term2 RelOp Term3
-                << func() (Attrib, error) {
-                        n := Node{"", $0.(Node).code}
-                        n.place = NewTmp()
-                        n.code = append(n.code, $2.(Node).code...)
-                        branchOp := ""
-                        falseLabel := NewLabel()
-                        afterLabel := NewLabel()
-                        switch $1.(Node).place {
-                                case "==":
-                                        branchOp = "bne"
-                                case "!=":
-                                        branchOp = "beq"
-                                case "<=":
-                                        branchOp = "bgt"
-                                case "<":
-                                        branchOp = "bge"
-                                case ">=":
-                                        branchOp = "blt"
-                                case ">":
-                                        branchOp = "ble"
-                        }
-                        n.code = append(n.code, fmt.Sprintf("%s, %s, %s, %s", branchOp, falseLabel, $0.(Node).place, $2.(Node).place))
-                        n.code = append(n.code, fmt.Sprintf("=, %s, 1", n.place))
-                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
-                        n.code = append(n.code, fmt.Sprintf("label, %s", falseLabel))
-                        n.code = append(n.code, fmt.Sprintf("=, %s, 0", n.place))
-                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
-                        return n, nil
-                } () >>
-        | Term3
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
+Term1
+        : Term1 "&&" Term2  << ast.NewBoolExpr($1, $0, $2) >>
+        | Term2             << ast.NewExpr($0) >>
         ;
 
-Term3 : Term3 "+" Term4
-                << func() (Attrib, error) {
-                        n := Node{"", $0.(Node).code}
-                        n.code = append(n.code, $2.(Node).code...)
-                        if re.MatchString($0.(Node).place) && re.MatchString($2.(Node).place) {
-                                // expression is of the form 1+2
-                                term3val, err := strconv.Atoi($0.(Node).place)
-                                if err != nil {
-                                        return nil, err
-                                }
-                                term4val, err := strconv.Atoi($2.(Node).place)
-                                if err != nil {
-                                        return nil, err
-                                }
-                                n.place = strconv.Itoa(term3val + term4val)
-                        } else if re.MatchString($0.(Node).place) {
-                                // expression is of the form 1+b, which is to be converted to b+1
-                                n.place = NewTmp()
-                                n.code = append(n.code, fmt.Sprintf("+, %s, %s, %s", n.place, $2.(Node).place, $0.(Node).place))
-                                n.code = append(n.code, "\n")
-                        } else {
-                                n.place = NewTmp()
-                                n.code = append(n.code, fmt.Sprintf("+, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
-                                n.code = append(n.code, "\n")
-                        }
-                        return n, nil
-                } () >>
-        | Term4
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
+Term2
+        : Term2 RelOp Term3  << ast.NewRelExpr($1, $0, $2) >>
+        | Term3              << ast.NewExpr($0) >>
         ;
 
-Term4 : Term4 "-" Term5
-                << func() (Attrib, error) {
-                        n := Node{"", $0.(Node).code}
-                        n.code = append(n.code, $2.(Node).code...)
-                        if re.MatchString($0.(Node).place) && re.MatchString($2.(Node).place) {
-                                // expression is of the form 1+2
-                                term3val, err := strconv.Atoi($0.(Node).place)
-                                if err != nil {
-                                        return nil, err
-                                }
-                                term4val, err := strconv.Atoi($2.(Node).place)
-                                if err != nil {
-                                        return nil, err
-                                }
-                                n.place = strconv.Itoa(term3val - term4val)
-                        } else if re.MatchString($0.(Node).place) {
-                                // expression is of the form 1+b, which is to be converted to b+1
-                                n.place = NewTmp()
-                                n.code = append(n.code, fmt.Sprintf("-, %s, %s, %s", n.place, $2.(Node).place, $0.(Node).place))
-                                n.code = append(n.code, "\n")
-                        } else {
-                                n.place = NewTmp()
-                                n.code = append(n.code, fmt.Sprintf("-, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
-                                n.code = append(n.code, "\n")
-                        }
-                        return n, nil
-                } () >>
-      | Term5
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
-      ;
+Term3
+        : Term3 "+" Term4  << ast.NewArithExpr($1, $0, $2) >>
+        | Term4            << ast.NewExpr($0) >>
+        ;
 
-Term5 : Term5 "*" Term6
-                << func() (Attrib, error) {
-                        n := Node{"", $0.(Node).code}
-                        n.code = append(n.code, $2.(Node).code...)
-                        if re.MatchString($0.(Node).place) && re.MatchString($2.(Node).place) {
-                                // expression is of the form 1+2
-                                term3val, err := strconv.Atoi($0.(Node).place)
-                                if err != nil {
-                                        return nil, err
-                                }
-                                term4val, err := strconv.Atoi($2.(Node).place)
-                                if err != nil {
-                                        return nil, err
-                                }
-                                n.place = strconv.Itoa(term3val * term4val)
-                        } else if re.MatchString($0.(Node).place) {
-                                // expression is of the form 1+b, which is to be converted to b+1
-                                n.place = NewTmp()
-                                n.code = append(n.code, fmt.Sprintf("*, %s, %s, %s", n.place, $2.(Node).place, $0.(Node).place))
-                                n.code = append(n.code, "\n")
-                        } else {
-                                n.place = NewTmp()
-                                n.code = append(n.code, fmt.Sprintf("*, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
-                                n.code = append(n.code, "\n")
-                        }
-                        return n, nil
-                } () >>
-      | Term6
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
-      ;
+Term4
+        : Term4 "-" Term5  << ast.NewArithExpr($1, $0, $2) >>
+        | Term5            << ast.NewExpr($0) >>
+        ;
 
-Term6 : Term6 "/" Term7
-                << func() (Attrib, error) {
-                        n := Node{"", $0.(Node).code}
-                        n.code = append(n.code, $2.(Node).code...)
-                        if re.MatchString($0.(Node).place) && re.MatchString($2.(Node).place) {
-                                // expression is of the form 1+2
-                                term3val, err := strconv.Atoi($0.(Node).place)
-                                if err != nil {
-                                        return nil, err
-                                }
-                                term4val, err := strconv.Atoi($2.(Node).place)
-                                if err != nil {
-                                        return nil, err
-                                }
-                                n.place = strconv.Itoa(term3val / term4val)
-                        } else if re.MatchString($0.(Node).place) {
-                                // expression is of the form 1+b, which is to be converted to b+1
-                                n.place = NewTmp()
-                                n.code = append(n.code, fmt.Sprintf("/, %s, %s, %s", n.place, $2.(Node).place, $0.(Node).place))
-                                n.code = append(n.code, "\n")
-                        } else {
-                                n.place = NewTmp()
-                                n.code = append(n.code, fmt.Sprintf("/, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
-                                n.code = append(n.code, "\n")
-                        }
-                        return n, nil
-                } () >>
-      | Term7
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
-      ;
+Term5
+        : Term5 "*" Term6  << ast.NewArithExpr($1, $0, $2) >>
+        | Term6            << ast.NewExpr($0) >>
+        ;
 
-Term7 : Term7 "%" Term8
-                << func() (Attrib, error) {
-                        n := Node{"", $0.(Node).code}
-                        n.code = append(n.code, $2.(Node).code...)
-                        if re.MatchString($0.(Node).place) && re.MatchString($2.(Node).place) {
-                                // expression is of the form 1+2
-                                term3val, err := strconv.Atoi($0.(Node).place)
-                                if err != nil {
-                                        return nil, err
-                                }
-                                term4val, err := strconv.Atoi($2.(Node).place)
-                                if err != nil {
-                                        return nil, err
-                                }
-                                n.place = strconv.Itoa(term3val % term4val)
-                        } else if re.MatchString($0.(Node).place) {
-                                // expression is of the form 1+b, which is to be converted to b+1
-                                n.place = NewTmp()
-                                n.code = append(n.code, fmt.Sprintf("rem, %s, %s, %s", n.place, $2.(Node).place, $0.(Node).place))
-                                n.code = append(n.code, "\n")
-                        } else {
-                                n.place = NewTmp()
-                                n.code = append(n.code, fmt.Sprintf("rem, %s, %s, %s", n.place, $0.(Node).place, $2.(Node).place))
-                                n.code = append(n.code, "\n")
-                        }
-                        return n, nil
-                } () >>
-      | Term8
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
-      ;
+Term6
+        : Term6 "/" Term7  << ast.NewArithExpr($1, $0, $2) >>
+        | Term7            << ast.NewExpr($0) >>
+        ;
 
-Term8 : "(" Expression ")"
-                << func() (Attrib, error) {
-                        return Node{$1.(Node).place, $1.(Node).code}, nil
-                } () >>
-      | UnaryExpr
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
-      ;
+Term7
+        : Term7 "%" Term8  << ast.NewArithExpr($1, $0, $2) >>
+        | Term8            << ast.NewExpr($0) >>
+        ;
+
+Term8
+        : "(" Expression ")"  << ast.NewExpr($1) >>
+        | UnaryExpr           << ast.NewExpr($0) >>
+        ;
 
 // TODO: Add support for booleans in IR.
-BinaryOp : RelOp
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, []string{}}, nil
-                } () >>
-         | "||"
-                << func() (Attrib, error) {
-                        return Node{"or", []string{}}, nil
-                } () >>
-         | "&&"
-                << func() (Attrib, error) {
-                        return Node{"and", []string{}}, nil
-                } () >>
-         ;
+BinaryOp
+        : RelOp  << ast.InitNode($0.(ast.Node).Place, []string{}) >>
+        | "||"   << ast.InitNode("or", []string{}) >>
+        | "&&"   << ast.InitNode("and", []string{}) >>
+        ;
 
 // unaryOp will be used for defining UnaryExpr in parser.
 // unaryOp     : '+' | '-' | '!' | '^' | '*' | '&' | '<' '-' ;
 // binaryOp    : '|' '|' | '&' '&' | _relOp | _addOp | _mulOp ;
-RelOp : "=="
-        << func() (Attrib, error) {
-                return Node{"==", []string{}}, nil
-        } () >>
-      | "!="
-        << func() (Attrib, error) {
-                return Node{"!=", []string{}}, nil
-        } () >>
-      | "<="
-        << func() (Attrib, error) {
-                return Node{"<=", []string{}}, nil
-        } () >>
-      | "<"
-        << func() (Attrib, error) {
-                return Node{"<", []string{}}, nil
-        } () >>
-      | ">="
-        << func() (Attrib, error) {
-                return Node{">=", []string{}}, nil
-        } () >>
-      | ">"
-        << func() (Attrib, error) {
-                return Node{">", []string{}}, nil
-        } () >>
-      ;
+RelOp
+        : "=="  << ast.InitNode("==", []string{}) >>
+        | "!="  << ast.InitNode("!=", []string{}) >>
+        | "<="  << ast.InitNode("<=", []string{}) >>
+        | "<"   << ast.InitNode("<", []string{}) >>
+        | ">="  << ast.InitNode(">=", []string{}) >>
+        | ">"   << ast.InitNode(">", []string{}) >>
+        ;
 
 // UnaryExpr  = PrimaryExpr | unary_op UnaryExpr .
-UnaryExpr : PrimaryExpr
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
-          | UnaryOp UnaryExpr
-                << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.code = append(n.code, $1.(Node).code...)
-                        switch $0.(Node).place {
-                        case "-":
-                                if re.MatchString($1.(Node).place) {
-                                        // expression is of the form 1+2
-                                        term3val, err := strconv.Atoi($1.(Node).place)
-                                        if err != nil {
-                                                return nil, err
-                                        }
-                                        n.place = strconv.Itoa(term3val * -1)
-                                } else {
-                                        n.place = NewTmp()
-                                        n.code = append(n.code, fmt.Sprintf("*, %s, %s, -1", n.place, $1.(Node).place))
-                                }
-                        case "!":
-                                n.place = NewTmp()
-                                n.code = append(n.code, fmt.Sprintf("not, %s, %s", n.place, $1.(Node).place))
-                        case "+":
-                                n.place = $1.(Node).place
-                        case "&":
-                                // Place of any pointer variable starts with "pointer:" and then followed by string returned by NewTmp()
-                                n.place = "pointer:" + $1.(Node).place
-                        case "*":
-                                n.place = "deref:" + $1.(Node).place
-                        default:
-                                return n, errors.New(fmt.Sprintf("%s operator not supported", $0.(Node).place))
-                        }
-                        return n, nil
-                } () >>
-          ;
+UnaryExpr
+        : PrimaryExpr        << ast.NewNode($0) >>
+        | UnaryOp UnaryExpr  << ast.NewUnaryExpr($0, $1) >>
+        ;
 
-UnaryOp : "+"
-              << func() (Attrib, error) {
-                    return Node{"+", []string{}}, nil
-              } () >>
-        | "-"
-              << func() (Attrib, error) {
-                    return Node{"-", []string{}}, nil
-              } () >>
-        | "!"
-              << func() (Attrib, error) {
-                    return Node{"!", []string{}}, nil
-              } () >>
+UnaryOp
+        : "+"  << ast.InitNode("+", []string{}) >>
+        | "-"  << ast.InitNode("-", []string{}) >>
+        | "!"  << ast.InitNode("!", []string{}) >>
 //         | "^"
 //               << func() (Attrib, error) {
 //                     fmt.Println("\"^\"");
 //                     return nil, nil
 //               } () >>
-       | "*"
-             << func() (Attrib, error) {
-                   return Node{"*", []string{}}, nil
-             } () >>
-       | "&"
-             << func() (Attrib, error) {
-                   return Node{"&", []string{}}, nil
-             } () >>
+        | "*"  << ast.InitNode("*", []string{}) >>
+        | "&"  << ast.InitNode("&", []string{}) >>
 //         | "<-"
 //               << func() (Attrib, error) {
 //                     fmt.Println("\"<-\"");
@@ -962,40 +435,15 @@ UnaryOp : "+"
 //  PrimaryExpr Slice |
 //  PrimaryExpr TypeAssertion |
 //  PrimaryExpr Arguments .
-PrimaryExpr : Operand
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
+PrimaryExpr
+        : Operand  << ast.NewNode($0) >>
 //             | Conversion
 //                 << func() (Attrib, error) {
 //                       fmt.Println("Conversion");
 //                       return nil, nil
 //                 } () >>
-            | PrimaryExpr Selector
-                    << func() (Attrib, error) {
-                          varName := fmt.Sprintf("%s.%s", $0.(Node).place, $1.(Node).place)
-                          symTabEntry, found := SearchInScope(varName)
-                          if found {
-                                if _, ok := globalSymTab[varName]; ok {
-                                            return nil, errors.New(fmt.Sprintf("%s not in scope", varName) )
-                                   } else {
-                                            return Node{symTabEntry[0], []string{}}, nil
-                                   }
-                          } else {
-                                 return nil, errors.New(fmt.Sprintf("%s not in scope", varName) )
-                          }
-                    } () >>
-
-            | PrimaryExpr Index
-                << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        n.place = NewTmp()
-                        // TODO: Write comment here.
-                        symTab[n.place] = []string{fmt.Sprintf("%s, %s", $0.(Node).place, $1.(Node).place), "array"}
-                        n.code = append(n.code, $1.(Node).code...)
-                        n.code = append(n.code, fmt.Sprintf("from, %s, %s, %s", n.place, $0.(Node).place, $1.(Node).place))
-                        return n, nil
-                } () >>
+        | PrimaryExpr Selector  << ast.NewPrimaryExprSel($0, $1) >>
+        | PrimaryExpr Index     << ast.NewPrimaryExprIndex($0, $1) >>
 //             | PrimaryExpr Slice
 //                 << func() (Attrib, error) {
 //                       fmt.Println("PrimaryExpr Slice");
@@ -1006,44 +454,16 @@ PrimaryExpr : Operand
 //                       fmt.Println("PrimaryExpr TypeAssertion");
 //                       return nil, nil
 //                 } () >>
-            | PrimaryExpr Arguments
-                // This is the production rule for a function call.
-                << func() (Attrib, error) {
-                        n := Node{"", $1.(Node).code}
-                        typeName := globalSymTab[$0.(Node).place][0]
-                        var returnLength int
-                        if len(typeName) >= 5 && typeName[:4] == "func" {
-                                returnLength, _ = strconv.Atoi(typeName[5:])
-                        } else {
-                                return nil, errors.New(fmt.Sprintf("%s not a function", $0.(Node).place))
-                        }
-                        argExpr := utils.SplitAndSanitize($1.(Node).place, ",")
-                        for k, v := range argExpr {
-                              n.code = append(n.code, fmt.Sprintf("=, %s.%d, %s", $0.(Node).place, k, v))
-                        }
-                        n.code = append(n.code, fmt.Sprintf("call, %s", $0.(Node).place))
-                        for k:=0 ; k < returnLength ; k++ {
-                                n.place = fmt.Sprintf("%s, return.%d", n.place, k)
-                        }
-
-                        // n.code = append(n.code, fmt.Sprintf("store, %s", n.place))
-                        n.code = append(n.code, "\n")
-                        return n, nil
-                } () >>
-            ;
+        | PrimaryExpr Arguments  << ast.NewPrimaryExprArgs($0, $1) >>
+        ;
 
 // Operand     = Literal | OperandName | "(" Expression ")" .
 // Literal     = BasicLit | CompositeLit | FunctionLit .
 // BasicLit    = int_lit | float_lit | imaginary_lit | rune_lit | string_lit .
 // OperandName = identifier | QualifiedIdent.
-Operand : Literal
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
-        | OperandName
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, []string{}}, nil
-                } () >>
+Operand
+        : Literal      << ast.NewNode($0) >>
+        | OperandName  << ast.InitNode($0.(ast.Node).Place, []string{}) >>
 //         | "(" Expression ")"
 //                 << func() (Attrib, error) {
 //                       fmt.Println("\"(\" Expression \")\"");
@@ -1051,14 +471,9 @@ Operand : Literal
 //                 } () >>
         ;
 
-Literal : BasicLit
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, []string{}}, nil
-                } () >>
-        | CompositeLit
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
+Literal
+        : BasicLit      << ast.InitNode($0.(ast.Node).Place, []string{}) >>
+        | CompositeLit  << ast.NewNode($0) >>
 //         | FunctionLit
 //                 << func() (Attrib, error) {
 //                       fmt.Println("FunctionLit");
@@ -1066,10 +481,8 @@ Literal : BasicLit
 //                 } () >>
         ;
 
-BasicLit : intLit
-                << func() (Attrib, error) {
-                        return Node{string($0.(*token.Token).Lit), []string{}}, nil
-                } () >>
+BasicLit
+        : intLit  << ast.InitNode(string($0.(*token.Token).Lit), []string{}) >>
 //          | floatLit
 //                 << func() (Attrib, error) {
 //                       fmt.Println("floatLit");
@@ -1080,16 +493,13 @@ BasicLit : intLit
 //                       fmt.Println("runeLit");
 //                       return nil, nil
 //                 } () >>
-         | stringLit
-                << func() (Attrib, error) {
-                        return Node{fmt.Sprintf("string:%s", string($0.(*token.Token).Lit)), []string{}}, nil
-                } () >>
+        | stringLit  << ast.InitNode(fmt.Sprintf("string:%s", string($0.(*token.Token).Lit)), []string{}) >>
 //          | boolLit
 //                << func() (Attrib, error) {
 //                      fmt.Println("boolLit");
 //                      return nil, nil
 //                } () >>
-         ;
+        ;
 
 // CompositeLit  = LiteralType LiteralValue .
 // LiteralType   = StructType | ArrayType | "[" "..." "]" ElementType |
@@ -1100,74 +510,15 @@ BasicLit : intLit
 // Key           = FieldName | Expression | LiteralValue .
 // FieldName     = identifier .
 // Element       = Expression | LiteralValue .
-CompositeLit : LiteralType LiteralValue
-                        << func() (Attrib, error) {
-                                // NOTE: Structs don't support initialization of members
-                                // currently. All data members are initialized to default
-                                // values when a struct instance is defined.
-                                n := Node{$0.(Node).place, []string{}}
-                                // Check if the LiteralType corresponds to ArrayType.
-                                // This is done because unlike structs it is not required
-                                // to add a symbol table entry for place value of arrays
-                                // (which is of the form "array:<length_of_array>"), thus
-                                // returning early.
-                                typeName := $0.(Node).place
-                                if len(typeName) >= 5 && typeName[:5] == "array" {
-                                        return n, nil
-                                }
-                                // In case the corresponds to a struct, add the
-                                // code for its data member initialization.
-                                symTabEntry, found := SearchInScope($0.(Node).place)
-                                if found {
-                                        switch symTabEntry[0] {
-                                        case "struct":
-                                                // The place value for struct is of the form -
-                                                //      struct:<number of members of struct>:<name of struct>
-                                                n.place = fmt.Sprintf("struct:%d:%s", (len(symTabEntry)-1) / 2, n.place)
-                                                litVals := utils.SplitAndSanitize($1.(Node).place, ",")
-                                                litValCodes := $1.(Node).code
-                                                structInit := []string{}
-                                                // In case of integral (or any type) initializations, the corresponding
-                                                // lexeme is placed at the place value, justifying the length check which
-                                                // is made on 'litVals' instead of 'litValCodes'. If there are no place
-                                                // values for the data members, then initialize all to their default
-                                                // values. Otherwise initialize them to the corresponding place value.
-                                                if len(litVals) == 0 {
-                                                        for k, v := range symTabEntry[1:] {
-                                                                if k % 2 == 0 {
-                                                                        structInit = append(structInit, v)
-                                                                        // TODO: Update default values depending on type
-                                                                        structInit = append(structInit, "0")
-                                                                }
-                                                        }
-                                                } else {
-                                                        for k, v := range symTabEntry[1:] {
-                                                                if k % 2 == 0 {
-                                                                        structInit = append(structInit, v)
-                                                                        structInit = append(structInit, litVals[k / 2])
-                                                                }
-                                                        }
-                                                }
-                                                // When these code values will be utilized above, the litValCodes will be
-                                                // placed above the code corresponding to structInit (litVals can be expressions).
-                                                n.code = append(n.code, structInit...)
-                                                n.code = append(n.code, litValCodes...)
-                                        }
-                                } else {
-                                        // TODO: Update error message.
-                                        return nil, errors.New(fmt.Sprintf("%s not in scope", $0.(Node).place))
-                                }
-                                return n, nil
-                        } () >>
-             ;
+CompositeLit
+        : LiteralType LiteralValue  << ast.NewCompositeLit($0, $1) >>
+        ;
 
-LiteralType : ArrayType
-                        << func() (Attrib, error) {
-                                return Node{$0.(Node).place, []string{}}, nil
-                        } () >>
+LiteralType
+        : ArrayType  << ast.InitNode($0.(ast.Node).Place, []string{}) >>
             // | StructType
             //             << func() (Attrib, error) {
-            //                     return Node{$0.(Node).place, []string{}}, nil
+            //                     return Node{$0.(ast.Node).Place, []string{}}, nil
             //             } () >>
             // | "[" "..." "]" ElementType
 //                     << func() (Attrib, error) {
@@ -1186,51 +537,32 @@ LiteralType : ArrayType
 //                         return nil, nil
 //                   } () >>
             // When initializing structs, TypeName will be used as the name of struct.
-            | TypeName
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
-            ;
+        | TypeName  << ast.NewNode($0) >>
+        ;
+
 // TypeName  = identifier | QualifiedIdent .
 // QualifiedIdent = PackageName "." identifier .
-TypeName : identifier
-                << func() (Attrib, error) {
-                        return Node{string($0.(*token.Token).Lit), []string{}}, nil
-                } () >>
+TypeName
+        : identifier  << ast.InitNode(string($0.(*token.Token).Lit), []string{}) >>
          // | type
-         ;
+        ;
 
-LiteralValue : "{" RepeatTerminator "}"
-                        << func() (Attrib, error) {
-                                return Node{"", []string{}}, nil
-                        } () >>
-             // NOTE: We don't support adding a ',' after the last KeyedElement
-             // as opposed to the official go language.
-             // TODO: Support for struct initialization.
-             | "{" RepeatTerminator ElementList "}"
-                        << func() (Attrib, error) {
-                                return Node{$2.(Node).place, $2.(Node).code}, nil
-                        } () >>
-             ;
+LiteralValue
+        : "{" RepeatTerminator "}"  << ast.InitNode("", []string{}) >>
+        // NOTE: We don't support adding a ',' after the last KeyedElement
+        // as opposed to the official go language.
+        // TODO: Support for struct initialization.
+        | "{" RepeatTerminator ElementList "}"  << ast.NewNode($2) >>
+        ;
 
-ElementList : KeyedElement RepeatKeyedElement
-                << func() (Attrib, error) {
-                        n := Node{fmt.Sprintf("%s, %s", $0.(Node).place, $1.(Node).place), $0.(Node).code}
-                        n.code = append(n.code, $1.(Node).code...)
-                        return n, nil
-                } () >>
-            ;
+ElementList
+        : KeyedElement RepeatKeyedElement  << ast.NewElementList($0, $1) >>
+        ;
 
-RepeatKeyedElement : "," RepeatTerminator KeyedElement RepeatKeyedElement
-                        << func() (Attrib, error) {
-                                n := Node{fmt.Sprintf("%s, %s", $2.(Node).place, $3.(Node).place), $2.(Node).code}
-                                n.code = append(n.code, $3.(Node).code...)
-                                return n, nil
-                        } () >>
-                   | RepeatTerminator
-                        << func() (Attrib, error) {
-                                return Node{"", []string{}}, nil
-                        } () >>
+RepeatKeyedElement
+        : "," RepeatTerminator KeyedElement RepeatKeyedElement
+                            << ast.AppendKeyedElement($2, $3) >>
+        | RepeatTerminator  << ast.InitNode("", []string{}) >>
 //                    // | "," RepeatTerminator
 //                    //      << func() (Attrib, error) {
 //                    //            fmt.Println("\",\" RepeatTerminator");
@@ -1241,19 +573,17 @@ RepeatKeyedElement : "," RepeatTerminator KeyedElement RepeatKeyedElement
 //                    //            fmt.Println("empty");
 //                    //            return nil, nil
 //                    //      } () >>
-                   ;
+        ;
 
-KeyedElement : Element
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
+KeyedElement
+        : Element  << ast.NewNode($0) >>
 //              | Key ":" Element
 //                 << func() (Attrib, error) {
 //                         fmt.Println("Key \":\" Element");
 //                         return nil, nil
 //                 } () >>
-             ;
-//
+        ;
+
 // Key : FieldName
 //         << func() (Attrib, error) {
 //               fmt.Println("FieldName");
@@ -1276,19 +606,17 @@ KeyedElement : Element
 //                       fmt.Println("identifier");
 //                       return nil, nil
 //                 } () >>
-          // ;
+//          ;
 
-Element : Expression
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
+Element
+        : Expression  << ast.NewNode($0) >>
 //         | LiteralValue
 //                 << func() (Attrib, error) {
 //                       fmt.Println("LiteralValue");
 //                       return nil, nil
 //                 } () >>
         ;
-//
+
 // // FunctionLit = "func" Signature FunctionBody .
 // FunctionLit : kwdFunc Signature FunctionBody
 //                 << func() (Attrib, error) {
@@ -1297,41 +625,24 @@ Element : Expression
 //                 } () >>
 //             ;
 
-OperandName : identifier
-                << func() (Attrib, error) {
-                        // return Node{string($0.(*token.Token).Lit), []string{}}, nil
-                        varName := string($0.(*token.Token).Lit)
-                        symTabEntry, found := SearchInScope(varName)
-                        if found {
-                        	if _, ok := globalSymTab[varName]; ok {
-                        		return Node{varName, []string{}}, nil
-                        	} else {
-                                        return Node{symTabEntry[0], []string{}}, nil
-                        	}
-                        } else {
-                        	return nil, errors.New(fmt.Sprintf("%s not declared", varName))
-                        }
-                } () >>
-            ;
+OperandName
+        : identifier  << ast.NewIdentifier($0) >>
+        ;
 
-// // Selector       = "." identifier .
-// // Index          = "[" Expression "]" .
-// // Slice          = "[" [ Expression ] ":" [ Expression ] "]" |
-// //                  "[" [ Expression ] ":" Expression ":" Expression "]" .
-// // TypeAssertion  = "." "(" Type ")" .
-// // Arguments      = "(" [ ( ExpressionList | Type [ "," ExpressionList ] ) [ "..." ] [ "," ] ] ")" .
-// // Conversion = Type "(" Expression [ "," ] ")"
-Selector : "." identifier
-                << func() (Attrib, error) {
-                        return Node{string($1.(*token.Token).Lit), []string{}}, nil
-                } () >>
-         ;
+// Selector       = "." identifier .
+// Index          = "[" Expression "]" .
+// Slice          = "[" [ Expression ] ":" [ Expression ] "]" |
+//                  "[" [ Expression ] ":" Expression ":" Expression "]" .
+// TypeAssertion  = "." "(" Type ")" .
+// Arguments      = "(" [ ( ExpressionList | Type [ "," ExpressionList ] ) [ "..." ] [ "," ] ] ")" .
+// Conversion = Type "(" Expression [ "," ] ")"
+Selector
+        : "." identifier  << ast.InitNode(string($1.(*token.Token).Lit), []string{}) >>
+        ;
 
-Index : "[" Expression "]"
-                << func() (Attrib, error) {
-                        return Node{$1.(Node).place, $1.(Node).code}, nil
-                } () >>
-      ;
+Index
+        : "[" Expression "]"  << ast.NewNode($1) >>
+        ;
 
 // Slice : "[" ":" "]"
 //               << func() (Attrib, error) {
@@ -1375,14 +686,9 @@ Index : "[" Expression "]"
 // Arguments      = "(" [ ( ExpressionList | Type [ "," ExpressionList ] ) [ "..." ] [ "," ] ] ")" .
 // NOTE: Since compilation of local variables has not yet been done, only empty
 // arguments are supported for the time being.
-Arguments : "(" ")"
-              << func() (Attrib, error) {
-                        return Node{"", []string{}}, nil
-                } () >>
-          | "(" ExpressionList ")"
-                << func() (Attrib, error) {
-                      return Node{$1.(Node).place, $1.(Node).code}, nil
-                } () >>
+Arguments
+        : "(" ")"                 << ast.InitNode("", []string{}) >>
+        | "(" ExpressionList ")"  << ast.NewNode($1) >>
 //           | "(" ExpressionList "," ")"
 //                 << func() (Attrib, error) {
 //                       fmt.Println("\"(\" ExpressionList \",\" \")\"");
@@ -1438,8 +744,8 @@ Arguments : "(" ")"
 //                       fmt.Println("\"(\" Type \",\" ExpressionList \"...\" \",\" \")\"");
 //                       return nil, nil
 //                 } () >>
-          ;
-//
+        ;
+
 // Conversion : Type "(" Expression ")"
 //                 << func() (Attrib, error) {
 //                       fmt.Println("Type \"(\" Expression \")\"");
@@ -1458,143 +764,50 @@ Arguments : "(" ")"
 // NOTE: To support recursion, we need to add function's symbol table entry before
 // the production rule for block of its body is reached. This is to avoid errors
 // of the form "funcion not declared". A marker is introduced for the same.
-FunctionDecl : FunctionMarker FunctionBody
-                << func() (Attrib, error) {
-                        n := Node{"", $0.(Node).code}
-                        n.code = append(n.code, $1.(Node).code...)
-                        funcSymtabCreated = false // end of function block
-                        // Return statement insertion will be handled when defer
-                        // stack is emptied and the deferred calls are inserted.
-                        addRetStmt := false
-                        if deferStack.Len > 0 {
-                                addRetStmt = true
-                        }
-                        for deferStack.Len > 0 {
-                                deferFuncCode := deferStack.Pop().(DeferStackItem)
-                                n.code = append(n.code, deferFuncCode...)
-                        }
-                        if addRetStmt {
-                                n.code = append(n.code, fmt.Sprintf("ret,"))
-                        }
-                        return n, nil
-                } () >>
-             // TODO Handle function declarations without body.
-             // | kwdFunc FunctionName Signature
-             ;
+FunctionDecl
+        : FunctionMarker FunctionBody  << ast.NewFuncDecl($0, $1) >>
+        // TODO Handle function declarations without body.
+        // | kwdFunc FunctionName Signature
+        ;
 
-FunctionMarker : kwdFunc FunctionName Signature
-                << func() (Attrib, error) {
-                        n := Node{$1.(Node).place, []string{fmt.Sprintf("func, %s", $1.(Node).place)}}
-                        // Assign values to arguments.
-                        for k, v := range $2.(Node).code {
-                                n.code = append(n.code, fmt.Sprintf("=, %s, %s.%d", v, $1.(Node).place, k))
-                        }
-                        if _, found := globalSymTab[$1.(Node).place]; !found {
-                                globalSymTab[$1.(Node).place] = []string{fmt.Sprintf("func:%s", $2.(Node).place)}
-                        } else {
-                                return nil, errors.New(fmt.Sprintf("Function %s already declared\n", string($0.(*token.Token).Lit)))
-                        }
-                        return n, nil
-                } () >>
-                ;
+FunctionMarker
+        : kwdFunc FunctionName Signature  << ast.NewFuncMarker($1, $2) >>
+        ;
 
 // Signature      = Parameters [ Result ] .
 // Result         = Parameters | Type .
 // Parameters     = "(" [ ParameterList [ "," ] ] ")" .
 // ParameterList  = ParameterDecl { "," ParameterDecl } .
 // ParameterDecl  = [ IdentifierList ] [ "..." ] Type .
-Signature : Parameters
-            << func() (Attrib, error) {
-                      // The parent symbol table in case of function declaration
-                      // will be nil as functions can only be declared globally.
-                      childSymTab := SymInfo{make(symTabType), currSymTab}
-                      // Update the current symbol table to point to the newly
-                      // created symbol table.
-                      currSymTab = &childSymTab
-                      for _, v := range $0.(Node).code {
-                            if v == "" {
-                                  break
-                            }
-                            currSymTab.varSymTab[v] = []string{v, "int"}
-                      }
-                      return Node{"0", $0.(Node).code}, nil
-                } () >>
+Signature
+        : Parameters         << ast.NewSignature(0, $0) >>
+        | Parameters Result  << ast.NewSignature(1, $0, $1) >>
+        ;
 
-           | Parameters Result
-                 << func() (Attrib, error) {
-                       // The parent symbol table in case of function declaration
-                       // will be nil as functions can only be declared globally.
-                       childSymTab := SymInfo{make(symTabType), currSymTab}
-                       // Update the current symbol table to point to the newly
-                       // created symbol table.
-                       currSymTab = &childSymTab
-                       for _, v := range $0.(Node).code {
-                             if v == "" {
-                                   break
-                             }
-                             currSymTab.varSymTab[v] = []string{v, "int"}
-                       }
-                       return Node{fmt.Sprintf("%s", $1.(Node).place), $0.(Node).code}, nil
-                 } () >>
-          ;
-
-Result : Parameters
-              << func() (Attrib, error) {
-                    returnLength := 0
-                    // finding number of return variable
-                    for _, v := range $0.(Node).code {
-                            if v == "int" {
-                                    returnLength ++
-                            }
-                    }
-                    return Node{fmt.Sprintf("%d", returnLength), []string{}}, nil
-              } () >>
-       | Type
-              << func() (Attrib, error) {
-                    return Node{"1", []string{}}, nil
-              } () >>
-       ;
+Result
+        : Parameters  << ast.NewResult($0) >>
+        | Type        << ast.InitNode("1", []string{}) >>
+        ;
 
 // TODO: Ignore terminator
 // TODO: Parameters cannot end in ','
-Parameters : "(" RepeatTerminator ")"
-                  << func() (Attrib, error) {
-                      return Node{"", []string{}}, nil
-                } () >>
-           | "(" ParameterList ")"
-                << func() (Attrib, error) {
-                      return Node{"", $1.(Node).code}, nil
-                } () >>
-           ;
+Parameters
+        : "(" RepeatTerminator ")"  << ast.InitNode("", []string{}) >>
+        | "(" ParameterList ")"     << ast.InitNode("", $1.(ast.Node).Code) >>
+        ;
 
-ParameterList : ParameterDecl RepeatParameterDecl
-                << func() (Attrib, error) {
-                      n := Node{"", $0.(Node).code}
-                      n.code = append(n.code, $1.(Node).code...)
-                      return n, nil
-                } () >>
-              ;
-//
-RepeatParameterDecl : "," ParameterDecl RepeatParameterDecl
-                        << func() (Attrib, error) {
-                              n := Node{"", $1.(Node).code}
-                              n.code = append(n.code, $2.(Node).code...)
-                              return n, nil
-                        } () >>
-                        | empty
-                        << func() (Attrib, error) {
-                              return Node{"", []string{}}, nil
-                        } () >>
-                    ;
-//
-ParameterDecl : IdentifierList Type
-                << func() (Attrib, error) {
-                      return Node{"", $0.(Node).code}, nil
-                } () >>
-                | Type
-                << func() (Attrib, error) {
-                      return Node{"", []string{fmt.Sprintf("int")}}, nil
-                } () >>
+ParameterList
+        : ParameterDecl RepeatParameterDecl  << ast.NewParamList($0, $1) >>
+        ;
+
+RepeatParameterDecl
+        : "," ParameterDecl RepeatParameterDecl  << ast.AppendParam($1, $2) >>
+        | empty                                  << ast.InitNode("", []string{}) >>
+        ;
+
+ParameterDecl
+        : IdentifierList Type  << ast.InitNode("", $0.(ast.Node).Code) >>
+        | Type                 << ast.InitNode("", []string{fmt.Sprintf("int")}) >>
 //                 | "..." Type
 //                 << func() (Attrib, error) {
 //                       fmt.Println("\"...\" Type");
@@ -1611,30 +824,23 @@ ParameterDecl : IdentifierList Type
 // TypeName  = identifier | QualifiedIdent .
 // TypeLit   = ArrayType | StructType | PointerType | FunctionType | InterfaceType |
 //             SliceType | MapType | ChannelType .
-Type : type
-        << func() (Attrib, error) {
-              return Node{string($0.(*token.Token).Lit), []string{}}, nil
-        } () >>
+Type
+        : type  << ast.InitNode(string($0.(*token.Token).Lit), []string{}) >>
 //       | identifier
 //         << func() (Attrib, error) {
 //                 fmt.Println("identifier");
 //                 return nil, nil
 //         } () >>
-      | TypeLit
-        << func() (Attrib, error) {
-              return Node{$0.(Node).place, $0.(Node).code}, nil
-        } () >>
+        | TypeLit  << ast.NewNode($0) >>
 //       | "(" Type ")"
 //         << func() (Attrib, error) {
 //               fmt.Println("\"(\" Type \")\"");
 //               return nil, nil
 //         } () >>
-     ;
+        ;
 
-TypeLit : StructType
-                << func() (Attrib, error) {
-                        return Node{"struct", $0.(Node).code}, nil
-                } () >>
+TypeLit
+        : StructType  << ast.InitNode("struct", $0.(ast.Node).Code) >>
         // | ArrayType
         // << func() (Attrib, error) {
         //       fmt.Println("StructType");
@@ -1660,58 +866,39 @@ TypeLit : StructType
 // ArrayType   = "[" ArrayLength "]" ElementType .
 // ArrayLength = Expression .
 // ElementType = Type .
-ArrayType : "[" ArrayLength "]" ElementType
-                << func() (Attrib, error) {
-                        // TODO: ElementType is taken to be only int for now.
-                        return Node{fmt.Sprintf("array:%s", $1.(Node).place), []string{}}, nil
-                } () >>
-          ;
+// TODO: ElementType is taken to be only int for now.
+ArrayType
+        : "[" ArrayLength "]" ElementType
+                << ast.InitNode(fmt.Sprintf("array:%s", $1.(ast.Node).Place), []string{}) >>
+        ;
 
 // NOTE: ArrayLength is modified to be only an integer, unlike in Go where it is
 // an expression.
-ArrayLength : intLit
-                << func() (Attrib, error) {
-                        return Node{string($0.(*token.Token).Lit), []string{}}, nil
-                } () >>
-            ;
+ArrayLength
+        : intLit  << ast.InitNode(string($0.(*token.Token).Lit), []string{}) >>
+        ;
 
-ElementType : Type
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, []string{}}, nil
-                } () >>
-            ;
+ElementType
+        : Type  << ast.InitNode($0.(ast.Node).Place, []string{}) >>
+        ;
 
 // StructType    = kwdStruct "{" { FieldDecl ";" } "}" .
 // FieldDecl     = (IdentifierList Type | EmbeddedField) [ Tag ] .
 // EmbeddedField = [ "*" ] TypeName .
 // Tag           = string_lit .
-StructType : kwdStruct RepeatTerminator "{" RepeatTerminator RepeatFieldDecl "}"
-                << func() (Attrib, error) {
-                        return Node{"", $4.(Node).code}, nil
-                } () >>
-           ;
+StructType
+        : kwdStruct RepeatTerminator "{" RepeatTerminator RepeatFieldDecl "}"
+                << ast.InitNode("", $4.(ast.Node).Code) >>
+        ;
 
-RepeatFieldDecl : FieldDecl terminator RepeatTerminator RepeatFieldDecl
-                        << func() (Attrib, error) {
-                                n := Node{"", $0.(Node).code}
-                                n.code = append(n.code, $3.(Node).code...)
-                                return n, nil
-                        } () >>
-                | FieldDecl RepeatTerminator
-                        << func() (Attrib, error) {
-                                return Node{"", $0.(Node).code}, nil
-                        } () >>
-                ;
+RepeatFieldDecl
+        : FieldDecl terminator RepeatTerminator RepeatFieldDecl
+                                      << ast.AppendFieldDecl($0, $3) >>
+        | FieldDecl RepeatTerminator  << ast.InitNode("", $0.(ast.Node).Code) >>
+        ;
 
-FieldDecl : IdentifierList Type
-                << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        for _, v := range $0.(Node).code {
-                                n.code = append(n.code, v)
-                                n.code = append(n.code, $1.(Node).place)
-                        }
-                        return n, nil
-                } () >>
+FieldDecl
+        : IdentifierList Type  << ast.NewFieldDecl($0, $1) >>
 //           | IdentifierList Type Tag
 //                 << func() (Attrib, error) {
 //                       fmt.Println("IdentifierList Type Tag");
@@ -1727,11 +914,8 @@ FieldDecl : IdentifierList Type
 //                       fmt.Println("EmbeddedField Tag");
 //                       return nil, nil
 //                 } () >>
-          | empty
-                << func() (Attrib, error) {
-                        return Node{"", []string{}}, nil
-                } () >>
-          ;
+        | empty  << ast.InitNode("", []string{}) >>
+        ;
 
 // EmbeddedField : type
 //                 << func() (Attrib, error) {
@@ -1790,52 +974,33 @@ FieldDecl : IdentifierList Type
 //           ;
 
 // IdentifierList = identifier { "," identifier } .
-IdentifierList : identifier
-                        << func() (Attrib, error) {
-                                return Node{"", []string{string($0.(*token.Token).Lit)}}, nil
-                        } () >>
-               | identifier "," IdentifierList
-                        << func() (Attrib, error) {
-                                // The lexemes corresponding to the individual identifiers
-                                // are appended to the slice for code to avoid adding
-                                // comma-separated string in place since the identifiers
-                                // don't have any IR code to be added.
-                                n := Node{"", []string{string($0.(*token.Token).Lit)}}
-                                n.code = append(n.code, $2.(Node).code...)
-                                return n, nil
-                        } () >>
-               ;
+IdentifierList
+        : identifier                     << ast.InitNode("", []string{string($0.(*token.Token).Lit)}) >>
+        | identifier "," IdentifierList  << ast.AppendIdent($0, $2) >>
+        ;
 
-FunctionName : identifier
-                << func() (Attrib, error) {
-                        // The symbol table entry for a function is of the form -
-                        //      functionName : ["func", (rest of the values are yet to be decided)]
+// The symbol table entry for a function is of the form -
+//      functionName : ["func", (rest of the values are yet to be decided)]
+FunctionName
+        : identifier  << ast.InitNode(string($0.(*token.Token).Lit), []string{}) >>
+        ;
 
-                        return Node{string($0.(*token.Token).Lit), []string{}}, nil
-                 } () >>
-              ;
+FunctionBody
+        : Block  << ast.InitNode("", $0.(ast.Node).Code) >>
+        ;
 
-FunctionBody : Block
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-             ;
+RepeatTerminator
+        : terminator RepeatTerminator
+        | empty
+        ;
 
-RepeatTerminator : terminator RepeatTerminator
-                 | empty
-                 ;
+// --- [ Statements ] ----------------------------------------------------------
 
-StatementList : Statement terminator RepeatTerminator StatementList
-                << func() (Attrib, error) {
-                        n := Node{"", $0.(Node).code}
-                        n.code = append(n.code, $3.(Node).code...)
-                        return n, nil
-                } () >>
-              | Statement RepeatTerminator
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-              ;
+StatementList
+        : Statement terminator RepeatTerminator StatementList
+                                      << ast.NewStmtList($0, $3) >>
+        | Statement RepeatTerminator  << ast.InitNode("", $0.(ast.Node).Code) >>
+        ;
 
 // Statement = Declaration | LabeledStmt | SimpleStmt |
 //             GoStmt | ReturnStmt | BreakStmt | ContinueStmt | GotoStmt |
@@ -1843,74 +1008,29 @@ StatementList : Statement terminator RepeatTerminator StatementList
 //             DeferStmt .
 // NOTE: The following additional statements are introduced.
 // PrintIntStmt
-Statement : Declaration
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-          | LabeledStmt
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-          | SimpleStmt
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-          | ReturnStmt
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-          | BreakStmt
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-          | ContinueStmt
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-          | GotoStmt
-                << func() (Attrib, error) {
-                       return Node{"", $0.(Node).code}, nil
-                } () >>
-          // TODO: FallthroughStmt is not supported currently.
-          | Block
-                << func() (Attrib, error) {
-                       return Node{"", $0.(Node).code}, nil
-                } () >>
-          | IfStmt
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-          | SwitchStmt
-                << func() (Attrib, error) {
-                       return Node{"", $0.(Node).code}, nil
-                } () >>
-          | ForStmt
-                << func() (Attrib, error) {
-                       return Node{"", $0.(Node).code}, nil
-                } () >>
-          | DeferStmt
-                << func() (Attrib, error) {
-                       return Node{"", $0.(Node).code}, nil
-                } () >>
-          | PrintStmt
-                << func() (Attrib, error) {
-                       return Node{"", $0.(Node).code}, nil
-                } () >>
-          | ScanStmt
-                << func() (Attrib, error) {
-                       return Node{"", $0.(Node).code}, nil
-                } () >>
-          ;
+Statement
+        : Declaration   << ast.InitNode("", $0.(ast.Node).Code) >>
+        | LabeledStmt   << ast.InitNode("", $0.(ast.Node).Code) >>
+        | SimpleStmt    << ast.InitNode("", $0.(ast.Node).Code) >>
+        | ReturnStmt    << ast.InitNode("", $0.(ast.Node).Code) >>
+        | BreakStmt     << ast.InitNode("", $0.(ast.Node).Code) >>
+        | ContinueStmt  << ast.InitNode("", $0.(ast.Node).Code) >>
+        | GotoStmt      << ast.InitNode("", $0.(ast.Node).Code) >>
+        | Block         << ast.InitNode("", $0.(ast.Node).Code) >>
+        | IfStmt        << ast.InitNode("", $0.(ast.Node).Code) >>
+        | SwitchStmt    << ast.InitNode("", $0.(ast.Node).Code) >>
+        | ForStmt       << ast.InitNode("", $0.(ast.Node).Code) >>
+        | DeferStmt     << ast.InitNode("", $0.(ast.Node).Code) >>
+        | PrintStmt     << ast.InitNode("", $0.(ast.Node).Code) >>
+        | ScanStmt      << ast.InitNode("", $0.(ast.Node).Code) >>
+        // TODO: FallthroughStmt is not supported currently.
+        ;
 
 // LabeledStmt = Label ":" Statement .
 // Label       = identifier .
-LabeledStmt : Label ":" RepeatTerminator Statement
-                << func() (Attrib, error) {
-                        n := Node{"", []string{fmt.Sprintf("label, %s", $0.(Node).place)}}
-                        n.code = append(n.code, $3.(Node).code...)
-                        return n, nil
-                } () >>
-            ;
+LabeledStmt
+        : Label ":" RepeatTerminator Statement  << ast.NewLabelStmt($0, $3) >>
+        ;
 
 // SimpleStmt = EmptyStmt | ExpressionStmt | SendStmt | IncDecStmt | Assignment | ShortVarDecl .
 // EmptyStmt = .
@@ -1919,27 +1039,12 @@ LabeledStmt : Label ":" RepeatTerminator Statement
 // Assignment = ExpressionList assign_op ExpressionList .
 // assign_op = [ add_op | mul_op ] "=" .
 // ShortVarDecl = IdentifierList ":=" ExpressionList .
-SimpleStmt : EmptyStmt
-                << func() (Attrib, error) {
-                        return Node{"", []string{}}, nil
-                } () >>
-           | Assignment
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-           | ShortVarDecl
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-           | IncDecStmt
-                << func() (Attrib, error) {
-                       return Node{"", $0.(Node).code}, nil
-                } () >>
-           | ExpressionStmt
-                << func() (Attrib, error) {
-                      return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
-        ;
+SimpleStmt
+        : EmptyStmt       << ast.InitNode("", []string{}) >>
+        | Assignment      << ast.InitNode("", $0.(ast.Node).Code) >>
+        | ShortVarDecl    << ast.InitNode("", $0.(ast.Node).Code) >>
+        | IncDecStmt      << ast.InitNode("", $0.(ast.Node).Code) >>
+        | ExpressionStmt  << ast.NewNode($0) >>
 //            | Assignment
 //                << func() (Attrib, error) {
 //                      fmt.Println("Assignment");
@@ -1955,226 +1060,75 @@ SimpleStmt : EmptyStmt
 //                      fmt.Println("EmptyStmt");
 //                      return nil, nil
 //                } () >>
-//            ;
+        ;
 
 EmptyStmt : empty ;
 
-ReturnStmt : kwdRet
-                << func() (Attrib, error) {
-                        // The defer statements need to be inserted before the return stmt (and
-                        // not at the end of function block as was the previous misconception).
-                        // When defer stmt is used, the return stmt for main() is also inserted
-                        // when all the defer calls from stack are popped and inserted in IR.
-                        if deferStack.Len > 0 {
-                                // Return statement insertion will be handled when defer
-                                // stack is emptied and the deferred calls are inserted.
-                                return Node{"", []string{}}, nil
-                        } else {
-                                return Node{"", []string{"ret,"}}, nil
-                        }
-                } () >>
-           | kwdRet ExpressionList
-                << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        if deferStack.Len == 0 {
-                                retExpr := utils.SplitAndSanitize($1.(Node).place, ",")
-                                n.code = append(n.code, $1.(Node).code...)
-                                for k, v := range retExpr {
-                                      n.code = append(n.code, fmt.Sprintf("=, return.%d, %s", k, v))
-                                }
-                                n.code = append(n.code, fmt.Sprintf("ret,"))
-                        }
-                        return n, nil
-                } () >>
-           ;
+ReturnStmt
+        : kwdRet                 << ast.NewReturnStmt() >>
+        | kwdRet ExpressionList  << ast.NewReturnStmt($1) >>
+        ;
 
 // BreakStmt = "break" [ Label ] .
-BreakStmt : kwdBreak
-                << func() (Attrib, error) {
-                        return Node{"", []string{"break"}}, nil
-                } () >>
-          | kwdBreak Label
-                << func() (Attrib, error) {
-                        return Node{"", []string{fmt.Sprintf("j, %s", $1.(Node).place)}}, nil
-                } () >>
-          ;
+BreakStmt
+        : kwdBreak        << ast.InitNode("", []string{"break"}) >>
+        | kwdBreak Label  << ast.InitNode("", []string{fmt.Sprintf("j, %s", $1.(ast.Node).Place)}) >>
+        ;
 
 // ContinueStmt = "continue" [ Label ] .
-ContinueStmt : kwdContinue
-                << func() (Attrib, error) {
-                        return Node{"", []string{"continue"}}, nil
-                } () >>
-             // TODO: `continue label` vs `break label` ??
-             // | kwdContinue Label
-             //    << func() (Attrib, error) {
-             //          fmt.Println("kwdContinue Label");
-             //          return nil, nil
-             //    } () >>
-              ;
+ContinueStmt
+        : kwdContinue  << ast.InitNode("", []string{"continue"}) >>
+        // TODO: `continue label` vs `break label` ??
+        // | kwdContinue Label
+        //    << func() (Attrib, error) {
+        //          fmt.Println("kwdContinue Label");
+        //          return nil, nil
+        //    } () >>
+        ;
 
 // GotoStmt = "goto" Label .
-GotoStmt : kwdGoto Label
-                << func() (Attrib, error) {
-                        return Node{"", []string{fmt.Sprintf("j, %s", $1.(Node).place)}}, nil
-                } () >>
-         ;
+GotoStmt
+        : kwdGoto Label  << ast.InitNode("", []string{fmt.Sprintf("j, %s", $1.(ast.Node).Place)}) >>
+        ;
 
-Block : "{" Marker RepeatTerminator StatementList "}"
-                << func() (Attrib, error) {
-                        // start of block
-                        currSymTab = currSymTab.parent // end of block
-                        return Node{"", $3.(Node).code}, nil
-                } () >>
-      ;
+Block
+        : "{" Marker RepeatTerminator StatementList "}"  << ast.NewBlock($3) >>
+        ;
 
 // NOTE: Marker demarcates the beginning of a block and the corresponding symbol
 // table is instantiated here.
-Marker : empty
-                << func() (Attrib, error) {
-                        if funcSymtabCreated {
-                                // The symbol table for functions is created when the
-                                // rule for Signature is reached so that the arguments
-                                // can also be added. At this point the function block
-                                // (if there was any) has completed.
-                                childSymTab := SymInfo{make(symTabType), currSymTab}
-                                // Update the current symbol table to point to the newly
-                                // created symbol table.
-                                currSymTab = &childSymTab
-                        } else {
-                                // Allow creation of symbol table for another function.
-                                funcSymtabCreated = true
-                        }
-                        return nil, nil
-                } () >>
+Marker
+        : empty  << ast.NewBlockMarker() >>
         ;
 
 // IfStmt = "if" [ SimpleStmt ";" ] Expression Block [ "else" ( IfStmt | Block ) ] .
-IfStmt : kwdIf Expression Block
-                << func() (Attrib, error) {
-                        n := Node{"", $1.(Node).code}
-                        afterLabel := NewLabel()
-                        n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", afterLabel, $1.(Node).place))
-                        n.code = append(n.code, $2.(Node).code...)
-                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
-                        n.code = append(n.code, "\n")
-                        return n, nil
-                } () >>
-        | kwdIf Expression Block kwdElse Block
-                << func() (Attrib, error) {
-                        n := Node{"", $1.(Node).code}
-                        elseLabel := NewLabel()
-                        afterLabel := NewLabel()
-                        n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", elseLabel, $1.(Node).place))
-                        n.code = append(n.code, $2.(Node).code...)
-                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
-                        n.code = append(n.code, fmt.Sprintf("label, %s", elseLabel))
-                        n.code = append(n.code, $4.(Node).code...)
-                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
-                        return n, nil
-                } () >>
-        | kwdIf Expression Block kwdElse IfStmt
-                << func() (Attrib, error) {
-                        n := Node{"", $1.(Node).code}
-                        elseLabel := NewLabel()
-                        afterLabel := NewLabel()
-                        n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", elseLabel, $1.(Node).place))
-                        n.code = append(n.code, $2.(Node).code...)
-                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
-                        n.code = append(n.code, fmt.Sprintf("label, %s", elseLabel))
-                        n.code = append(n.code, $4.(Node).code...)
-                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
-                        return n, nil
-                } () >>
-       | kwdIf SimpleStmt terminator Expression Block
-                << func() (Attrib, error) {
-                        n := Node{"", $1.(Node).code}
-                        afterLabel := NewLabel()
-                        n.code = append(n.code, $3.(Node).code...)
-                        n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", afterLabel, $3.(Node).place))
-                        n.code = append(n.code, $4.(Node).code...)
-                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
-                        return n, nil
-                } () >>
-       | kwdIf SimpleStmt terminator Expression Block kwdElse IfStmt
-                << func() (Attrib, error) {
-                        n := Node{"", $1.(Node).code}
-                        elseLabel := NewLabel()
-                        afterLabel := NewLabel()
-                        n.code = append(n.code, $3.(Node).code...)
-                        n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", elseLabel, $3.(Node).place))
-                        n.code = append(n.code, $4.(Node).code...)
-                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
-                        n.code = append(n.code, fmt.Sprintf("label, %s", elseLabel))
-                        n.code = append(n.code, $6.(Node).code...)
-                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
-                        return n, nil
-
-                } () >>
+IfStmt
+        : kwdIf Expression Block                        << ast.NewIfStmt(0, $1, $2) >>
+        | kwdIf Expression Block kwdElse Block          << ast.NewIfStmt(1, $1, $2, $4) >>
+        | kwdIf Expression Block kwdElse IfStmt         << ast.NewIfStmt(2, $1, $2, $4) >>
+        | kwdIf SimpleStmt terminator Expression Block  << ast.NewIfStmt(3, $1, $3, $4) >>
+        | kwdIf SimpleStmt terminator Expression Block kwdElse IfStmt
+                                                        << ast.NewIfStmt(4, $1, $3, $4, $6) >>
         | kwdIf SimpleStmt terminator Expression Block kwdElse Block
-                << func() (Attrib, error) {
-                        n := Node{"", $1.(Node).code}
-                        elseLabel := NewLabel()
-                        afterLabel := NewLabel()
-                        n.code = append(n.code, $3.(Node).code...)
-                        n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", elseLabel, $3.(Node).place))
-                        n.code = append(n.code, $4.(Node).code...)
-                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
-                        n.code = append(n.code, fmt.Sprintf("label, %s", elseLabel))
-                        n.code = append(n.code, $6.(Node).code...)
-                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
-                        return n, nil
-                } () >>
-       ;
+                                                        << ast.NewIfStmt(5, $1, $3, $4, $6) >>
+        ;
 
 // SwitchStmt = ExprSwitchStmt | TypeSwitchStmt .
-SwitchStmt : ExprSwitchStmt
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
+SwitchStmt
+        : ExprSwitchStmt  << ast.InitNode("", $0.(ast.Node).Code) >>
 //            | TypeSwitchStmt
 //                << func() (Attrib, error) {
 //                      fmt.Println("TypeSwitchStmt");
 //                      return nil, nil
 //                } () >>
-           ;
+        ;
 
 // ExprSwitchStmt = "switch" [ SimpleStmt ";" ] [ Expression ] "{" { ExprCaseClause } "}" .
 // ExprCaseClause = ExprSwitchCase ":" StatementList .
 // ExprSwitchCase = "case" ExpressionList | "default" .
-        ExprSwitchStmt : kwdSwitch Expression "{" RepeatTerminator RepeatExprCaseClause "}"
-                        << func() (Attrib, error) {
-                                n := Node{"", $1.(Node).code}
-                                caseLabels := []string{}
-                                caseStmts := $4.(Node).code
-                                // SplitAndSanitize cannot be used here as removal of empty
-                                // entries seems to be causing erroneous index calculations.
-                                // Regression caused in "test/codegen/switch.go".
-                                caseTemporaries := strings.Split($4.(Node).place, ",")
-                                afterLabel := NewLabel()
-                                defaultLabel := afterLabel
-                                // The last value in caseTemporaries will be the place value
-                                // returned by Empty (arising from RepeatExprCaseClause -> Empty).
-                                // This has to be ignored.
-                                for k, v := range caseTemporaries[:len(caseTemporaries)-1] {
-                                        caseLabel := NewLabel()
-                                        caseLabels = append(caseLabels, caseLabel)
-                                        n.code = append(n.code, caseStmts[2*k])
-                                        if strings.TrimSpace(v) == "default" {
-                                                defaultLabel = caseLabel
-                                        } else {
-                                                n.code = append(n.code, fmt.Sprintf("beq, %s, %s, %s", caseLabel, $1.(Node).place, v))
-                                        }
-                                }
-                                n.code = append(n.code, fmt.Sprintf("j, %s", defaultLabel))
-                                for k, v := range caseLabels {
-                                        n.code = append(n.code, fmt.Sprintf("label, %s", v))
-                                        n.code = append(n.code, caseStmts[2*k+1])
-                                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
-                                }
-                                n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
-                                return n, nil
-                        } () >>
-                  // TODO: Handle empty expression
+ExprSwitchStmt
+        : kwdSwitch Expression "{" RepeatTerminator RepeatExprCaseClause "}"  << ast.NewSwitchStmt($1, $4) >>
+        // TODO: Handle empty expression
 //                | kwdSwitch "{" RepeatTerminator RepeatExprCaseClause "}"
 //                        << func() (Attrib, error) {
 //                              fmt.Println("kwdSwitch Expression \"{\" RepeatTerminator RepeatExprCaseClause \"}\"");
@@ -2190,55 +1144,28 @@ SwitchStmt : ExprSwitchStmt
 //                              fmt.Println("kwdSwitch SimpleStmt terminator Expression \"{\" RepeatTerminator RepeatExprCaseClause \"}\"");
 //                              return nil, nil
 //                        } () >>
-               ;
+        ;
 
-RepeatExprCaseClause : ExprCaseClause RepeatExprCaseClause
-                        << func() (Attrib, error) {
-                                n := Node{"", $0.(Node).code}
-                                n.code = append(n.code, $1.(Node).code...)
-                                n.place = fmt.Sprintf("%s, %s", $0.(Node).place, $1.(Node).place)
-                                return n, nil
-                        } () >>
-                     | empty
-                        << func() (Attrib, error) {
-                                return Node{"", []string{}}, nil
-                        } () >>
-                     ;
+RepeatExprCaseClause
+        : ExprCaseClause RepeatExprCaseClause  << ast.AppendExprCaseClause($0, $1) >>
+        | empty                                << ast.InitNode("", []string{}) >>
+        ;
 
 // ExprCaseClause = ExprSwitchCase ":" StatementList .
 // ExprSwitchCase = "case" ExpressionList | "default" .
-ExprCaseClause : ExprSwitchCase ":" RepeatTerminator StatementList
-                        << func() (Attrib, error) {
-                                n := Node{$0.(Node).place, []string{}}
-                                exprCode := ""
-                                for _, v := range $0.(Node).code {
-                                        exprCode += v
-                                        exprCode += "\n"
-                                }
-                                n.code = append(n.code, exprCode)
-                                stmtCode := ""
-                                for _, v := range $3.(Node).code {
-                                        stmtCode += v
-                                        stmtCode += "\n"
-                                }
-                                n.code = append(n.code, stmtCode)
-                                return n, nil
-                        } () >>
-               ;
+ExprCaseClause
+        : ExprSwitchCase ":" RepeatTerminator StatementList
+                << ast.NewExprCaseClause($0, $3) >>
+        ;
 
 // NOTE: The grammar is modified to support only a single expression in a
 // switch statement.
 // ExprSwitchCase : kwdCase ExpressionList
-ExprSwitchCase : kwdCase Expression
-                        << func() (Attrib, error) {
-                                return Node{$1.(Node).place, $1.(Node).code}, nil
-                        } () >>
-               | kwdDefault
-                        << func() (Attrib, error) {
-                                return Node{"default", []string{}}, nil
-                        } () >>
-               ;
-//
+ExprSwitchCase
+        : kwdCase Expression  << ast.NewNode($1) >>
+        | kwdDefault          << ast.InitNode("default", []string{}) >>
+        ;
+
 // // TypeSwitchStmt  = "switch" [ SimpleStmt ";" ] TypeSwitchGuard "{" { TypeCaseClause } "}" .
 // // TypeSwitchGuard = [ identifier ":=" ] PrimaryExpr "." "(" "type" ")" .
 // // TypeCaseClause  = TypeSwitchCase ":" StatementList .
@@ -2320,79 +1247,17 @@ ExprSwitchCase : kwdCase Expression
 
 // ForStmt = "for" [ Condition | ForClause | RangeClause ] Block .
 // Condition = Expression .
-ForStmt : kwdFor Block
-                << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        startLabel := NewLabel()
-                        afterLabel := NewLabel()
-                        n.code = append(n.code, fmt.Sprintf("label, %s", startLabel))
-                        for _, v := range $1.(Node).code {
-                                v := strings.TrimSpace(v)
-                                if v == "break" {
-                                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
-                                } else if v == "continue" {
-                                        n.code = append(n.code, fmt.Sprintf("j, %s", startLabel))
-                                } else {
-                                        n.code = append(n.code, v)
-                                }
-                        }
-                        n.code = append(n.code, fmt.Sprintf("j, %s", startLabel))
-                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
-                        return n, nil
-                } () >>
-        | kwdFor Condition Block
-                << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        startLabel := NewLabel()
-                        afterLabel := NewLabel()
-                        n.code = append(n.code, fmt.Sprintf("label, %s", startLabel))
-                        n.code = append(n.code, $1.(Node).code...)
-                        n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", afterLabel, $1.(Node).place))
-                        for _, v := range $2.(Node).code {
-                                v := strings.TrimSpace(v)
-                                if v == "break" {
-                                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
-                                } else if v == "continue" {
-                                        n.code = append(n.code, fmt.Sprintf("j, %s", startLabel))
-                                } else {
-                                        n.code = append(n.code, v)
-                                }
-                        }
-                        n.code = append(n.code, fmt.Sprintf("j, %s", startLabel))
-                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
-                        return n, nil
-                } () >>
-        | kwdFor ForClause Block
-                << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        startLabel := NewLabel()
-                        afterLabel := NewLabel()
-                        n.code = append(n.code, $1.(Node).code[0]) // init statement
-                        n.code = append(n.code, fmt.Sprintf("label, %s", startLabel))
-                        n.code = append(n.code, $1.(Node).code[1]) // condition
-                        n.code = append(n.code, fmt.Sprintf("blt, %s, %s, 1", afterLabel, $1.(Node).place))
-                        for _, v := range $2.(Node).code {
-                                v := strings.TrimSpace(v)
-                                if v == "break" {
-                                        n.code = append(n.code, fmt.Sprintf("j, %s", afterLabel))
-                                } else if v == "continue" {
-                                        n.code = append(n.code, fmt.Sprintf("j, %s", startLabel))
-                                } else {
-                                        n.code = append(n.code, v)
-                                }
-                        }
-                        n.code = append(n.code, $1.(Node).code[2]) // post statement
-                        n.code = append(n.code, fmt.Sprintf("j, %s", startLabel))
-                        n.code = append(n.code, fmt.Sprintf("label, %s", afterLabel))
-                        return n, nil
-                } () >>
+ForStmt
+        : kwdFor Block            << ast.NewForStmt(0, $1) >>
+        | kwdFor Condition Block  << ast.NewForStmt(1, $1, $2) >>
+        | kwdFor ForClause Block  << ast.NewForStmt(2, $1, $2) >>
 //         | kwdFor RangeClause Block
 //                 << func() (Attrib, error) {
 //                       fmt.Println("kwdFor RangeClause Block");
 //                       return nil, nil
 //                 } () >>
         ;
-//
+
 // // RangeClause = [ ExpressionList "=" | IdentifierList ":=" ] "range" Expression .
 // RangeClause : kwdRange Expression
 //                 << func() (Attrib, error) {
@@ -2419,376 +1284,79 @@ ForStmt : kwdFor Block
 // place values of InitStmt and PostStmt will not be required.
 // The code value of ForClause contains newline separated codes of InitStmt,
 // Condition and PostStmt.
-ForClause : terminator terminator
-              << func() (Attrib, error) {
-                      // When Condition is not specified, do an endless loop by
-                      // initializing the place value to 1.
-                      return Node{"1", []string{"", "", ""}}, nil
-              } () >>
-          | InitStmt terminator terminator
-              << func() (Attrib, error) {
-                        initStmtCode := ""
-                        for _, v := range $0.(Node).code {
-                                initStmtCode += v
-                                initStmtCode += "\n"
-                        }
-                        return Node{"1", []string{initStmtCode, "", ""}}, nil
-              } () >>
-          | terminator Condition terminator
-              << func() (Attrib, error) {
-                        condCode := ""
-                        for _, v := range $1.(Node).code {
-                                condCode += v
-                                condCode += "\n"
-                        }
-                        return Node{$1.(Node).place, []string{"", condCode, ""}}, nil
-              } () >>
-          | terminator terminator PostStmt
-              << func() (Attrib, error) {
-                        postStmtCode := ""
-                        for _, v := range $2.(Node).code {
-                                postStmtCode += v
-                                postStmtCode += "\n"
-                        }
-                        return Node{"1", []string{"", "", postStmtCode}}, nil
-              } () >>
-          | InitStmt terminator Condition terminator
-              << func() (Attrib, error) {
-                        initStmtCode := ""
-                        for _, v := range $0.(Node).code {
-                                initStmtCode += v
-                                initStmtCode += "\n"
-                        }
-                        condCode := ""
-                        for _, v := range $2.(Node).code {
-                                condCode += v
-                                condCode += "\n"
-                        }
-                        return Node{$2.(Node).place, []string{initStmtCode, condCode, ""}}, nil
-              } () >>
-          | InitStmt terminator terminator PostStmt
-              << func() (Attrib, error) {
-                        initStmtCode := ""
-                        for _, v := range $0.(Node).code {
-                                initStmtCode += v
-                                initStmtCode += "\n"
-                        }
-                        postStmtCode := ""
-                        for _, v := range $3.(Node).code {
-                                postStmtCode += v
-                                postStmtCode += "\n"
-                        }
-                        return Node{"1", []string{initStmtCode, "", postStmtCode}}, nil
-              } () >>
-          | terminator Condition terminator PostStmt
-              << func() (Attrib, error) {
-                        condCode := ""
-                        for _, v := range $1.(Node).code {
-                                condCode += v
-                                condCode += "\n"
-                        }
-                        postStmtCode := ""
-                        for _, v := range $3.(Node).code {
-                                postStmtCode += v
-                                postStmtCode += "\n"
-                        }
-                        return Node{$1.(Node).place, []string{"", condCode, postStmtCode}}, nil
-              } () >>
-          | InitStmt terminator Condition terminator PostStmt
-              << func() (Attrib, error) {
-                        initStmtCode := ""
-                        for _, v := range $0.(Node).code {
-                                initStmtCode += v
-                                initStmtCode += "\n"
-                        }
-                        condCode := ""
-                        for _, v := range $2.(Node).code {
-                                condCode += v
-                                condCode += "\n"
-                        }
-                        postStmtCode := ""
-                        for _, v := range $4.(Node).code {
-                                postStmtCode += v
-                                postStmtCode += "\n"
-                        }
-                        return Node{$2.(Node).place, []string{initStmtCode, condCode, postStmtCode}}, nil
-              } () >>
-          ;
+// When Condition is not specified, do an endless loop by initializing the place
+// value to 1.
+ForClause
+        : terminator terminator  << ast.InitNode("1", []string{"", "", ""}) >>
+        | InitStmt terminator terminator            << ast.NewForClause(0, $0) >>
+        | terminator Condition terminator           << ast.NewForClause(1, $1) >>
+        | terminator terminator PostStmt            << ast.NewForClause(2, $2) >>
+        | InitStmt terminator Condition terminator  << ast.NewForClause(3, $0, $2) >>
+        | InitStmt terminator terminator PostStmt   << ast.NewForClause(4, $0, $3) >>
+        | terminator Condition terminator PostStmt  << ast.NewForClause(5, $1, $3) >>
+        | InitStmt terminator Condition terminator PostStmt
+                                                    << ast.NewForClause(6, $0, $2, $4) >>
+        ;
 
-InitStmt : SimpleStmt
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-         ;
+InitStmt
+        : SimpleStmt  << ast.InitNode("", $0.(ast.Node).Code) >>
+        ;
 
-PostStmt : SimpleStmt
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-         ;
+PostStmt
+        : SimpleStmt  << ast.InitNode("", $0.(ast.Node).Code) >>
+        ;
 
 // FIXME: Condition can only be a binary expression.
-Condition : Expression
-                << func() (Attrib, error) {
-                        return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
-          ;
+Condition
+        : Expression  << ast.NewNode($0) >>
+        ;
 
 // DeferStmt = "defer" Expression .
 // NOTE: Currently defer only handles function calls and not method calls.
-DeferStmt : "defer" PrimaryExpr Arguments
-                << func() (Attrib, error) {
-                        // Add code corresponding to the arguments.
-                        n := Node{"", $2.(Node).code}
-                        argExpr := utils.SplitAndSanitize($2.(Node).place, ",")
-                        for k, v := range argExpr {
-                              n.code = append(n.code, fmt.Sprintf("=, %s.%d, %s", $1.(Node).place, k, v))
-                        }
-                        n.place = NewTmp()
-                        // The code for the actual function call needs to be pushed to the defer stack.
-                        deferCode := make(DeferStackItem, 0)
-                        deferCode = append(deferCode, fmt.Sprintf("call, %s", $1.(Node).place))
-                        deferCode = append(deferCode, fmt.Sprintf("store, %s", n.place))
-                        deferStack.Push(deferCode)
-                        return n, nil
-                } () >>
-          ;
+DeferStmt
+        : "defer" PrimaryExpr Arguments  << ast.NewDeferStmt($1, $2) >>
+        ;
 
-PrintStmt : PrintIntStmt
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-          | PrintStrStmt
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-          ;
+PrintStmt
+        : PrintIntStmt  << ast.InitNode("", $0.(ast.Node).Code) >>
+        | PrintStrStmt  << ast.InitNode("", $0.(ast.Node).Code) >>
+        ;
 
-ScanStmt : ScanIntStmt
-                << func() (Attrib, error) {
-                        return Node{"", $0.(Node).code}, nil
-                } () >>
-          ;
+ScanStmt
+        : ScanIntStmt  << ast.InitNode("", $0.(ast.Node).Code) >>
+        ;
 
-PrintIntStmt : "printInt" Expression
-                << func() (Attrib, error) {
-                        n := Node{"", $1.(Node).code}
-                        n.code = append(n.code, fmt.Sprintf("printInt, %s, %s", $1.(Node).place, $1.(Node).place))
-                        return n, nil
-                } () >>
-             ;
+PrintIntStmt
+        : "printInt" Expression  << ast.NewIOStmt($0, $1) >>
+        ;
 
-PrintStrStmt : "printStr" Expression
-                << func() (Attrib, error) {
-                        n := Node{"", $1.(Node).code}
-                        n.code = append(n.code, fmt.Sprintf("printStr, %s", $1.(Node).place))
-                        return n, nil
-                } () >>
-             ;
+PrintStrStmt
+        : "printStr" Expression  << ast.NewIOStmt($0, $1) >>
+        ;
 
-ScanIntStmt : "scanInt" Expression
-		<< func() (Attrib, error) {
-                        n := Node{"", $1.(Node).code}
-                        n.code = append(n.code, fmt.Sprintf("scanInt, %s", $1.(Node).place))
-                        return n, nil
-               } () >>
-            ;
+ScanIntStmt
+        : "scanInt" Expression  << ast.NewIOStmt($0, $1) >>
+        ;
 
-ExpressionStmt : Expression
-                << func() (Attrib, error) {
-                      return Node{$0.(Node).place, $0.(Node).code}, nil
-                } () >>
-               ;
+ExpressionStmt
+        : Expression  << ast.NewNode($0) >>
+        ;
 
-IncDecStmt : Expression "++"
-                << func() (Attrib, error) {
-                        n := Node{"", $0.(Node).code}
-                        n.code = append(n.code, fmt.Sprintf("+, %s, %s, 1", $0.(Node).place, $0.(Node).place))
-                        return n, nil
-                } () >>
-           | Expression "--"
-                << func() (Attrib, error) {
-                        n := Node{"", $0.(Node).code}
-                        n.code = append(n.code, fmt.Sprintf("-, %s, %s, 1", $0.(Node).place, $0.(Node).place))
-                        return n, nil
-                } () >>
-           ;
+IncDecStmt
+        : Expression "++"  << ast.NewIncDecStmt($1, $0) >>
+        | Expression "--"  << ast.NewIncDecStmt($1, $0) >>
+        ;
 
-Assignment : ExpressionList assignOp ExpressionList
-                << func() (Attrib, error) {
-                        op := string($1.(*token.Token).Lit)[0]
-                        n := Node{"", $0.(Node).code}
-                        n.code = append(n.code, $2.(Node).code...)
-                        leftExpr := utils.SplitAndSanitize($0.(Node).place, ",")
-                        rightExpr := utils.SplitAndSanitize($2.(Node).place, ",")
-                        for k, v := range leftExpr {
-                                n.code = append(n.code, fmt.Sprintf("%s, %s, %s, %s", op, v, v, rightExpr[k]))
-                                _, ok := symTab[v]
-                                if ok {
-                                        if symTab[v][1] == "array" {
-                                                arrayInfo := utils.SplitAndSanitize(symTab[v][0], ",")
-                                                // arrayInfo contains the following info -
-                                                //      0th index: array name
-                                                //      1st index: array index
-                                                n.code = append(n.code, fmt.Sprintf("into, %s, %s, %s, %s", arrayInfo[0], arrayInfo[0], arrayInfo[1], v))
-                                        }
-                                }
-                        }
-                        return n, nil
-                } () >>
-           // TODO : Redundant code
-           | ExpressionList "=" ExpressionList
-                << func() (Attrib, error) {
-                        n := Node{"", $0.(Node).code}
-                        n.code = append(n.code, $2.(Node).code...)
-                        leftExpr := utils.SplitAndSanitize($0.(Node).place, ",")
-                        rightExpr := utils.SplitAndSanitize($2.(Node).place, ",")
-                        if len(leftExpr) != len(rightExpr) {
-                                return nil, errors.New("Number of values in LHS and RHS is not equal")
-                        }
-                        for k, v := range leftExpr {
-                                if len(currSymTab.varSymTab[GetRealName(v)]) >= 2 && currSymTab.varSymTab[GetRealName(v)][1] == "pointer" {
-                                        if len(rightExpr[k]) >= 7 && rightExpr[k][:7] == "pointer" {
-                                                currSymTab.varSymTab[GetRealName(v)][3] = currSymTab.varSymTab[GetRealName(rightExpr[k][8:])][0]
-                                        } else {
-                                                currSymTab.varSymTab[GetRealName(v)][3] = currSymTab.varSymTab[GetRealName(rightExpr[k])][3]
-                                        }
-                                } else if len(rightExpr[k]) >= 5 && rightExpr[k][:5] == "deref" && len(v) >= 5 && v[:5] == "deref" {
-                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", currSymTab.varSymTab[GetRealName(v[6:])][3], currSymTab.varSymTab[GetRealName(rightExpr[k][6:])][3]))
-                                } else if len(rightExpr[k]) >= 5 && rightExpr[k][:5] == "deref" {
-                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", currSymTab.varSymTab[GetRealName(v)][0], currSymTab.varSymTab[GetRealName(rightExpr[k][6:])][3]))
-                                } else if len(v) >= 5 && v[:5] == "deref" {
-                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", currSymTab.varSymTab[GetRealName(v[6:])][3], rightExpr[k]))
-                                } else {
-                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", v, rightExpr[k]))
-                                        _, ok := symTab[v]
-                                        if ok {
-                                                if symTab[v][1] == "array" {
-                                                        arrayInfo := utils.SplitAndSanitize(symTab[v][0], ",")
-                                                        // arrayInfo[0]: array name
-                                                        // arrayInfo[1]: array index
-                                                        n.code = append(n.code, fmt.Sprintf("into, %s, %s, %s, %s", arrayInfo[0], arrayInfo[0], arrayInfo[1], v))
-                                                }
-                                        }
-                                }
-                        }
-                        return n, nil
-                } () >>
-           | IdentifierList "=" ExpressionList
-                << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        // TODO: Structs do not support multiple short declarations in a
-                        // single statement for now.
-                        exprName := $2.(Node).place
-                        if len(exprName) >= 6 && exprName[:6] == "struct" {
-                                return nil, errors.New("Use shortAssign for declaring structs")
-                        } else {
-                                n.code = $2.(Node).code
-                                expr := utils.SplitAndSanitize($2.(Node).place, ",")
-                                if len(expr) != len($0.(Node).code) {
-                                        return nil, errors.New("Number of values in LHS and RHS is not equal")
-                                }
-                                for k, v := range $0.(Node).code {
-                                        symTabEntry, found := SearchInScope(v)
-                                        if found {
-                                                renamedVar := symTabEntry[0]
-                                                if len(expr[k]) >= 5 && expr[k][:5] == "array" {
-                                                        return nil, errors.New("Use shortAssign for declaring arrays")
-                                                } else if len(currSymTab.varSymTab[v]) >= 2 && currSymTab.varSymTab[v][1] != "pointer" {
-                                                        n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
-                                                }
-                                        } else {
-                                                return nil, errors.New("Variable not declared")
-                                        }
-                                }
-                        }
-                        return n, nil
-                } () >>
-           ;
+Assignment
+        : ExpressionList assignOp ExpressionList  << ast.NewAssignStmt(0, $1, $0, $2) >>
+        | ExpressionList "=" ExpressionList       << ast.NewAssignStmt(1, $1, $0, $2) >>
+        | IdentifierList "=" ExpressionList       << ast.NewAssignStmt(2, $1, $0, $2) >>
+        ;
 
-ShortVarDecl : IdentifierList shortAssign ExpressionList
-                << func() (Attrib, error) {
-                        n := Node{"", []string{}}
-                        // TODO: Structs do not support multiple short declarations in a
-                        // single statement for now.
-                        exprName := $2.(Node).place
-                        if len(exprName) >= 6 && exprName[:6] == "struct" {
-                                // NOTE: The following index calculations assume that
-                                // struct names cannot include a ':' character.
-                                colonIndex := strings.LastIndexAny(exprName, ":")
-                                structLen, err := strconv.Atoi(exprName[7:colonIndex])
-                                if err != nil {
-                                        return nil, err
-                                }
-                                // TODO: Multiple struct initializations are not handled currently.
-                                structName := $0.(Node).code[0]
-                                // keeping structName in the symbol table with type as Struct
-                                currSymTab.varSymTab[structName] = []string{structName, "struct"}
-                                // The individual struct member initializers can contain
-                                // expressions whose code need to be added before the
-                                // members are initialized.
-                                n.code = append(n.code, $2.(Node).code[2*structLen:]...)
-                                // Add code for struct member initializations.
-                                var varName, varVal string
-                                for k, v := range $2.(Node).code[:2*structLen] {
-                                        if k % 2 == 0 {
-                                                // Member names are located at even locations.
-                                                varName = v
-                                        } else {
-                                                // (Initialized) member values are located at odd locations.
-                                                varVal = v
-                                                renamedVar := RenameVariable(fmt.Sprintf("%s.%s", structName, varName))
-                                                currSymTab.varSymTab[fmt.Sprintf("%s.%s", structName, varName)] = []string{renamedVar, "int"}
-                                                // TODO: Add the struct initializations to symbol table. Also,
-                                                // handle member accesses as -
-                                                //      node := Node{1}
-                                                //      b := node.val  // member access
-                                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, varVal))
-                                        }
-                                }
-                        } else {
-                                n.code = $2.(Node).code
-                                placeVals := strings.Split($2.(Node).place, ",")
-                                expr := utils.SplitAndSanitize($2.(Node).place, ",")
-                                if len(expr) != len($0.(Node).code) {
-                                        return nil, errors.New("Number of values in LHS and RHS is not equal")
-                                }
-                                for k, v := range $0.(Node).code {
-                                        renamedVar := RenameVariable(v)
-                                        _, ok := currSymTab.varSymTab[v]
-                                        if !ok {
-                                                // TODO: All types are int currently.
-                                                if len(expr[k]) >= 7 && expr[k][0:7] == "pointer" {
-                                                    currSymTab.varSymTab[v] = []string{renamedVar, "pointer", "int", expr[k][8:]}
-                                                } else if len(currSymTab.varSymTab[GetRealName(expr[k])]) >= 2 && currSymTab.varSymTab[GetRealName(expr[k])][1] == "pointer" {
-                                                    currSymTab.varSymTab[v] = []string{renamedVar, "pointer", currSymTab.varSymTab[GetRealName(expr[k])][2] , currSymTab.varSymTab[GetRealName(expr[k])][3]}
-                                                } else if len(expr[k]) >= 5 && expr[k][0:5] == "deref" {
-                                                    currSymTab.varSymTab[v] = []string{renamedVar, "int"}
-                                                } else {
-                                                    currSymTab.varSymTab[v] = []string{renamedVar, "int"}
-                                                }
-                                        } else {
-                                                return nil, errors.New(fmt.Sprintf("%s already declared", v))
-                                        }
-                                        if len(expr[k]) >= 5 && expr[k][:5] == "array" {
-                                                // TODO: rename arrays
-                                                n.code = append(n.code, fmt.Sprintf("decl, %s, %s", renamedVar, expr[k][6:]))
-                                        } else if len(expr[k]) >= 5 && expr[k][0:5] == "deref" {
-                                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, currSymTab.varSymTab[GetRealName(expr[k][6:])][3]))
-                                        } else if len(placeVals[k]) >= 7 && placeVals[k][:6] == "string" {
-                                                // Check if the RHS is string.
-                                                n.code = append(n.code, fmt.Sprintf("declStr, %s, %s", renamedVar, expr[k][7:]))
-                                        } else if len(currSymTab.varSymTab[v]) >= 2 && currSymTab.varSymTab[v][1] != "pointer" {
-                                                n.code = append(n.code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
-                                        }
-                                }
-                        }
-                        return n, nil
-                } () >>
-             ;
+ShortVarDecl
+        : IdentifierList shortAssign ExpressionList  << ast.NewShortDecl($0, $2) >>
+        ;
 
-Label : identifier
-                 << func() (Attrib, error) {
-                       return Node{string($0.(*token.Token).Lit), []string{}}, nil
-                 } () >>
-              ;
+Label
+        : identifier  << ast.InitNode(string($0.(*token.Token).Lit), []string{}) >>
+        ;
