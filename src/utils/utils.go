@@ -20,9 +20,14 @@ func SplitAndSanitize(str string, sep string) []string {
 
 // AppendToSlice is a variadic function which takes multiple strings as
 // arguments and appends them to a slice.
-func AppendToSlice(slice []string, args ...string) []string {
+func AppendToSlice(slice []string, args ...interface{}) []string {
 	for _, v := range args {
-		slice = append(slice, v)
+		switch v.(type) {
+		case string:
+			slice = append(slice, v.(string))
+		case []string:
+			slice = append(slice, v.([]string)...)
+		}
 	}
 	return slice
 }
