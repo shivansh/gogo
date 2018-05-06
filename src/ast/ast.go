@@ -30,12 +30,12 @@ var (
 	tmpIndex   int
 	labelIndex int
 	varIndex   int
-	// funcSymtabCreated keeps track whether a symbol table corresponding to a
-	// function declaration has to be instantiated. This is because usually
-	// a new symbol table is created when the corresponding block begins.
-	// However, in case of functions the arguments also need to be added to
-	// the symbol table. Thus the symbol table is instantiated when the
-	// production rule corresponding to the arguments is reached and not
+	// funcSymtabCreated keeps track whether a symbol table corresponding to
+	// a function declaration has to be instantiated. This is because
+	// usually a new symbol table is created when the corresponding block
+	// begins. However, in case of functions the arguments also need to be
+	// added to the symbol table. Thus the symbol table is instantiated when
+	// the production rule corresponding to the arguments is reached and not
 	// when the block begins.
 	funcSymtabCreated bool
 	forSymtabCreated  bool
@@ -43,8 +43,8 @@ var (
 	// currSymTab keeps track of the currently active symbol table
 	// depending on scope.
 	currSymTab *SymInfo
-	// globalSymTab keeps track of the global struct and function declarations.
-	// NOTE: structs and functions can only be declared globally.
+	// globalSymTab keeps track of the global struct and function
+	// declarations. Structs and functions can only be declared globally.
 	globalSymTab symTabType
 	// deferStack stores the deferred function calls which are then called
 	// when the surrounding function block ends.
@@ -139,14 +139,12 @@ func RenameVariable(v string) string {
 	return ret
 }
 
+// PrintIR generates the IR instructions accumulated in the "Code" attribute of
+// the "SourceFile" non-terminal.
 func PrintIR(src Attrib) (Attrib, error) {
-	re := regexp.MustCompile("\n(\n)*")
 	c := src.(Node).Code
 	for _, v := range c {
 		v := strings.TrimSpace(v)
-		// Compress multiple newlines within IR statements into
-		// a single newline.
-		v = re.ReplaceAllString(v, "\n")
 		if v != "" {
 			fmt.Println(v)
 		}
@@ -154,12 +152,12 @@ func PrintIR(src Attrib) (Attrib, error) {
 	return nil, nil
 }
 
-// InitNode initializes a AST node with the given place and code values.
+// InitNode initializes a AST node with the given "Place" and "Code" attributes.
 func InitNode(place string, code []string) (Node, error) {
 	return Node{place, code}, nil
 }
 
-// NewNode creates a new AST node from the given attribute.
+// NewNode creates a new AST node from the attributes of the given non-terminal.
 func NewNode(attr Attrib) (Node, error) {
 	return Node{attr.(Node).Place, attr.(Node).Code}, nil
 }
@@ -230,6 +228,7 @@ func NewVarSpec(typ int, args ...Attrib) (Node, error) {
 
 // --- [ Type declarations ] ---------------------------------------------------
 
+// NewTypeDecl returns a type declaration.
 func NewTypeDecl(args ...Attrib) (Node, error) {
 	typeInfo := utils.SplitAndSanitize(args[1].(Node).Place, ",")
 	structName := strings.TrimSpace(typeInfo[1])
@@ -251,6 +250,7 @@ func NewTypeDecl(args ...Attrib) (Node, error) {
 
 // --- [ Constant declarations ] -----------------------------------------------
 
+// NewConstSpec returns a constant declaration.
 func NewConstSpec(typ int, args ...Attrib) (Node, error) {
 	n := Node{"", []string{}}
 	expr := []string{}
@@ -355,13 +355,14 @@ func NewRelExpr(op, leftexpr, rightexpr Attrib) (Node, error) {
 	return n, nil
 }
 
-// NewArithExpr returns a new arithmetic expression.
+// NewArithExpr returns an arithmetic expression.
 func NewArithExpr(op, leftexpr, rightexpr Attrib) (Node, error) {
 	n := Node{"", leftexpr.(Node).Code}
 	op = string(op.(*token.Token).Lit)
 	n.Code = append(n.Code, rightexpr.(Node).Code...)
 	if re.MatchString(leftexpr.(Node).Place) && re.MatchString(rightexpr.(Node).Place) {
-		// Expression is of the form "1 op 2".
+		// Expression is of the form "1 op 2". Such expression can
+		// be reduced by evaluating its value during compilation itself.
 		leftval, err := strconv.Atoi(leftexpr.(Node).Place)
 		if err != nil {
 			return Node{}, err
@@ -386,7 +387,8 @@ func NewArithExpr(op, leftexpr, rightexpr Attrib) (Node, error) {
 		}
 	} else if re.MatchString(leftexpr.(Node).Place) {
 		// Expression is of the form "1 + b", which needs to be
-		// converted to the equivalent form "b + 1" to form valid IR.
+		// converted to the equivalent form "b + 1" to be counted as a
+		// valid IR statement.
 		n.Place = NewTmp()
 		n.Code = append(n.Code, fmt.Sprintf("%s, %s, %s, %s", op, n.Place, rightexpr.(Node).Place, leftexpr.(Node).Place))
 	} else {
@@ -396,6 +398,7 @@ func NewArithExpr(op, leftexpr, rightexpr Attrib) (Node, error) {
 	return n, nil
 }
 
+// NewUnaryExpr returns a unary expression.
 func NewUnaryExpr(op, expr Attrib) (Node, error) {
 	n := Node{"", expr.(Node).Code}
 	switch op.(Node).Place {
@@ -547,7 +550,7 @@ func NewIdentifier(ident Attrib) (Node, error) {
 			return Node{symTabEntry[0], []string{}}, nil
 		}
 	} else {
-		return Node{}, fmt.Errorf("%s not declared", varName)
+		return Node{}, fmt.Errorf("undefined: %s", varName)
 	}
 }
 
@@ -723,8 +726,7 @@ func NewReturnStmt(expr ...Attrib) (Node, error) {
 
 // NewBlock returns a block.
 func NewBlock(stmt Attrib) (Node, error) {
-	// start of block
-	currSymTab = currSymTab.parent // end of block
+	currSymTab = currSymTab.parent // end of the previous block
 	return Node{"", stmt.(Node).Code}, nil
 }
 
@@ -733,13 +735,13 @@ func NewBlock(stmt Attrib) (Node, error) {
 // the corresponding symbol table is instantiated here.
 func NewBlockMarker() (Attrib, error) {
 	if funcSymtabCreated {
-		// The symbol table for functions is created when the
-		// rule for Signature is reached so that the arguments
-		// can also be added. At this point the function block
-		// (if there was any) has completed.
+		// The symbol table for functions is created when the rule for
+		// Signature is reached so that the arguments can also be added
+		// At this point the function block/scope (if there was any) has
+		// ended.
 		childSymTab := SymInfo{make(symTabType), currSymTab}
-		// Update the current symbol table to point to the newly
-		// created symbol table.
+		// Update the current symbol table to point to the newly created
+		// symbol table.
 		currSymTab = &childSymTab
 	} else {
 		// Allow creation of symbol table for another function.
@@ -1074,7 +1076,7 @@ func NewAssignStmt(typ int, op, leftExpr, rightExpr Attrib) (Node, error) {
 		leftExpr := utils.SplitAndSanitize(leftExpr.(Node).Place, ",")
 		rightExpr := utils.SplitAndSanitize(rightExpr.(Node).Place, ",")
 		if len(leftExpr) != len(rightExpr) {
-			return Node{}, errors.New("No. of entities in LHS ≠ RHS")
+			return Node{}, fmt.Errorf("assignment count mismatch: %d = %d", len(leftExpr), len(rightExpr))
 		}
 		for k, v := range leftExpr {
 			if len(currSymTab.varSymTab[GetRealName(v)]) >= 2 && currSymTab.varSymTab[GetRealName(v)][1] == "pointer" {
@@ -1113,8 +1115,8 @@ func NewAssignStmt(typ int, op, leftExpr, rightExpr Attrib) (Node, error) {
 		} else {
 			n.Code = rightExpr.(Node).Code
 			expr := utils.SplitAndSanitize(rightExpr.(Node).Place, ",")
-			if len(expr) != len(leftExpr.(Node).Code) {
-				return Node{}, errors.New("No. of entities in LHS ≠ RHS")
+			if len(leftExpr.(Node).Code) != len(expr) {
+				return Node{}, fmt.Errorf("assignment count mismatch: %d = %d", len(leftExpr.(Node).Code), len(expr))
 			}
 			for k, v := range leftExpr.(Node).Code {
 				symTabEntry, found := SearchInScope(v)
@@ -1126,7 +1128,7 @@ func NewAssignStmt(typ int, op, leftExpr, rightExpr Attrib) (Node, error) {
 						n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
 					}
 				} else {
-					return Node{}, fmt.Errorf("%s not declared", v)
+					return Node{}, fmt.Errorf("undefined: %s", v)
 				}
 			}
 		}
@@ -1180,8 +1182,8 @@ func NewShortDecl(identList, exprList Attrib) (Node, error) {
 		// TODO: Check this -- placeVals and expr are same??
 		placeVals := strings.Split(exprList.(Node).Place, ",")
 		expr := utils.SplitAndSanitize(exprList.(Node).Place, ",")
-		if len(expr) != len(identList.(Node).Code) {
-			return Node{}, errors.New("No. of entities in LHS ≠ RHS")
+		if len(identList.(Node).Code) != len(expr) {
+			return Node{}, fmt.Errorf("assignment count mismatch: %d = %d", len(identList.(Node).Code), len(expr))
 		}
 		for k, v := range identList.(Node).Code {
 			renamedVar := RenameVariable(v)
@@ -1198,7 +1200,7 @@ func NewShortDecl(identList, exprList Attrib) (Node, error) {
 					currSymTab.varSymTab[v] = []string{renamedVar, "int"}
 				}
 			} else {
-				return Node{}, fmt.Errorf("%s is already declared", v)
+				return Node{}, errors.New("no new variables on left side of :=")
 			}
 			if strings.HasPrefix(expr[k], "array") {
 				// TODO: rename arrays

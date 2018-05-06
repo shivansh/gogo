@@ -14,6 +14,7 @@ import (
 	"os"
 	"strings"
 
+	parseError "github.com/shivansh/gogo/tmp/errors"
 	"github.com/shivansh/gogo/tmp/lexer"
 	"github.com/shivansh/gogo/tmp/parser"
 )
@@ -40,7 +41,8 @@ func GenProductions(file string) {
 	p := parser.NewParser()
 	_, err = p.Parse(s)
 	if err != nil {
-		log.Fatal(err)
+		e := err.(*parseError.Error)
+		fmt.Printf("%s:%d: %s\n", file, e.ErrorToken.Pos.Line, e.Err)
 	}
 }
 
