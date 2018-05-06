@@ -1,11 +1,11 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # All introduced side-effects will be sandboxed inside testBranch which will be
 # deleted after all tests are finished.
 testBranch="checkbuild"
-# The testBranch will be checked out from defaultBranch.
-defaultBranch="buildStatus"
 
+# Coloring the specific log messages will help in identifying the key ones
+# amongst the lot.
 initColors() {
     if which tput >/dev/null 2>&1; then
         ncolors=$(tput colors)
@@ -21,11 +21,12 @@ initColors() {
     fi
 }
 
+# checkBuildStatus compiles the project and generates IR files for all the test
+# (*.go) files located in `test/codegen`. If there is any modification in the
+# generated IR files, the newly introduced changes might be invalid.
 checkBuildStatus() {
     initColors
-    git checkout $defaultBranch
     git checkout -b $testBranch
-    git pull --rebase origin master
     make && scripts/run-tests.sh
     if ! git diff-index --quiet HEAD --; then
         printf "${GREEN}Introduced changes are valid!${NORMAL}\n"
@@ -36,6 +37,7 @@ checkBuildStatus() {
     fi
 }
 
+# atExit runs cleanup routines after testing is finished.
 atExit() {
     git checkout -
     git branch -D $testBranch
