@@ -26,7 +26,7 @@ runIRTests() {
 	# Remove everything after and including the last '.'
 	testName=$(echo "$f" | sed -E 's/(.*)\.(.*)/\1/')
 	rm -f "$testName.asm"
-	"$binDir/gogo" "$f" > "$testName.asm"
+	"$binDir/gogo" -r2s "$f" > "$testName.asm"
     done
 }
 
@@ -36,7 +36,7 @@ runParserTests() {
 	# Remove everything after and including the last '.'
 	testName=$(echo "$f" | sed -E 's/(.*)\.(.*)/\1/')
 	rm -f "$testName.html"
-	"$binDir/gogo" "$f" > "$testName.html"
+	"$binDir/gogo" -p "$f" > "$testName.html"
     done
 }
 
@@ -46,7 +46,7 @@ runCodegenTests() {
 	# Remove everything after and including the last '.'
 	testName=$(echo "$f" | sed -E 's/(.*)\.(.*)/\1/')
 	rm -f "$testName.ir"
-	"$binDir/gogo" "$f" > "$testName.ir"
+	"$binDir/gogo" -r "$f" > "$testName.ir"
     done
 }
 

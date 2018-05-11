@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"flag"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -78,9 +80,25 @@ func GenHTML(file string) {
 }
 
 func main() {
+	asm := flag.Bool("s", false, "Generates MIPS assembly from go program")
+	ir := flag.Bool("r", false, "Generates IR instructions from go program")
+	ir2asm := flag.Bool("r2s", false, "Generates the MIPS assembly from IR")
+	prod := flag.Bool("p", false, "Generates rightmost derivations used in bottom-up parsing")
+	flag.Parse()
 	args := os.Args
-	if len(args) != 2 {
-		log.Fatalf("Usage: gogo <filename>")
+	if len(args) != 3 {
+		fmt.Fprintf(os.Stderr, "Usage: gogo (-r | -r2s | -s) <filename>\n")
+		flag.PrintDefaults()
+		os.Exit(1)
 	}
-	GenIR(args[1])
+	if *asm {
+		GenAsm(args[2])
+	} else if *ir {
+		GenIR(args[2])
+	} else if *ir2asm {
+		// TODO: Verify if the input is indeed IR.
+		GenAsmFromIR(args[2])
+	} else if *prod {
+		GenHTML(args[2])
+	}
 }
