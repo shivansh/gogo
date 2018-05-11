@@ -55,6 +55,8 @@ The generated binary `bin/gogo` can be used to generate `(Tokens | Assembly | HT
 bin/gogo test.go
 ```
 
+**NOTE:** The generated MIPS assembly has been tested to work on [SPIM](http://spimsimulator.sourceforge.net/) MIPS32 simulator.
+
 ## Testing
 The [tests](test) can be built via -
 ```

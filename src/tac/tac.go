@@ -41,23 +41,29 @@ type SymInfo struct {
 
 // Data section
 type DataSec struct {
-	// Stmts is a slice of statements which will be flushed
-	// into the data section of the generated assembly file.
+	// Stmts is a slice of statements which will be flushed into the data
+	// section of the generated assembly file.
 	Stmts []string
-	// Lookup keeps track of all the variables currently
-	// available in the data section.
+	// Lookup keeps track of all the variables currently available in the
+	// the data section.
 	Lookup map[string]bool
 }
 
 type TextSec struct {
-	// Stmts is a slice of statements which will be flushed
-	// into the text section of the generated assembly file.
+	// Stmts is a slice of statements which will be flushed into the text
+	// section of the generated assembly file.
 	Stmts []string
 }
 
 type UseInfo struct {
-	Name    string // name of the register in case of priority queue and variable in case of table
-	Nextuse int    // MaxInt if dead
+	// The Name field is used in two different contexts -
+	//	- When dealing with register priority queue, it is the name of
+	//	  a register
+	//	- When dealing with lookup tables, it is the name of a variable
+	Name string
+	// Nextuse determines the next usage (line number) of a varible. If the
+	// variable is dead, its Nextuse is set to MaxInt.
+	Nextuse int
 }
 
 type PriorityQueue []*UseInfo
@@ -123,6 +129,8 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 	var allocReg []*UseInfo
 	var srcVars []string
 	var lenSource int
+	// tab specifies the indentation to be given for in-line comments.
+	tab := ""
 
 	// Collect all "variables" available in stmt. Register allocation is
 	// first done for the source variables and then for the destination
@@ -144,11 +152,17 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 
 	for k, v := range srcVars {
 		if _, hasReg := blk.Adesc[v]; !hasReg {
-			item := heap.Pop(&blk.Pq).(*UseInfo) // element with highest next-use
+			// element with highest next use is popped
+			item := heap.Pop(&blk.Pq).(*UseInfo)
 			reg, _ := strconv.Atoi(item.Name)
 			if _, ok := blk.Rdesc[reg]; ok && !arrLookup[blk.Rdesc[reg]] {
 				comment := fmt.Sprintf("# spilled %s, freed $%s", blk.Rdesc[reg], item.Name)
-				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw $%s, %s\t\t%s", item.Name, blk.Rdesc[reg], comment))
+				if len(blk.Rdesc[reg]) >= 6 {
+					tab = "\t"
+				} else {
+					tab = "\t\t"
+				}
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%s, %s%s%s", item.Name, blk.Rdesc[reg], tab, comment))
 			}
 			allocReg = append(allocReg, &UseInfo{strconv.Itoa(reg), blk.FindNextUse(stmt.Line, v)})
 			delete(blk.Adesc, blk.Rdesc[reg])
@@ -157,9 +171,9 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 			blk.Adesc[v] = Addr{reg, blk.Adesc[v].Mem}
 			if k < lenSource-1 {
 				if !arrLookup[v] {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw $%d, %s", blk.Adesc[v].Reg, v))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw\t$%d, %s", blk.Adesc[v].Reg, v))
 				} else {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla $%d, %s", blk.Adesc[v].Reg, v))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla\t$%d, %s", blk.Adesc[v].Reg, v))
 				}
 			}
 		}
@@ -238,7 +252,7 @@ func (blk Blk) EvalNextUseInfo() {
 func GenTAC(file string) (tac Tac) {
 	blk := new(Blk)
 	line := 0
-	re := regexp.MustCompile("(^-?[0-9]+$)") // integers
+	re := regexp.MustCompile("(^-?[0-9]+$)") // regex for integers
 
 	f, err := os.Open(file)
 	if err != nil {
@@ -336,7 +350,7 @@ func (U Str) StrVal() string {
 func (pq PriorityQueue) Len() int { return len(pq) }
 
 func (pq PriorityQueue) Less(i, j int) bool {
-	// We want Pop to give us the highest nextuse.
+	// Pop is expected to return the entity with highest nextuse.
 	return pq[i].Nextuse > pq[j].Nextuse
 }
 
