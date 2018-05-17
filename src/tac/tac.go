@@ -162,7 +162,7 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 				} else {
 					tab = "\t\t"
 				}
-				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%s, %s%s%s", item.Name, blk.Rdesc[reg], tab, comment))
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%s, %s", item.Name, blk.Rdesc[reg]+tab+comment))
 			}
 			allocReg = append(allocReg, &UseInfo{strconv.Itoa(reg), blk.FindNextUse(stmt.Line, v)})
 			delete(blk.Adesc, blk.Rdesc[reg])
