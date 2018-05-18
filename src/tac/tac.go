@@ -98,6 +98,7 @@ const (
 	RegLimit = 31
 	// Variables which are dead have their next-use set to MaxInt.
 	MaxInt = int(^uint(0) >> 1)
+	MinInt = -MaxInt - 1
 )
 
 // Register allocator

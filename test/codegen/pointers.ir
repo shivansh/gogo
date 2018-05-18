@@ -1,7 +1,10 @@
 func, main
-=, x.0, 1
-=, z.2, x.0
-printInt, z.2, z.2
-=, x.0, 4
-printInt, x.0, x.0
+=, a.0, 1
+=, b.1, 2
+=, y.3, a.0
+printInt, y.3, y.3
+=, a.0, 4
+printInt, a.0, a.0
+=, b.1, a.0
+printInt, b.1, b.1
 ret,

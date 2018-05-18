@@ -1,11 +1,16 @@
 func main() {
-        x := 1
-        y := &x
-        z := *y
+        a := 1
+        b := 2
+        x := &a
+        y := *x
         // should print 1
-        printInt z
-        *y = 4
+        printInt y
+        *x = 4
         // should print 4
-        printInt x
+        printInt a
+        z := &b
+        *z = *x
+        // should print 4
+        printInt b
         return
 }

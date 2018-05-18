@@ -1,0 +1,7 @@
+Intermediate representation design
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(1) The IR notation for assigning an array member to a variable is of the form -
+	  into, destination, destination, index, array-name
+    destination appears twice because of the way register spilling is currently
+    being handled.

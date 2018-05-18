@@ -6,7 +6,6 @@ set -euo pipefail
 srcDir=$(dirname "$0")/..
 binDir="$srcDir/bin"
 testDir="$srcDir/test"
-testName=
 
 checkBuildStatus() {
     if [ ! -e "$binDir/gogo" ]; then
