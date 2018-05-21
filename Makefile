@@ -6,7 +6,7 @@ GCFLAGS=   -ldflags "-w"
 DEBUGFLAGS=-gcflags "-N -l"
 
 all:
-	make deps
+	# make deps
 	make scanner
 	make tac
 	make gogo
@@ -28,6 +28,10 @@ gogo: $(SRC)/main.go
 
 test:
 	scripts/run-tests.sh
+
+travis:
+	make
+	git diff --exit-code test
 
 clean:
 	rm -rf $(CLEANDIR)

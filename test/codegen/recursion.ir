@@ -3,7 +3,7 @@ func, PrintNatNums
 declStr, newline.0, "\n"
 bne, l0, n, 0
 =, t0, 1
-j, l1
+jmp, l1
 label, l0
 =, t0, 0
 label, l1

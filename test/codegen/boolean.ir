@@ -3,20 +3,20 @@ func, main
 =, b.1, 2
 bge, l0, a.0, b.1
 =, t0, 1
-j, l1
+jmp, l1
 label, l0
 =, t0, 0
 label, l1
 bge, l2, a.0, b.1
 =, t1, 1
-j, l3
+jmp, l3
 label, l2
 =, t1, 0
 label, l3
 beq, l5, t0, 0
 beq, l5, t1, 0
 =, t2, 1
-j, l4
+jmp, l4
 label, l5
 =, t2, 0
 label, l4

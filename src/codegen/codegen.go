@@ -1,11 +1,12 @@
-package asm
+// Package codegen implements routines for generating assembly code from IR.
+
+package codegen
 
 import (
 	"container/heap"
 	"fmt"
 	"log"
 	"strconv"
-	"strings"
 
 	"github.com/shivansh/gogo/src/tac"
 )
@@ -46,7 +47,7 @@ func CodeGen(t tac.Tac) {
 		blk.Pq = make(tac.PriorityQueue, tac.RegLimit)
 		blk.NextUseTab = make([][]tac.UseInfo, len(blk.Stmts), len(blk.Stmts))
 
-		if len(blk.Stmts) > 0 && strings.Compare(blk.Stmts[0].Op, "func") == 0 {
+		if len(blk.Stmts) > 0 && blk.Stmts[0].Op == "func" {
 			funcName = blk.Stmts[0].Dst
 		}
 
@@ -83,16 +84,27 @@ func CodeGen(t tac.Tac) {
 		// assignment statement, update the DS for data section.
 		for _, stmt := range blk.Stmts {
 			switch stmt.Op {
-			case "label", "func", "ret", "call", "#", "bgt", "bge", "blt", "ble", "beq", "bne", "j":
+			case tac.LABEL,
+				tac.FUNC,
+				tac.RET,
+				tac.CALL,
+				tac.CMT,
+				tac.BGT,
+				tac.BGE,
+				tac.BLT,
+				tac.BLE,
+				tac.BEQ,
+				tac.BNE,
+				tac.JMP:
 				break
 			default:
-				if strings.Compare(stmt.Op, "decl") == 0 && !ds.Lookup[stmt.Dst] {
+				if stmt.Op == tac.DECL && !ds.Lookup[stmt.Dst] {
 					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.space\t%d", stmt.Dst, 4*stmt.Src[0].U.IntVal()))
 					ds.Lookup[stmt.Dst] = true
 					arrLookup[stmt.Dst] = true
 					break
 				}
-				if strings.Compare(stmt.Op, "declStr") == 0 {
+				if stmt.Op == tac.DECLSTR {
 					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.asciiz %s", stmt.Dst, stmt.Src[0].U.StrVal()))
 					ds.Lookup[stmt.Dst] = true
 					break
@@ -111,7 +123,7 @@ func CodeGen(t tac.Tac) {
 
 		for _, stmt := range blk.Stmts {
 			switch stmt.Op {
-			case "=":
+			case tac.EQ:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[0].U.(type) {
@@ -130,7 +142,7 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case "from":
+			case tac.FROM:
 				blk.GetReg(&stmt, ts, arrLookup)
 				switch v := stmt.Src[1].U.(type) {
 				case tac.I32:
@@ -145,7 +157,7 @@ func CodeGen(t tac.Tac) {
 						blk.Adesc[stmt.Dst].Reg, stmt.Src[0].U.StrVal(), comment))
 				}
 
-			case "into":
+			case tac.INTO:
 				blk.GetReg(&stmt, ts, arrLookup)
 				switch u := stmt.Src[1].U.(type) {
 				case tac.I32:
@@ -184,7 +196,7 @@ func CodeGen(t tac.Tac) {
 					}
 				}
 
-			case "+":
+			case tac.ADD:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -198,7 +210,7 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case "or":
+			case tac.OR:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -212,7 +224,7 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case "and":
+			case tac.AND:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -226,7 +238,7 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case "nor":
+			case tac.NOR:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -240,7 +252,7 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case "xor":
+			case tac.XOR:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -254,13 +266,13 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case "not":
+			case tac.NOT:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tnot\t$%d, $%d\t%s",
 					blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, comment))
 
-			case "*":
+			case tac.MUL:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -274,7 +286,7 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case "/":
+			case tac.DIV:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -288,7 +300,7 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case "-":
+			case tac.SUB:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -302,7 +314,7 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case "rem":
+			case tac.REM:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -316,7 +328,7 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case "bgt":
+			case tac.BGT:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -330,7 +342,7 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case "bge":
+			case tac.BGE:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -344,7 +356,7 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case "blt":
+			case tac.BLT:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -358,7 +370,7 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case "ble":
+			case tac.BLE:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -372,7 +384,7 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case "beq":
+			case tac.BEQ:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -386,7 +398,7 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case "bne":
+			case tac.BNE:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -400,7 +412,7 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case ">>":
+			case tac.RST:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -414,7 +426,7 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case "<<":
+			case tac.LST:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].U.(type) {
@@ -428,20 +440,20 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case "label":
+			case tac.LABEL:
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("%s:", stmt.Dst))
 
-			case "func":
+			case tac.FUNC:
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\t.globl %s\n\t.ent %s", funcName, funcName))
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("%s:", stmt.Dst))
 				if funcName != "main" {
 					ts.Stmts = append(ts.Stmts, "\taddi\t$sp, $sp, -4\n\tsw\t$ra, 0($sp)")
 				}
 
-			case "j":
+			case tac.JMP:
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tj\t%s", stmt.Dst))
 
-			case "call":
+			case tac.CALL:
 				for r, _ := range blk.Rdesc {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%d, %s", r, blk.Rdesc[r]))
 					// It is the responsibility of the caller to save all the registers
@@ -449,21 +461,24 @@ func CodeGen(t tac.Tac) {
 					callerSaved = append(callerSaved, fmt.Sprintf("\tlw\t$%d, %s", r, blk.Rdesc[r]))
 				}
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tjal\t%s", stmt.Dst))
-				ts.Stmts = append(ts.Stmts, callerSaved...)
+				for _, v := range callerSaved {
+					ts.Stmts = append(ts.Stmts, v)
+				}
+				// ts.Stmts = append(ts.Stmts, callerSaved...)
 
-			case "store":
+			case tac.STORE:
 				blk.GetReg(&stmt, ts, arrLookup)
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove\t$%d, $v0", blk.Adesc[stmt.Dst].Reg))
 
-			case "#":
+			case tac.CMT:
 				if stmt.Line == 0 {
 					ds.Stmts = append([]string{fmt.Sprintf("# %s\n", stmt.Dst)}, ds.Stmts...)
 				} else {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\t# %s", stmt.Dst))
 				}
 
-			case "ret":
-				if strings.Compare(funcName, "main") == 0 {
+			case tac.RET:
+				if funcName == "main" {
 					exitStmt = "\tli\t$v0, 10\n\tsyscall\n\t.end main"
 				} else {
 					exitStmt = fmt.Sprintf("\n\tlw\t$ra, 0($sp)\n\taddi\t$sp, $sp, 4\n\tjr\t$ra\n\t.end %s", funcName)
@@ -479,12 +494,12 @@ func CodeGen(t tac.Tac) {
 					}
 				}
 
-			case "scanInt":
+			case tac.SCANINT:
 				ts.Stmts = append(ts.Stmts, "\tli\t$v0, 5\n\tsyscall")
 				blk.GetReg(&stmt, ts, arrLookup)
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove\t$%d, $v0", blk.Adesc[stmt.Dst].Reg))
 
-			case "printInt":
+			case tac.PRINTINT:
 				ts.Stmts = append(ts.Stmts, "\tli\t$v0, 1")
 				switch v := stmt.Src[0].U.(type) {
 				case tac.I32:
@@ -495,7 +510,7 @@ func CodeGen(t tac.Tac) {
 				}
 				ts.Stmts = append(ts.Stmts, "\tsyscall")
 
-			case "printStr":
+			case tac.PRINTSTR:
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli\t$v0, 4\n\tla $a0, %s\n\tsyscall", stmt.Dst))
 			}
 
@@ -503,11 +518,11 @@ func CodeGen(t tac.Tac) {
 			// the src variable's lookup entry was temporarily marked. Find that variable
 			// if it exists and delete its entry. It should be noted that the chosen
 			// variable shouldn't have the same name as that of dst.
-			if _, ok := blk.Adesc[stmt.Dst]; ok && strings.Compare(stmt.Op, "printInt") != 0 {
+			if _, ok := blk.Adesc[stmt.Dst]; ok && stmt.Op == tac.PRINTINT {
 				for _, v := range stmt.Src {
 					switch v := v.U.(type) {
 					case tac.Str:
-						if blk.Adesc[v.StrVal()].Reg == blk.Adesc[stmt.Dst].Reg && strings.Compare(v.StrVal(), stmt.Dst) != 0 {
+						if blk.Adesc[v.StrVal()].Reg == blk.Adesc[stmt.Dst].Reg && v.StrVal() != stmt.Dst {
 							delete(blk.Adesc, v.StrVal())
 						}
 					}

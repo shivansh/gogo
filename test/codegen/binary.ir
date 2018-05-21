@@ -12,7 +12,7 @@ printStr, binaryLine.4
 label, l2
 ble, l0, a.0, 0
 =, t0, 1
-j, l1
+jmp, l1
 label, l0
 =, t0, 0
 label, l1
@@ -25,14 +25,14 @@ into, binary.1, binary.1, i.5, t1
 =, a.0, t3
 +, t4, i.5, 1
 =, i.5, t4
-j, l2
+jmp, l2
 label, l3
 -, t5, i.5, 1
 =, j.6, t5
 label, l6
 blt, l4, j.6, 0
 =, t6, 1
-j, l5
+jmp, l5
 label, l4
 =, t6, 0
 label, l5
@@ -40,6 +40,6 @@ blt, l7, t6, 1
 from, t7, binary.1, j.6
 printInt, t7, t7
 -, j.6, j.6, 1
-j, l6
+jmp, l6
 label, l7
 ret,

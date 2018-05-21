@@ -5,23 +5,23 @@ func, main
 +, t0, a.0, b.1
 ble, l0, t0, 3
 =, t1, 1
-j, l1
+jmp, l1
 label, l0
 =, t1, 0
 label, l1
 blt, l7, t1, 1
 printInt, a.0, a.0
-j, l6
+jmp, l6
 label, l7
 ble, l2, b.1, 1
 =, t2, 1
-j, l3
+jmp, l3
 label, l2
 =, t2, 0
 label, l3
 blt, l5, t2, 1
 printInt, b.1, b.1
-j, l4
+jmp, l4
 label, l5
 printInt, c.2, c.2
 label, l4

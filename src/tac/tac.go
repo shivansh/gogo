@@ -52,7 +52,7 @@ type DataSec struct {
 type TextSec struct {
 	// Stmts is a slice of statements which will be flushed into the text
 	// section of the generated assembly file.
-	Stmts []string
+	Stmts []interface{}
 }
 
 type UseInfo struct {
@@ -72,7 +72,7 @@ type Blk struct {
 	Stmts []Stmt
 	// Address descriptor:
 	//	* Keeps track of location where current value of the
-	//	  name can be found at runtime.
+	//	  name can be found at compile time.
 	//	* The location can be either one or a set of -
 	//		- register
 	//		- memory address
@@ -143,7 +143,7 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 		}
 	}
 	switch stmt.Op {
-	case "bgt", "bge", "blt", "ble", "beq", "bne", "j":
+	case BGT, BGE, BLT, BLE, BEQ, BNE, JMP:
 		lenSource = len(srcVars) + 1
 		break
 	default:
@@ -267,7 +267,7 @@ func GenTAC(file string) (tac Tac) {
 			record[i] = strings.TrimSpace(record[i])
 		}
 		switch record[0] {
-		case "label":
+		case LABEL:
 			// label statement is part of the newly created block.
 			if blk != nil {
 				tac = append(tac, *blk) // end the previous block
@@ -276,7 +276,8 @@ func GenTAC(file string) (tac Tac) {
 			line = 0
 			blk.Stmts = append(blk.Stmts, Stmt{line, record[0], record[1], []*SymInfo{}})
 			line++
-		case "func":
+
+		case FUNC:
 			// func statement is part of the newly created block.
 			if blk != nil {
 				tac = append(tac, *blk) // end the previous block
@@ -285,11 +286,13 @@ func GenTAC(file string) (tac Tac) {
 			line = 0
 			blk.Stmts = append(blk.Stmts, Stmt{line, record[0], record[1], []*SymInfo{}})
 			line++
-		case "j", "bgt", "bge", "blt", "ble", "beq", "bne":
+
+		case JMP, BGT, BGE, BLT, BLE, BEQ, BNE:
 			tac = append(tac, *blk) // end the previous block
 			blk = new(Blk)          // start a new block
 			line = 0
 			fallthrough // move into next section to update blk.Src
+
 		default:
 			// Prepare a slice of source variables.
 			var sv []*SymInfo
@@ -309,11 +312,13 @@ func GenTAC(file string) (tac Tac) {
 			line++
 		}
 	}
+
 	// Push the last allocated basic block
 	tac = append(tac, *blk)
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
+
 	return
 }
 

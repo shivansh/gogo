@@ -9,7 +9,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/shivansh/gogo/src/asm"
+	"github.com/shivansh/gogo/src/codegen"
 	"github.com/shivansh/gogo/src/parser"
 	"github.com/shivansh/gogo/src/scanner"
 	"github.com/shivansh/gogo/src/tac"
@@ -29,7 +29,7 @@ func GenIR(file string) {
 func GenAsmFromIR(file string) {
 	// A journey of a thousand miles begins with a single step. This is that
 	// step.
-	asm.CodeGen(tac.GenTAC(file))
+	codegen.CodeGen(tac.GenTAC(file))
 }
 
 // GenAsm generates the assembly code from the input go program.

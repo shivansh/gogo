@@ -16,7 +16,7 @@ label, spcFor
 bgt, innerFor, space, temp
 printStr, twoSpc
 +, space, space, 1
-j, spcFor
+jmp, spcFor
 =, k, 0
 label, innerFor
 bgt, endLine, k, i
@@ -26,17 +26,17 @@ beq, labelIf, i, 0
 +, temp, temp, 1
 *, coef, coef, temp
 /, coef, coef, k
-j, labelCoef
+jmp, labelCoef
 label, labelIf
 =, coef, 1
 label, labelCoef
 printStr, threeSpc
 printInt, coef, coef
 +, k, k, 1
-j, innerFor
+jmp, innerFor
 label, endLine
 printStr, newline
 +, i, i, 1
-j, outerFor
+jmp, outerFor
 label, exit
 ret,

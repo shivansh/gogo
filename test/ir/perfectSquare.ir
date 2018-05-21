@@ -10,7 +10,7 @@ label, loop
 bgt, loop, n, 0
 declStr, isStr, "n is not a perfect square."
 printStr, isStr
-j, exit
+jmp, exit
 #, Prints 1 if n is a perfect square, 0 otherwise.
 bne, exit, n, 0
 declStr, notStr, "n is a perfect square."

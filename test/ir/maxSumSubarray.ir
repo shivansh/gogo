@@ -7,7 +7,7 @@ bge, exit1, i, 10
 scanInt, v
 into, a, a, i, v
 +, i, i, 1
-j, loop1
+jmp, loop1
 label, exit1
 from, v, a, 0
 into, sum, sum, 0, v
@@ -19,7 +19,7 @@ bge, branch1, v, 0
 from, v, a, i
 into, sum, sum, i, v
 +, i, i, 1
-j, loop2
+jmp, loop2
 label, branch1
 from, v, a, i
 -, v1, i, 1
@@ -27,7 +27,7 @@ from, v2, sum, v1
 +, v, v, v2
 into, sum, sum, i, v
 +, i, i, 1
-j, loop2
+jmp, loop2
 label, exit2
 from, maxsum, sum , 0
 =, i, 1
@@ -37,10 +37,10 @@ from, v, sum, i
 bge, branch2, maxsum, v
 =, maxsum, v
 +, i, i, 1
-j, loop3
+jmp, loop3
 label, branch2
 +, i, i, 1
-j, loop3
+jmp, loop3
 label, exit3
 printInt, maxsum, maxsum
 ret,

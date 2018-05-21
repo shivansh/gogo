@@ -7,14 +7,14 @@ label, l4
 from, t1, a.0, 0
 bne, l0, t1, 1
 =, t2, 1
-j, l1
+jmp, l1
 label, l0
 =, t2, 0
 label, l1
 blt, l2, t2, 1
-j, l5
+jmp, l5
 label, l2
-j, l4
+jmp, l4
 label, l5
 from, t3, a.0, 0
 printInt, t3, t3

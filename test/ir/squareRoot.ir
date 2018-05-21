@@ -18,12 +18,12 @@ blt, ifBranch, temp, x
 #, else branch
 -, end, mid, 1
 ble, while, start, end
-j, exit
+jmp, exit
 label, ifBranch
 +, start, mid, 1
 =, ans, mid
 ble, while, start, end
-j, exit
+jmp, exit
 label, perfectSquare
 =, ans, mid
 label, exit

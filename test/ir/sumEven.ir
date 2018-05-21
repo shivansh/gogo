@@ -7,14 +7,14 @@ scanInt, n
 =, k, 0
 label, loop
 bge, exit, i, n
-rem, l, i, 2
+%, l, i, 2
 beq, skip, l, 1
 +, k, k, i
 +, i, i, 1
-j, loop
+jmp, loop
 label, skip
 +, i, i, 1
-j, loop
+jmp, loop
 label, exit
 declStr, str, "Sum of all even numbers less than n: "
 printStr, str

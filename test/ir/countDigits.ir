@@ -7,7 +7,7 @@ label, while
 ble, exit, n, 0
 /, n, n, 10
 +, count, count, 1
-j, while
+jmp, while
 label, exit
 declStr, str, "Number of digits in n: "
 printStr, str

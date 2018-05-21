@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/shivansh/gogo/src/tac"
 	"github.com/shivansh/gogo/src/utils"
-	"github.com/shivansh/gogo/tmp/token"
 )
 
 type (
@@ -52,8 +52,8 @@ type Node struct {
 
 // PrintIR generates the IR instructions accumulated in the "Code" attribute of
 // the "SourceFile" non-terminal.
-func PrintIR(src Attrib) (Attrib, error) {
-	c := src.(*Node).Code
+func PrintIR(src *Node) (*Node, error) {
+	c := src.Code
 	for _, v := range c {
 		v := strings.TrimSpace(v)
 		if v != "" {
@@ -69,35 +69,35 @@ func InitNode(place string, code []string) (*Node, error) {
 }
 
 // NewNode creates a new AST node from the attributes of the given non-terminal.
-func NewNode(attr Attrib) (*Node, error) {
-	return &Node{attr.(*Node).Place, attr.(*Node).Code}, nil
+func NewNode(attr *Node) (*Node, error) {
+	return &Node{attr.Place, attr.Code}, nil
 }
 
 // --- [ Top level declarations ] ----------------------------------------------
 
 // NewTopLevelDecl returns a top level declaration.
-func NewTopLevelDecl(topDecl, repeatTopDecl Attrib) (*Node, error) {
-	n := &Node{"", topDecl.(*Node).Code}
-	n.Code = append(n.Code, repeatTopDecl.(*Node).Code...)
+func NewTopLevelDecl(topDecl, repeatTopDecl *Node) (*Node, error) {
+	n := &Node{"", topDecl.Code}
+	n.Code = append(n.Code, repeatTopDecl.Code...)
 	return n, nil
 }
 
 // NewTypeDef returns a type definition.
-func NewTypeDef(ident, typ Attrib) (*Node, error) {
-	return &Node{fmt.Sprintf("%s, %s", typ.(*Node).Place, string(ident.(*token.Token).Lit)), typ.(*Node).Code}, nil
+func NewTypeDef(ident string, typ *Node) (*Node, error) {
+	return &Node{fmt.Sprintf("%s, %s", typ.Place, ident), typ.Code}, nil
 }
 
 // NewElementList returns a keyed element list.
-func NewElementList(key, keyList Attrib) (*Node, error) {
-	n := &Node{fmt.Sprintf("%s, %s", key.(*Node).Place, keyList.(*Node).Place), key.(*Node).Code}
-	n.Code = append(n.Code, keyList.(*Node).Code...)
+func NewElementList(key, keyList *Node) (*Node, error) {
+	n := &Node{fmt.Sprintf("%s, %s", key.Place, keyList.Place), key.Code}
+	n.Code = append(n.Code, keyList.Code...)
 	return n, nil
 }
 
 // AppendKeyedElement appends a keyed element to a list of keyed elements.
-func AppendKeyedElement(key, keyList Attrib) (*Node, error) {
-	n := &Node{fmt.Sprintf("%s, %s", key.(*Node).Place, keyList.(*Node).Place), key.(*Node).Code}
-	n.Code = append(n.Code, keyList.(*Node).Code...)
+func AppendKeyedElement(key, keyList *Node) (*Node, error) {
+	n := &Node{fmt.Sprintf("%s, %s", key.Place, keyList.Place), key.Code}
+	n.Code = append(n.Code, keyList.Code...)
 	return n, nil
 }
 
@@ -110,21 +110,21 @@ func AppendKeyedElement(key, keyList Attrib) (*Node, error) {
 // 	- ExpressionList
 // The cardinal argument `typ` determines the index of the production rule
 // invoked starting from top.
-func NewVarSpec(typ int, args ...Attrib) (*Node, error) {
+func NewVarSpec(typ int, args ...*Node) (*Node, error) {
 	n := &Node{"", []string{}}
 	expr := []string{}
 	// Add the IR instructions for ExpressionList.
 	switch typ {
 	case 1:
-		n.Code = args[2].(*Node).Code
-		expr = utils.SplitAndSanitize(args[2].(*Node).Place, ",")
+		n.Code = args[2].Code
+		expr = utils.SplitAndSanitize(args[2].Place, ",")
 	case 2:
-		n.Code = args[1].(*Node).Code
-		expr = utils.SplitAndSanitize(args[1].(*Node).Place, ",")
+		n.Code = args[1].Code
+		expr = utils.SplitAndSanitize(args[1].Place, ",")
 	case 3:
 		return &Node{}, nil
 	}
-	for k, v := range args[0].(*Node).Code {
+	for k, v := range args[0].Code {
 		renamedVar := RenameVariable(v)
 		// TODO: Handle other types
 		InsertSymbol(v, INTEGER, renamedVar)
@@ -140,8 +140,8 @@ func NewVarSpec(typ int, args ...Attrib) (*Node, error) {
 // --- [ Type declarations ] ---------------------------------------------------
 
 // NewTypeDecl returns a type declaration.
-func NewTypeDecl(args ...Attrib) (*Node, error) {
-	typeInfo := utils.SplitAndSanitize(args[1].(*Node).Place, ",")
+func NewTypeDecl(args ...*Node) (*Node, error) {
+	typeInfo := utils.SplitAndSanitize(args[1].Place, ",")
 	structName := strings.TrimSpace(typeInfo[1])
 	typ := strings.TrimSpace(typeInfo[0])
 	switch typ {
@@ -151,7 +151,7 @@ func NewTypeDecl(args ...Attrib) (*Node, error) {
 		//      structName : []{"struct", memberName1, memberType1, ...}
 		globalSymTab[structName] = symTabEntry{
 			kind:    STRUCT,
-			symbols: args[1].(*Node).Code,
+			symbols: args[1].Code,
 		}
 	default: // TODO: Add remaining types.
 		return &Node{}, fmt.Errorf("Unknown type %s", typ)
@@ -164,14 +164,14 @@ func NewTypeDecl(args ...Attrib) (*Node, error) {
 // --- [ Constant declarations ] -----------------------------------------------
 
 // NewConstSpec returns a constant declaration.
-func NewConstSpec(typ int, args ...Attrib) (*Node, error) {
+func NewConstSpec(typ int, args ...*Node) (*Node, error) {
 	n := &Node{"", []string{}}
 	expr := []string{}
 	if typ == 1 {
-		n.Code = append(n.Code, args[1].(*Node).Code...)
-		expr = utils.SplitAndSanitize(args[1].(*Node).Place, ",")
+		n.Code = append(n.Code, args[1].Code...)
+		expr = utils.SplitAndSanitize(args[1].Place, ",")
 	}
-	for k, v := range args[0].(*Node).Code {
+	for k, v := range args[0].Code {
 		renamedVar := RenameVariable(v)
 		InsertSymbol(v, INTEGER, renamedVar)
 		switch typ {
@@ -187,33 +187,33 @@ func NewConstSpec(typ int, args ...Attrib) (*Node, error) {
 // --- [ Expressions ] ---------------------------------------------------------
 
 // NewExpr returns a new expression.
-func NewExpr(expr Attrib) (*Node, error) {
+func NewExpr(expr *Node) (*Node, error) {
 	return NewNode(expr)
 }
 
 // AppendExpr appends a list of expressions to a given expression.
-func AppendExpr(expr, exprlist Attrib) (*Node, error) {
-	n := &Node{"", expr.(*Node).Code}
-	n.Code = append(n.Code, exprlist.(*Node).Code...)
-	n.Place = fmt.Sprintf("%s,%s", expr.(*Node).Place, exprlist.(*Node).Place)
+func AppendExpr(expr, exprlist *Node) (*Node, error) {
+	n := &Node{"", expr.Code}
+	n.Code = append(n.Code, exprlist.Code...)
+	n.Place = fmt.Sprintf("%s,%s", expr.Place, exprlist.Place)
 	return n, nil
 }
 
 // NewBoolExpr returns a new logical expression.
-func NewBoolExpr(op, leftexpr, rightexpr Attrib) (*Node, error) {
-	n := &Node{"", leftexpr.(*Node).Code}
-	n.Code = append(n.Code, rightexpr.(*Node).Code...)
+func NewBoolExpr(op string, leftexpr, rightexpr *Node) (*Node, error) {
+	n := &Node{"", leftexpr.Code}
+	n.Code = append(n.Code, rightexpr.Code...)
 	n.Place = NewTmp()
 	afterLabel := NewLabel()
-	switch string(op.(*token.Token).Lit) {
+	switch op {
 	case "||":
 		trueLabel := NewLabel()
 		n.Code = utils.AppendToSlice(
 			n.Code,
-			fmt.Sprintf("beq, %s, %s, 1", trueLabel, leftexpr.(*Node).Place),
-			fmt.Sprintf("beq, %s, %s, 1", trueLabel, rightexpr.(*Node).Place),
+			fmt.Sprintf("beq, %s, %s, 1", trueLabel, leftexpr.Place),
+			fmt.Sprintf("beq, %s, %s, 1", trueLabel, rightexpr.Place),
 			fmt.Sprintf("=, %s, 0", n.Place),
-			fmt.Sprintf("j, %s", afterLabel),
+			fmt.Sprintf("%s, %s", tac.JMP, afterLabel),
 			fmt.Sprintf("label, %s", trueLabel),
 			fmt.Sprintf("=, %s, 1", n.Place),
 			fmt.Sprintf("label, %s", afterLabel),
@@ -222,10 +222,10 @@ func NewBoolExpr(op, leftexpr, rightexpr Attrib) (*Node, error) {
 		falseLabel := NewLabel()
 		n.Code = utils.AppendToSlice(
 			n.Code,
-			fmt.Sprintf("beq, %s, %s, 0", falseLabel, leftexpr.(*Node).Place),
-			fmt.Sprintf("beq, %s, %s, 0", falseLabel, rightexpr.(*Node).Place),
+			fmt.Sprintf("beq, %s, %s, 0", falseLabel, leftexpr.Place),
+			fmt.Sprintf("beq, %s, %s, 0", falseLabel, rightexpr.Place),
 			fmt.Sprintf("=, %s, 1", n.Place),
-			fmt.Sprintf("j, %s", afterLabel),
+			fmt.Sprintf("%s, %s", tac.JMP, afterLabel),
 			fmt.Sprintf("label, %s", falseLabel),
 			fmt.Sprintf("=, %s, 0", n.Place),
 			fmt.Sprintf("label, %s", afterLabel),
@@ -235,14 +235,14 @@ func NewBoolExpr(op, leftexpr, rightexpr Attrib) (*Node, error) {
 }
 
 // NewRelExpr returns a new relational expression.
-func NewRelExpr(op, leftexpr, rightexpr Attrib) (*Node, error) {
-	n := &Node{"", leftexpr.(*Node).Code}
+func NewRelExpr(op, leftexpr, rightexpr *Node) (*Node, error) {
+	n := &Node{"", leftexpr.Code}
 	n.Place = NewTmp()
-	n.Code = append(n.Code, rightexpr.(*Node).Code...)
+	n.Code = append(n.Code, rightexpr.Code...)
 	branchOp := ""
 	falseLabel := NewLabel()
 	afterLabel := NewLabel()
-	switch op.(*Node).Place {
+	switch op.Place {
 	case "==":
 		branchOp = "bne"
 	case "!=":
@@ -258,9 +258,9 @@ func NewRelExpr(op, leftexpr, rightexpr Attrib) (*Node, error) {
 	}
 	n.Code = utils.AppendToSlice(
 		n.Code,
-		fmt.Sprintf("%s, %s, %s, %s", branchOp, falseLabel, leftexpr.(*Node).Place, rightexpr.(*Node).Place),
+		fmt.Sprintf("%s, %s, %s, %s", branchOp, falseLabel, leftexpr.Place, rightexpr.Place),
 		fmt.Sprintf("=, %s, 1", n.Place),
-		fmt.Sprintf("j, %s", afterLabel),
+		fmt.Sprintf("%s, %s", tac.JMP, afterLabel),
 		fmt.Sprintf("label, %s", falseLabel),
 		fmt.Sprintf("=, %s, 0", n.Place),
 		fmt.Sprintf("label, %s", afterLabel),
@@ -269,18 +269,17 @@ func NewRelExpr(op, leftexpr, rightexpr Attrib) (*Node, error) {
 }
 
 // NewArithExpr returns an arithmetic expression.
-func NewArithExpr(op, leftexpr, rightexpr Attrib) (*Node, error) {
-	n := &Node{"", leftexpr.(*Node).Code}
-	op = string(op.(*token.Token).Lit)
-	n.Code = append(n.Code, rightexpr.(*Node).Code...)
-	if re.MatchString(leftexpr.(*Node).Place) && re.MatchString(rightexpr.(*Node).Place) {
+func NewArithExpr(op string, leftexpr, rightexpr *Node) (*Node, error) {
+	n := &Node{"", leftexpr.Code}
+	n.Code = append(n.Code, rightexpr.Code...)
+	if re.MatchString(leftexpr.Place) && re.MatchString(rightexpr.Place) {
 		// Expression is of the form "1 op 2". Such expression can
 		// be reduced by evaluating its value during compilation itself.
-		leftval, err := strconv.Atoi(leftexpr.(*Node).Place)
+		leftval, err := strconv.Atoi(leftexpr.Place)
 		if err != nil {
 			return &Node{}, err
 		}
-		rightval, err := strconv.Atoi(rightexpr.(*Node).Place)
+		rightval, err := strconv.Atoi(rightexpr.Place)
 		if err != nil {
 			return &Node{}, err
 		}
@@ -298,57 +297,57 @@ func NewArithExpr(op, leftexpr, rightexpr Attrib) (*Node, error) {
 		default:
 			return &Node{}, fmt.Errorf("Invalid operation %s", op)
 		}
-	} else if re.MatchString(leftexpr.(*Node).Place) {
+	} else if re.MatchString(leftexpr.Place) {
 		// Expression is of the form "1 + b", which needs to be
 		// converted to the equivalent form "b + 1" to be counted as a
 		// valid IR statement.
 		n.Place = NewTmp()
-		n.Code = append(n.Code, fmt.Sprintf("%s, %s, %s, %s", op, n.Place, rightexpr.(*Node).Place, leftexpr.(*Node).Place))
+		n.Code = append(n.Code, fmt.Sprintf("%s, %s, %s, %s", op, n.Place, rightexpr.Place, leftexpr.Place))
 	} else {
 		n.Place = NewTmp()
-		n.Code = append(n.Code, fmt.Sprintf("%s, %s, %s, %s", op, n.Place, leftexpr.(*Node).Place, rightexpr.(*Node).Place))
+		n.Code = append(n.Code, fmt.Sprintf("%s, %s, %s, %s", op, n.Place, leftexpr.Place, rightexpr.Place))
 	}
 	return n, nil
 }
 
 // NewUnaryExpr returns a unary expression.
-func NewUnaryExpr(op, expr Attrib) (*Node, error) {
-	n := &Node{"", expr.(*Node).Code}
-	switch op.(*Node).Place {
+func NewUnaryExpr(op, expr *Node) (*Node, error) {
+	n := &Node{"", expr.Code}
+	switch op.Place {
 	case "-":
-		if re.MatchString(expr.(*Node).Place) {
+		if re.MatchString(expr.Place) {
 			// expression is of the form 1+2
-			term3val, err := strconv.Atoi(expr.(*Node).Place)
+			term3val, err := strconv.Atoi(expr.Place)
 			if err != nil {
 				return &Node{}, err
 			}
 			n.Place = strconv.Itoa(term3val * -1)
 		} else {
 			n.Place = NewTmp()
-			n.Code = append(n.Code, fmt.Sprintf("*, %s, %s, -1", n.Place, expr.(*Node).Place))
+			n.Code = append(n.Code, fmt.Sprintf("*, %s, %s, -1", n.Place, expr.Place))
 		}
 	case "!":
 		n.Place = NewTmp()
-		n.Code = append(n.Code, fmt.Sprintf("not, %s, %s", n.Place, expr.(*Node).Place))
+		n.Code = append(n.Code, fmt.Sprintf("not, %s, %s", n.Place, expr.Place))
 	case "+":
-		n.Place = expr.(*Node).Place
+		n.Place = expr.Place
 	case "&":
 		// Place attribute of a pointer variable starts with "pointer:"
 		// followed by its place attribute.
-		n.Place = PTR + ":" + expr.(*Node).Place
+		n.Place = PTR + ":" + expr.Place
 	case "*":
-		n.Place = DRF + ":" + expr.(*Node).Place
+		n.Place = DRF + ":" + expr.Place
 	default:
-		return n, fmt.Errorf("%s operator not supported", op.(*Node).Place)
+		return n, fmt.Errorf("%s operator not supported", op.Place)
 	}
 	return n, nil
 }
 
 // NewPrimaryExprSel returns an AST node for PrimaryExpr Selector.
-func NewPrimaryExprSel(expr, selector Attrib) (*Node, error) {
+func NewPrimaryExprSel(expr, selector *Node) (*Node, error) {
 	// The symbol table entry of a selector is of the form -
 	//	(exprPlace).(selectorPlace)
-	varName := fmt.Sprintf("%s.%s", expr.(*Node).Place, selector.(*Node).Place)
+	varName := fmt.Sprintf("%s.%s", expr.Place, selector.Place)
 	if symEntry, found := Lookup(varName); found {
 		if _, ok := globalSymTab[varName]; ok {
 			return &Node{}, fmt.Errorf("%s not in scope", varName)
@@ -361,21 +360,21 @@ func NewPrimaryExprSel(expr, selector Attrib) (*Node, error) {
 }
 
 // NewPrimaryExprIndex returns an AST node for PrimaryExpr Index.
-func NewPrimaryExprIndex(expr, index Attrib) (*Node, error) {
+func NewPrimaryExprIndex(expr, index *Node) (*Node, error) {
 	n := &Node{"", []string{}}
 	n.Place = NewTmp()
 	// NOTE: Indexing is only supported by array types and not pointer types.
-	InsertSymbol(n.Place, ARRAY, expr.(*Node).Place, index.(*Node).Place)
-	n.Code = append(n.Code, index.(*Node).Code...)
-	n.Code = append(n.Code, fmt.Sprintf("from, %s, %s, %s", n.Place, expr.(*Node).Place, index.(*Node).Place))
+	InsertSymbol(n.Place, ARRAY, expr.Place, index.Place)
+	n.Code = append(n.Code, index.Code...)
+	n.Code = append(n.Code, fmt.Sprintf("from, %s, %s, %s", n.Place, expr.Place, index.Place))
 	return n, nil
 }
 
 // NewPrimaryExprArgs returns an AST node for PrimaryExpr Arguments.
 // NOTE: This is the production rule for a function call.
-func NewPrimaryExprArgs(expr, args Attrib) (*Node, error) {
-	n := &Node{"", args.(*Node).Code}
-	symEntry := globalSymTab[expr.(*Node).Place]
+func NewPrimaryExprArgs(expr, args *Node) (*Node, error) {
+	n := &Node{"", args.Code}
+	symEntry := globalSymTab[expr.Place]
 	returnLen := 0
 	if symEntry.kind == FUNCTION {
 		ret, err := strconv.Atoi(symEntry.symbols[0])
@@ -384,39 +383,39 @@ func NewPrimaryExprArgs(expr, args Attrib) (*Node, error) {
 		}
 		returnLen = ret
 	} else {
-		return &Node{}, fmt.Errorf("%s is not a function", expr.(*Node).Place)
+		return &Node{}, fmt.Errorf("%s is not a function", expr.Place)
 	}
-	argExpr := utils.SplitAndSanitize(args.(*Node).Place, ",")
+	argExpr := utils.SplitAndSanitize(args.Place, ",")
 	for k, v := range argExpr {
-		n.Code = append(n.Code, fmt.Sprintf("=, %s.%d, %s", expr.(*Node).Place, k, v))
+		n.Code = append(n.Code, fmt.Sprintf("=, %s.%d, %s", expr.Place, k, v))
 	}
-	n.Code = append(n.Code, fmt.Sprintf("call, %s", expr.(*Node).Place))
+	n.Code = append(n.Code, fmt.Sprintf("call, %s", expr.Place))
 	for k := 0; k < returnLen; k++ {
 		n.Place = fmt.Sprintf("%s, return.%d", n.Place, k)
 	}
 	return n, nil
 }
 
-func NewCompositeLit(typ, val Attrib) (*Node, error) {
-	n := &Node{typ.(*Node).Place, []string{}}
+func NewCompositeLit(typ, val *Node) (*Node, error) {
+	n := &Node{typ.Place, []string{}}
 	// Check if the LiteralType corresponds to ArrayType. This is done
 	// because unlike structs it is not required to add a symbol table entry
 	// for place values of arrays (which is of the form "array:<length>"),
 	// thus returning early.
-	typeName := typ.(*Node).Place
+	typeName := typ.Place
 	if strings.HasPrefix(typeName, ARR) {
 		return n, nil
 	}
 	// In case the corresponds to a struct, add the code for its data member
 	// initialization.
-	if symEntry, found := Lookup(typ.(*Node).Place); found {
+	if symEntry, found := Lookup(typ.Place); found {
 		switch symEntry.kind {
 		case STRUCT:
 			// The place value for struct is of the form -
 			//      struct:<number of struct members>:<struct name>
 			n.Place = fmt.Sprintf("struct:%d:%s", len(symEntry.symbols)/2, n.Place)
-			litVals := utils.SplitAndSanitize(val.(*Node).Place, ",")
-			litValCodes := val.(*Node).Code
+			litVals := utils.SplitAndSanitize(val.Place, ",")
+			litValCodes := val.Code
 			structInit := []string{}
 			// In case of integral (or any type) initializations, the corresponding
 			// lexeme is placed at the place value, justifying the length check which
@@ -446,14 +445,13 @@ func NewCompositeLit(typ, val Attrib) (*Node, error) {
 		}
 	} else {
 		// TODO: Update error message.
-		return &Node{}, fmt.Errorf("%s not in scope", typ.(*Node).Place)
+		return &Node{}, fmt.Errorf("%s not in scope", typ.Place)
 	}
 	return n, nil
 }
 
 // NewIdentifier returns a new identifier.
-func NewIdentifier(ident Attrib) (*Node, error) {
-	varName := string(ident.(*token.Token).Lit)
+func NewIdentifier(varName string) (*Node, error) {
 	if symEntry, found := Lookup(varName); found {
 		if _, ok := globalSymTab[varName]; ok {
 			return &Node{varName, []string{}}, nil
@@ -468,9 +466,9 @@ func NewIdentifier(ident Attrib) (*Node, error) {
 // --- [ Functions ] -----------------------------------------------------------
 
 // NewFuncDecl returns a function declaration.
-func NewFuncDecl(marker, body Attrib) (*Node, error) {
-	n := &Node{"", marker.(*Node).Code}
-	n.Code = append(n.Code, body.(*Node).Code...)
+func NewFuncDecl(marker, body *Node) (*Node, error) {
+	n := &Node{"", marker.Code}
+	n.Code = append(n.Code, body.Code...)
 	funcSymtabCreated = false // end of function block
 	// Return statement insertion will be handled when defer stack is
 	// emptied and the code for deferred calls has been inserted.
@@ -486,18 +484,18 @@ func NewFuncDecl(marker, body Attrib) (*Node, error) {
 
 // NewFuncMarker returns a marker non-terminal used in the production rule for
 // function declaration.
-func NewFuncMarker(name, signature Attrib) (*Node, error) {
-	n := &Node{name.(*Node).Place, []string{fmt.Sprintf("func, %s", name.(*Node).Place)}}
+func NewFuncMarker(name, signature *Node) (*Node, error) {
+	n := &Node{name.Place, []string{fmt.Sprintf("func, %s", name.Place)}}
 	// Assign values to arguments.
-	for k, v := range signature.(*Node).Code {
-		n.Code = append(n.Code, fmt.Sprintf("=, %s, %s.%d", v, name.(*Node).Place, k))
+	for k, v := range signature.Code {
+		n.Code = append(n.Code, fmt.Sprintf("=, %s, %s.%d", v, name.Place, k))
 	}
-	if _, found := globalSymTab[name.(*Node).Place]; !found {
-		globalSymTab[name.(*Node).Place] = symTabEntry{
+	if _, found := globalSymTab[name.Place]; !found {
+		globalSymTab[name.Place] = symTabEntry{
 			kind:    FUNCTION,
-			symbols: []string{signature.(*Node).Place},
+			symbols: []string{signature.Place},
 		}
-		// globalSymTab[name.(*Node).Place] = []string{fmt.Sprintf("%s:%s", FNC, signature.(*Node).Place)}
+		// globalSymTab[name.Place] = []string{fmt.Sprintf("%s:%s", FNC, signature.Place)}
 	} else {
 		return &Node{}, fmt.Errorf("Function %s is already declared\n", name)
 	}
@@ -510,26 +508,26 @@ func NewFuncMarker(name, signature Attrib) (*Node, error) {
 //	- result
 // The cardinal argument `typ` determines the index of the production rule
 // invoked starting from top.
-func NewSignature(typ int, args ...Attrib) (*Node, error) {
+func NewSignature(typ int, args ...*Node) (*Node, error) {
 	NewScope()
-	for _, v := range args[0].(*Node).Code {
+	for _, v := range args[0].Code {
 		if v == "" {
 			break
 		}
 		InsertSymbol(v, INTEGER, v)
 	}
 	if typ == 0 {
-		return &Node{"0", args[0].(*Node).Code}, nil
+		return &Node{"0", args[0].Code}, nil
 	} else {
-		return &Node{fmt.Sprintf("%s", args[1].(*Node).Place), args[0].(*Node).Code}, nil
+		return &Node{fmt.Sprintf("%s", args[1].Place), args[0].Code}, nil
 	}
 }
 
 // NewResult defines the return type of a function.
-func NewResult(params Attrib) (*Node, error) {
+func NewResult(params *Node) (*Node, error) {
 	returnLength := 0
 	// finding number of return variable
-	for _, v := range params.(*Node).Code {
+	for _, v := range params.Code {
 		if v == INT {
 			returnLength++
 		}
@@ -538,59 +536,59 @@ func NewResult(params Attrib) (*Node, error) {
 }
 
 // NewParamList returns a list of parameters.
-func NewParamList(decl, declList Attrib) (*Node, error) {
-	n := &Node{"", decl.(*Node).Code}
-	n.Code = append(n.Code, declList.(*Node).Code...)
+func NewParamList(decl, declList *Node) (*Node, error) {
+	n := &Node{"", decl.Code}
+	n.Code = append(n.Code, declList.Code...)
 	return n, nil
 }
 
 // AppendParam appends a parameter to a list of parameters.
-func AppendParam(decl, declList Attrib) (*Node, error) {
-	n := &Node{"", decl.(*Node).Code}
-	n.Code = append(n.Code, declList.(*Node).Code...)
+func AppendParam(decl, declList *Node) (*Node, error) {
+	n := &Node{"", decl.Code}
+	n.Code = append(n.Code, declList.Code...)
 	return n, nil
 }
 
 // NewFieldDecl returns a field declaration.
-func NewFieldDecl(identList, typ Attrib) (*Node, error) {
+func NewFieldDecl(identList, typ *Node) (*Node, error) {
 	n := &Node{"", []string{}}
-	for _, v := range identList.(*Node).Code {
+	for _, v := range identList.Code {
 		n.Code = append(n.Code, v)
-		n.Code = append(n.Code, typ.(*Node).Place)
+		n.Code = append(n.Code, typ.Place)
 	}
 	return n, nil
 }
 
 // AppendFieldDecl appends a field declaration to a list of field declarations.
-func AppendFieldDecl(decl, declList Attrib) (*Node, error) {
-	n := &Node{"", decl.(*Node).Code}
-	n.Code = append(n.Code, declList.(*Node).Code...)
+func AppendFieldDecl(decl, declList *Node) (*Node, error) {
+	n := &Node{"", decl.Code}
+	n.Code = append(n.Code, declList.Code...)
 	return n, nil
 }
 
 // AppendIdent appends an identifier to a list of identifiers.
-func AppendIdent(ident, identList Attrib) (*Node, error) {
+func AppendIdent(ident string, identList *Node) (*Node, error) {
 	// The lexemes corresponding to the individual identifiers are appended
 	// to the slice for code to avoid adding comma-separated string in place
 	// since the identifiers don't have any IR code to be added.
-	n := &Node{"", []string{string(ident.(*token.Token).Lit)}}
-	n.Code = append(n.Code, identList.(*Node).Code...)
+	n := &Node{"", []string{ident}}
+	n.Code = append(n.Code, identList.Code...)
 	return n, nil
 }
 
 // --- [ Statements ] ----------------------------------------------------------
 
 // NewStmtList returns a statement list.
-func NewStmtList(stmt, stmtList Attrib) (*Node, error) {
-	n := &Node{"", stmt.(*Node).Code}
-	n.Code = append(n.Code, stmtList.(*Node).Code...)
+func NewStmtList(stmt, stmtList *Node) (*Node, error) {
+	n := &Node{"", stmt.Code}
+	n.Code = append(n.Code, stmtList.Code...)
 	return n, nil
 }
 
 // NewLabelStmt returns a labeled statement.
-func NewLabelStmt(label, stmt Attrib) (*Node, error) {
-	n := &Node{"", []string{fmt.Sprintf("label, %s", label.(*Node).Place)}}
-	n.Code = append(n.Code, stmt.(*Node).Code...)
+func NewLabelStmt(label, stmt *Node) (*Node, error) {
+	n := &Node{"", []string{fmt.Sprintf("label, %s", label.Place)}}
+	n.Code = append(n.Code, stmt.Code...)
 	return n, nil
 }
 
@@ -599,7 +597,7 @@ func NewLabelStmt(label, stmt Attrib) (*Node, error) {
 //	- an empty return: In this case the argument expr is empty.
 //	- non-empty return: In this case the argument expr contains the return
 //	  expression.
-func NewReturnStmt(expr ...Attrib) (*Node, error) {
+func NewReturnStmt(expr ...*Node) (*Node, error) {
 	if len(expr) == 0 {
 		// The return statement is empty.
 		// The defer statements need to be inserted before the return stmt (and
@@ -616,8 +614,8 @@ func NewReturnStmt(expr ...Attrib) (*Node, error) {
 	} else {
 		n := &Node{"", []string{}}
 		if deferStack.Len == 0 {
-			retExpr := utils.SplitAndSanitize(expr[0].(*Node).Place, ",")
-			n.Code = append(n.Code, expr[0].(*Node).Code...)
+			retExpr := utils.SplitAndSanitize(expr[0].Place, ",")
+			n.Code = append(n.Code, expr[0].Code...)
 			for k, v := range retExpr {
 				n.Code = append(n.Code, fmt.Sprintf("=, return.%d, %s", k, v))
 			}
@@ -630,15 +628,15 @@ func NewReturnStmt(expr ...Attrib) (*Node, error) {
 // --- [ Blocks ] --------------------------------------------------------------
 
 // NewBlock returns a block.
-func NewBlock(stmt Attrib) (*Node, error) {
+func NewBlock(stmt *Node) (*Node, error) {
 	currScope = currScope.parent // end of the previous block
-	return &Node{"", stmt.(*Node).Code}, nil
+	return &Node{"", stmt.Code}, nil
 }
 
 // NewBlockMarker returns a marker non-terminal used in the production rule for
 // block declaration. This marker demarcates the beginning of a new block and
 // the corresponding symbol table is instantiated here.
-func NewBlockMarker() (Attrib, error) {
+func NewBlockMarker() (*Node, error) {
 	if funcSymtabCreated {
 		// The symbol table for functions is created when the rule for
 		// Signature is reached so that the arguments can also be added
@@ -655,51 +653,51 @@ func NewBlockMarker() (Attrib, error) {
 // --- [ Statements ] ----------------------------------------------------------
 
 // NewIfStmt returns an if statement.
-func NewIfStmt(typ int, args ...Attrib) (*Node, error) {
-	n := &Node{"", args[0].(*Node).Code}
+func NewIfStmt(typ int, args ...*Node) (*Node, error) {
+	n := &Node{"", args[0].Code}
 	afterLabel := NewLabel()
 	elseLabel := NewLabel()
 	switch typ {
 	case 0:
 		n.Code = utils.AppendToSlice(
 			n.Code,
-			fmt.Sprintf("blt, %s, %s, 1", afterLabel, args[0].(*Node).Place),
-			args[1].(*Node).Code,
+			fmt.Sprintf("blt, %s, %s, 1", afterLabel, args[0].Place),
+			args[1].Code,
 		)
 	case 1:
 		n.Code = utils.AppendToSlice(
 			n.Code,
-			fmt.Sprintf("blt, %s, %s, 1", elseLabel, args[0].(*Node).Place),
-			args[1].(*Node).Code,
-			fmt.Sprintf("j, %s", afterLabel),
+			fmt.Sprintf("blt, %s, %s, 1", elseLabel, args[0].Place),
+			args[1].Code,
+			fmt.Sprintf("%s, %s", tac.JMP, afterLabel),
 			fmt.Sprintf("label, %s", elseLabel),
-			args[2].(*Node).Code,
+			args[2].Code,
 		)
 	case 2:
 		n.Code = utils.AppendToSlice(
 			n.Code,
-			fmt.Sprintf("blt, %s, %s, 1", elseLabel, args[0].(*Node).Place),
-			args[1].(*Node).Code,
-			fmt.Sprintf("j, %s", afterLabel),
+			fmt.Sprintf("blt, %s, %s, 1", elseLabel, args[0].Place),
+			args[1].Code,
+			fmt.Sprintf("%s, %s", tac.JMP, afterLabel),
 			fmt.Sprintf("label, %s", elseLabel),
-			args[2].(*Node).Code,
+			args[2].Code,
 		)
 	case 3:
 		n.Code = utils.AppendToSlice(
-			args[1].(*Node).Code,
-			fmt.Sprintf("blt, %s, %s, 1", afterLabel, args[1].(*Node).Place),
-			args[2].(*Node).Code,
+			args[1].Code,
+			fmt.Sprintf("blt, %s, %s, 1", afterLabel, args[1].Place),
+			args[2].Code,
 		)
 	case 4:
 		fallthrough
 	case 5:
 		n.Code = utils.AppendToSlice(
-			args[1].(*Node).Code,
-			fmt.Sprintf("blt, %s, %s, 1", elseLabel, args[1].(*Node).Place),
-			args[2].(*Node).Code,
-			fmt.Sprintf("j, %s", afterLabel),
+			args[1].Code,
+			fmt.Sprintf("blt, %s, %s, 1", elseLabel, args[1].Place),
+			args[2].Code,
+			fmt.Sprintf("%s, %s", tac.JMP, afterLabel),
 			fmt.Sprintf("label, %s", elseLabel),
-			args[3].(*Node).Code,
+			args[3].Code,
 		)
 	}
 	n.Code = append(n.Code, fmt.Sprintf("label, %s", afterLabel))
@@ -707,14 +705,14 @@ func NewIfStmt(typ int, args ...Attrib) (*Node, error) {
 }
 
 // NewSwitchStmt returns a switch statement.
-func NewSwitchStmt(expr, caseClause Attrib) (*Node, error) {
-	n := &Node{"", expr.(*Node).Code}
+func NewSwitchStmt(expr, caseClause *Node) (*Node, error) {
+	n := &Node{"", expr.Code}
 	caseLabels := []string{}
-	caseStmts := caseClause.(*Node).Code
+	caseStmts := caseClause.Code
 	// SplitAndSanitize cannot be used here as removal of empty
 	// entries seems to be causing erroneous index calculations.
 	// Regression caused in "test/codegen/switch.go".
-	caseTemporaries := strings.Split(caseClause.(*Node).Place, ",")
+	caseTemporaries := strings.Split(caseClause.Place, ",")
 	afterLabel := NewLabel()
 	defaultLabel := afterLabel
 	// The last value in caseTemporaries will be the place value
@@ -728,16 +726,16 @@ func NewSwitchStmt(expr, caseClause Attrib) (*Node, error) {
 		if strings.TrimSpace(v) == "default" {
 			defaultLabel = caseLabel
 		} else {
-			n.Code = append(n.Code, fmt.Sprintf("beq, %s, %s, %s", caseLabel, expr.(*Node).Place, v))
+			n.Code = append(n.Code, fmt.Sprintf("beq, %s, %s, %s", caseLabel, expr.Place, v))
 		}
 	}
-	n.Code = append(n.Code, fmt.Sprintf("j, %s", defaultLabel))
+	n.Code = append(n.Code, fmt.Sprintf("%s, %s", tac.JMP, defaultLabel))
 	for k, v := range caseLabels {
 		n.Code = utils.AppendToSlice(
 			n.Code,
 			fmt.Sprintf("label, %s", v),
 			caseStmts[2*k+1],
-			fmt.Sprintf("j, %s", afterLabel),
+			fmt.Sprintf("%s, %s", tac.JMP, afterLabel),
 		)
 	}
 	n.Code = append(n.Code, fmt.Sprintf("label, %s", afterLabel))
@@ -745,14 +743,14 @@ func NewSwitchStmt(expr, caseClause Attrib) (*Node, error) {
 }
 
 // NewExprCaseClause returns an expression case clause.
-func NewExprCaseClause(expr, stmtList Attrib) (*Node, error) {
-	n := &Node{expr.(*Node).Place, []string{}}
+func NewExprCaseClause(expr, stmtList *Node) (*Node, error) {
+	n := &Node{expr.Place, []string{}}
 	var exprCode, stmtCode string
-	for _, v := range expr.(*Node).Code {
+	for _, v := range expr.Code {
 		exprCode += fmt.Sprintf("%s\n", v)
 	}
 	n.Code = append(n.Code, exprCode)
-	for _, v := range stmtList.(*Node).Code {
+	for _, v := range stmtList.Code {
 		stmtCode += fmt.Sprintf("%s\n", v)
 	}
 	n.Code = append(n.Code, stmtCode)
@@ -760,10 +758,10 @@ func NewExprCaseClause(expr, stmtList Attrib) (*Node, error) {
 }
 
 // AppendExprCaseClause appends an expression case clause to a list of same.
-func AppendExprCaseClause(expr, exprList Attrib) (*Node, error) {
-	n := &Node{"", expr.(*Node).Code}
-	n.Code = append(n.Code, exprList.(*Node).Code...)
-	n.Place = fmt.Sprintf("%s, %s", expr.(*Node).Place, exprList.(*Node).Place)
+func AppendExprCaseClause(expr, exprList *Node) (*Node, error) {
+	n := &Node{"", expr.Code}
+	n.Code = append(n.Code, exprList.Code...)
+	n.Place = fmt.Sprintf("%s, %s", expr.Place, exprList.Place)
 	return n, nil
 }
 
@@ -774,20 +772,20 @@ func AppendExprCaseClause(expr, exprList Attrib) (*Node, error) {
 //	- ForClause, Block
 // The cardinal argument `typ` determines the index of the production rule
 // invoked starting from top.
-func NewForStmt(typ int, args ...Attrib) (*Node, error) {
+func NewForStmt(typ int, args ...*Node) (*Node, error) {
 	n := &Node{"", []string{}}
 	startLabel := NewLabel()
 	afterLabel := NewLabel()
 	switch typ {
 	case 0:
 		n.Code = append(n.Code, fmt.Sprintf("label, %s", startLabel))
-		for _, v := range args[0].(*Node).Code {
+		for _, v := range args[0].Code {
 			v := strings.TrimSpace(v)
 			switch v {
 			case "break":
-				n.Code = append(n.Code, fmt.Sprintf("j, %s", afterLabel))
+				n.Code = append(n.Code, fmt.Sprintf("%s, %s", tac.JMP, afterLabel))
 			case "continue":
-				n.Code = append(n.Code, fmt.Sprintf("j, %s", startLabel))
+				n.Code = append(n.Code, fmt.Sprintf("%s, %s", tac.JMP, startLabel))
 			default:
 				n.Code = append(n.Code, v)
 			}
@@ -796,16 +794,16 @@ func NewForStmt(typ int, args ...Attrib) (*Node, error) {
 		n.Code = utils.AppendToSlice(
 			n.Code,
 			fmt.Sprintf("label, %s", startLabel),
-			args[0].(*Node).Code,
-			fmt.Sprintf("blt, %s, %s, 1", afterLabel, args[0].(*Node).Place),
+			args[0].Code,
+			fmt.Sprintf("blt, %s, %s, 1", afterLabel, args[0].Place),
 		)
-		for _, v := range args[1].(*Node).Code {
+		for _, v := range args[1].Code {
 			v := strings.TrimSpace(v)
 			switch v {
 			case "break":
-				n.Code = append(n.Code, fmt.Sprintf("j, %s", afterLabel))
+				n.Code = append(n.Code, fmt.Sprintf("%s, %s", tac.JMP, afterLabel))
 			case "continue":
-				n.Code = append(n.Code, fmt.Sprintf("j, %s", startLabel))
+				n.Code = append(n.Code, fmt.Sprintf("%s, %s", tac.JMP, startLabel))
 			default:
 				n.Code = append(n.Code, v)
 			}
@@ -813,133 +811,131 @@ func NewForStmt(typ int, args ...Attrib) (*Node, error) {
 	case 2:
 		n.Code = utils.AppendToSlice(
 			n.Code,
-			args[0].(*Node).Code[0], // init stmt
+			args[0].Code[0], // init stmt
 			fmt.Sprintf("label, %s", startLabel),
-			args[0].(*Node).Code[1], // condition
-			fmt.Sprintf("blt, %s, %s, 1", afterLabel, args[0].(*Node).Place),
+			args[0].Code[1], // condition
+			fmt.Sprintf("blt, %s, %s, 1", afterLabel, args[0].Place),
 		)
-		for _, v := range args[1].(*Node).Code {
+		for _, v := range args[1].Code {
 			v := strings.TrimSpace(v)
 			switch v {
 			case "break":
-				n.Code = append(n.Code, fmt.Sprintf("j, %s", afterLabel))
+				n.Code = append(n.Code, fmt.Sprintf("%s, %s", tac.JMP, afterLabel))
 			case "continue":
-				n.Code = append(n.Code, fmt.Sprintf("j, %s", startLabel))
+				n.Code = append(n.Code, fmt.Sprintf("%s, %s", tac.JMP, startLabel))
 			default:
 				n.Code = append(n.Code, v)
 			}
 		}
-		n.Code = append(n.Code, args[0].(*Node).Code[2]) // post stmt
+		n.Code = append(n.Code, args[0].Code[2]) // post stmt
 	}
 	n.Code = utils.AppendToSlice(
 		n.Code,
-		fmt.Sprintf("j, %s", startLabel),
+		fmt.Sprintf("%s, %s", tac.JMP, startLabel),
 		fmt.Sprintf("label, %s", afterLabel),
 	)
 	return n, nil
 }
 
 // NewForClause returns a for clause.
-func NewForClause(typ int, args ...Attrib) (*Node, error) {
+func NewForClause(typ int, args ...*Node) (*Node, error) {
 	var initStmtCode, condStmtCode, postStmtCode string
 	switch typ {
 	case 0:
-		for _, v := range args[0].(*Node).Code {
+		for _, v := range args[0].Code {
 			initStmtCode += fmt.Sprintf("%s\n", v)
 		}
 		return &Node{"1", []string{initStmtCode, "", ""}}, nil
 	case 1:
-		for _, v := range args[0].(*Node).Code {
+		for _, v := range args[0].Code {
 			condStmtCode += fmt.Sprintf("%s\n", v)
 		}
-		return &Node{args[0].(*Node).Place, []string{"", condStmtCode, ""}}, nil
+		return &Node{args[0].Place, []string{"", condStmtCode, ""}}, nil
 	case 2:
-		for _, v := range args[0].(*Node).Code {
+		for _, v := range args[0].Code {
 			postStmtCode += fmt.Sprintf("%s\n", v)
 		}
 		return &Node{"1", []string{"", "", postStmtCode}}, nil
 	case 3:
-		for _, v := range args[0].(*Node).Code {
+		for _, v := range args[0].Code {
 			initStmtCode += fmt.Sprintf("%s\n", v)
 		}
-		for _, v := range args[1].(*Node).Code {
+		for _, v := range args[1].Code {
 			condStmtCode += fmt.Sprintf("%s\n", v)
 		}
-		return &Node{args[1].(*Node).Place, []string{initStmtCode, condStmtCode, ""}}, nil
+		return &Node{args[1].Place, []string{initStmtCode, condStmtCode, ""}}, nil
 	case 4:
-		for _, v := range args[0].(*Node).Code {
+		for _, v := range args[0].Code {
 			initStmtCode += fmt.Sprintf("%s\n", v)
 		}
-		for _, v := range args[1].(*Node).Code {
+		for _, v := range args[1].Code {
 			postStmtCode += fmt.Sprintf("%s\n", v)
 		}
 		return &Node{"1", []string{initStmtCode, "", postStmtCode}}, nil
 	case 5:
-		for _, v := range args[0].(*Node).Code {
+		for _, v := range args[0].Code {
 			condStmtCode += fmt.Sprintf("%s\n", v)
 		}
-		for _, v := range args[1].(*Node).Code {
+		for _, v := range args[1].Code {
 			postStmtCode += fmt.Sprintf("%s\n", v)
 		}
-		return &Node{args[0].(*Node).Place, []string{"", condStmtCode, postStmtCode}}, nil
+		return &Node{args[0].Place, []string{"", condStmtCode, postStmtCode}}, nil
 	case 6:
-		for _, v := range args[0].(*Node).Code {
+		for _, v := range args[0].Code {
 			initStmtCode += fmt.Sprintf("%s\n", v)
 		}
-		for _, v := range args[1].(*Node).Code {
+		for _, v := range args[1].Code {
 			condStmtCode += fmt.Sprintf("%s\n", v)
 		}
-		for _, v := range args[2].(*Node).Code {
+		for _, v := range args[2].Code {
 			postStmtCode += fmt.Sprintf("%s\n", v)
 		}
-		return &Node{args[1].(*Node).Place, []string{initStmtCode, condStmtCode, postStmtCode}}, nil
+		return &Node{args[1].Place, []string{initStmtCode, condStmtCode, postStmtCode}}, nil
 	}
 	return &Node{}, fmt.Errorf("NewForClause: Invalid type %d", typ)
 }
 
 // NewDeferStmt returns a defer statement.
-func NewDeferStmt(expr, args Attrib) (*Node, error) {
+func NewDeferStmt(expr, args *Node) (*Node, error) {
 	// Add code corresponding to the arguments.
-	n := &Node{"", args.(*Node).Code}
-	argExpr := utils.SplitAndSanitize(args.(*Node).Place, ",")
+	n := &Node{"", args.Code}
+	argExpr := utils.SplitAndSanitize(args.Place, ",")
 	for k, v := range argExpr {
-		n.Code = append(n.Code, fmt.Sprintf("=, %s.%d, %s", expr.(*Node).Place, k, v))
+		n.Code = append(n.Code, fmt.Sprintf("=, %s.%d, %s", expr.Place, k, v))
 	}
 	n.Place = NewTmp()
 	// Push the code for the actual function call to the defer stack.
 	deferCode := make(DeferStackItem, 0)
-	deferCode = append(deferCode, fmt.Sprintf("call, %s", expr.(*Node).Place))
+	deferCode = append(deferCode, fmt.Sprintf("call, %s", expr.Place))
 	deferCode = append(deferCode, fmt.Sprintf("store, %s", n.Place))
 	deferStack.Push(deferCode)
 	return n, nil
 }
 
 // NewIOStmt returns an I/O statement.
-func NewIOStmt(typ, expr Attrib) (*Node, error) {
-	n := &Node{"", expr.(*Node).Code}
-	typ = string(typ.(*token.Token).Lit)
+func NewIOStmt(typ string, expr *Node) (*Node, error) {
+	n := &Node{"", expr.Code}
 	switch typ {
 	case "printInt":
 		// The IR for printInt is supposed to look as following -
 		//	printInt, a, a
-		n.Code = append(n.Code, fmt.Sprintf("%s, %s, %s", typ, expr.(*Node).Place, expr.(*Node).Place))
+		n.Code = append(n.Code, fmt.Sprintf("%s, %s, %s", typ, expr.Place, expr.Place))
 	case "printStr":
 		fallthrough
 	case "scanInt":
-		n.Code = append(n.Code, fmt.Sprintf("%s, %s", typ, expr.(*Node).Place))
+		n.Code = append(n.Code, fmt.Sprintf("%s, %s", typ, expr.Place))
 	}
 	return n, nil
 }
 
 // NewIncDecStmt returns an increment or a decrement statement.
-func NewIncDecStmt(op, expr Attrib) (*Node, error) {
-	op = string(op.(*token.Token).Lit)
-	n := &Node{"", expr.(*Node).Code}
+func NewIncDecStmt(op string, expr *Node) (*Node, error) {
+	n := &Node{"", expr.Code}
 	switch op {
 	case "++":
-		n.Code = append(n.Code, fmt.Sprintf("+, %s, %s, 1", expr.(*Node).Place, expr.(*Node).Place))
+		n.Code = append(n.Code, fmt.Sprintf("+, %s, %s, 1", expr.Place, expr.Place))
 	case "--":
-		n.Code = append(n.Code, fmt.Sprintf("-, %s, %s, 1", expr.(*Node).Place, expr.(*Node).Place))
+		n.Code = append(n.Code, fmt.Sprintf("-, %s, %s, 1", expr.Place, expr.Place))
 	default:
 		return &Node{}, fmt.Errorf("Invalid operator %s", op)
 	}
@@ -947,14 +943,13 @@ func NewIncDecStmt(op, expr Attrib) (*Node, error) {
 }
 
 // NewAssignStmt returns an assignment statement.
-func NewAssignStmt(typ int, op, leftExpr, rightExpr Attrib) (*Node, error) {
+func NewAssignStmt(typ int, op string, leftExpr, rightExpr *Node) (*Node, error) {
 	switch typ {
 	case 0:
-		op := string(op.(*token.Token).Lit)[0]
-		n := &Node{"", leftExpr.(*Node).Code}
-		n.Code = append(n.Code, rightExpr.(*Node).Code...)
-		leftExpr := utils.SplitAndSanitize(leftExpr.(*Node).Place, ",")
-		rightExpr := utils.SplitAndSanitize(rightExpr.(*Node).Place, ",")
+		n := &Node{"", leftExpr.Code}
+		n.Code = append(n.Code, rightExpr.Code...)
+		leftExpr := utils.SplitAndSanitize(leftExpr.Place, ",")
+		rightExpr := utils.SplitAndSanitize(rightExpr.Place, ",")
 		for k, v := range leftExpr {
 			n.Code = append(n.Code, fmt.Sprintf("%s, %s, %s, %s", op, v, v, rightExpr[k]))
 			if symEntry, ok := Lookup(v); ok && symEntry.kind == ARRAY {
@@ -970,10 +965,10 @@ func NewAssignStmt(typ int, op, leftExpr, rightExpr Attrib) (*Node, error) {
 		}
 		return n, nil
 	case 1:
-		n := &Node{"", leftExpr.(*Node).Code}
-		n.Code = append(n.Code, rightExpr.(*Node).Code...)
-		leftExpr := utils.SplitAndSanitize(leftExpr.(*Node).Place, ",")
-		rightExpr := utils.SplitAndSanitize(rightExpr.(*Node).Place, ",")
+		n := &Node{"", leftExpr.Code}
+		n.Code = append(n.Code, rightExpr.Code...)
+		leftExpr := utils.SplitAndSanitize(leftExpr.Place, ",")
+		rightExpr := utils.SplitAndSanitize(rightExpr.Place, ",")
 		if len(leftExpr) != len(rightExpr) {
 			return &Node{}, ErrCountMismatch(len(leftExpr), len(rightExpr))
 		}
@@ -1018,16 +1013,16 @@ func NewAssignStmt(typ int, op, leftExpr, rightExpr Attrib) (*Node, error) {
 		n := &Node{"", []string{}}
 		// TODO: Structs do not support multiple short declarations in a
 		// single statement for now.
-		exprName := rightExpr.(*Node).Place
+		exprName := rightExpr.Place
 		if strings.HasPrefix(exprName, "struct") {
 			return &Node{}, ErrDeclStruct
 		} else {
-			n.Code = rightExpr.(*Node).Code
-			expr := utils.SplitAndSanitize(rightExpr.(*Node).Place, ",")
-			if len(leftExpr.(*Node).Code) != len(expr) {
-				return &Node{}, ErrCountMismatch(len(leftExpr.(*Node).Code), len(expr))
+			n.Code = rightExpr.Code
+			expr := utils.SplitAndSanitize(rightExpr.Place, ",")
+			if len(leftExpr.Code) != len(expr) {
+				return &Node{}, ErrCountMismatch(len(leftExpr.Code), len(expr))
 			}
-			for k, v := range leftExpr.(*Node).Code {
+			for k, v := range leftExpr.Code {
 				if symEntry, found := Lookup(v); found {
 					renamedVar := symEntry.symbols[0]
 					if strings.HasPrefix(expr[k], ARR) {
@@ -1046,11 +1041,11 @@ func NewAssignStmt(typ int, op, leftExpr, rightExpr Attrib) (*Node, error) {
 }
 
 // NewShortDecl returns a short variable declaration.
-func NewShortDecl(identList, exprList Attrib) (*Node, error) {
+func NewShortDecl(identList, exprList *Node) (*Node, error) {
 	n := &Node{"", []string{}}
 	// TODO: Structs do not support multiple short declarations in a single
 	// statement for now.
-	exprName := exprList.(*Node).Place
+	exprName := exprList.Place
 	if strings.HasPrefix(exprName, "struct") {
 		// The following index calculations assume that struct names
 		// cannot include a semicolon ':'.
@@ -1061,17 +1056,17 @@ func NewShortDecl(identList, exprList Attrib) (*Node, error) {
 		}
 		// TODO: Multiple struct initializations using short declaration
 		// are not handled currently.
-		structName := identList.(*Node).Code[0]
+		structName := identList.Code[0]
 		// keeping structName in the symbol table with type as Struct
 		InsertSymbol(structName, STRUCT, structName)
 		// The individual struct member initializers can contain
 		// expressions whose code need to be added before the members
 		// are initialized.
-		n.Code = append(n.Code, exprList.(*Node).Code[2*structLen:]...)
+		n.Code = append(n.Code, exprList.Code[2*structLen:]...)
 
 		// Add code for struct member initializations.
 		var varName, varVal string
-		for k, v := range exprList.(*Node).Code[:2*structLen] {
+		for k, v := range exprList.Code[:2*structLen] {
 			if k%2 == 0 {
 				// Member names are located at even locations.
 				varName = v
@@ -1084,13 +1079,13 @@ func NewShortDecl(identList, exprList Attrib) (*Node, error) {
 			}
 		}
 	} else {
-		n.Code = exprList.(*Node).Code
-		expr := utils.SplitAndSanitize(exprList.(*Node).Place, ",")
-		numIdent := len(identList.(*Node).Code) // number of identifiers
+		n.Code = exprList.Code
+		expr := utils.SplitAndSanitize(exprList.Place, ",")
+		numIdent := len(identList.Code) // number of identifiers
 		if numIdent != len(expr) {
 			return &Node{}, ErrCountMismatch(numIdent, len(expr))
 		}
-		for k, v := range identList.(*Node).Code {
+		for k, v := range identList.Code {
 			renamedVar := RenameVariable(v)
 			if _, ok := GetSymbol(v); !ok {
 				// TODO: All types are int currently.

@@ -20,6 +20,6 @@ ble, exit, n, 0
 +, second, second, first
 =, first, temp
 -, n, n, 1
-j, loop
+jmp, loop
 label, exit
 ret, second
