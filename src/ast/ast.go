@@ -13,14 +13,10 @@ import (
 	"github.com/shivansh/gogo/src/utils"
 )
 
-type (
-	// Attrib represents attributes for symbols in the grammar.
-	Attrib interface{}
-	// DeferStackItem is an individual item stored when a call to defer is
-	// made. It contains the code for the corresponding function call which
-	// is placed at the end of the function body.
-	DeferStackItem []string
-)
+// DeferStackItem is an individual item stored when a call to defer is made. It
+// contains the code for the corresponding function call which is placed at the
+// end of the function body.
+type DeferStackItem []string
 
 var (
 	// deferStack stores the deferred function calls which are then called
@@ -55,9 +51,9 @@ type Node struct {
 func PrintIR(src *Node) (*Node, error) {
 	c := src.Code
 	for _, v := range c {
-		v := strings.TrimSpace(v)
-		if v != "" {
-			fmt.Println(v)
+		stmt := strings.TrimSpace(v)
+		if stmt != "" {
+			fmt.Println(stmt)
 		}
 	}
 	return nil, nil
@@ -147,9 +143,9 @@ func NewTypeDecl(args ...*Node) (*Node, error) {
 	switch typ {
 	case "struct":
 		// Create a global symbol table entry.
-		// NOTE: The symbol table entry of a struct is of the form -
+		// The symbol table entry of a struct is of the form -
 		//      structName : []{"struct", memberName1, memberType1, ...}
-		globalSymTab[structName] = symTabEntry{
+		globalSymTab[structName] = SymTabEntry{
 			kind:    STRUCT,
 			symbols: args[1].Code,
 		}
@@ -206,9 +202,9 @@ func NewBoolExpr(op string, leftexpr, rightexpr *Node) (*Node, error) {
 	n.Place = NewTmp()
 	afterLabel := NewLabel()
 	switch op {
-	case "||":
+	case OR:
 		trueLabel := NewLabel()
-		n.Code = utils.AppendToSlice(
+		n.Code = utils.AppendCode(
 			n.Code,
 			fmt.Sprintf("beq, %s, %s, 1", trueLabel, leftexpr.Place),
 			fmt.Sprintf("beq, %s, %s, 1", trueLabel, rightexpr.Place),
@@ -218,9 +214,9 @@ func NewBoolExpr(op string, leftexpr, rightexpr *Node) (*Node, error) {
 			fmt.Sprintf("=, %s, 1", n.Place),
 			fmt.Sprintf("label, %s", afterLabel),
 		)
-	case "&&":
+	case AND:
 		falseLabel := NewLabel()
-		n.Code = utils.AppendToSlice(
+		n.Code = utils.AppendCode(
 			n.Code,
 			fmt.Sprintf("beq, %s, %s, 0", falseLabel, leftexpr.Place),
 			fmt.Sprintf("beq, %s, %s, 0", falseLabel, rightexpr.Place),
@@ -243,20 +239,20 @@ func NewRelExpr(op, leftexpr, rightexpr *Node) (*Node, error) {
 	falseLabel := NewLabel()
 	afterLabel := NewLabel()
 	switch op.Place {
-	case "==":
+	case EQ:
 		branchOp = "bne"
-	case "!=":
+	case NEQ:
 		branchOp = "beq"
-	case "<=":
+	case LEQ:
 		branchOp = "bgt"
-	case "<":
+	case LT:
 		branchOp = "bge"
-	case ">=":
+	case GEQ:
 		branchOp = "blt"
-	case ">":
+	case GT:
 		branchOp = "ble"
 	}
-	n.Code = utils.AppendToSlice(
+	n.Code = utils.AppendCode(
 		n.Code,
 		fmt.Sprintf("%s, %s, %s, %s", branchOp, falseLabel, leftexpr.Place, rightexpr.Place),
 		fmt.Sprintf("=, %s, 1", n.Place),
@@ -284,15 +280,15 @@ func NewArithExpr(op string, leftexpr, rightexpr *Node) (*Node, error) {
 			return &Node{}, err
 		}
 		switch op {
-		case "+":
+		case ADD:
 			n.Place = strconv.Itoa(leftval + rightval)
-		case "-":
+		case SUB:
 			n.Place = strconv.Itoa(leftval - rightval)
-		case "*":
+		case AST:
 			n.Place = strconv.Itoa(leftval * rightval)
-		case "/":
+		case DIV:
 			n.Place = strconv.Itoa(leftval / rightval)
-		case "%":
+		case REM:
 			n.Place = strconv.Itoa(leftval % rightval)
 		default:
 			return &Node{}, fmt.Errorf("Invalid operation %s", op)
@@ -314,7 +310,7 @@ func NewArithExpr(op string, leftexpr, rightexpr *Node) (*Node, error) {
 func NewUnaryExpr(op, expr *Node) (*Node, error) {
 	n := &Node{"", expr.Code}
 	switch op.Place {
-	case "-":
+	case SUB:
 		if re.MatchString(expr.Place) {
 			// expression is of the form 1+2
 			term3val, err := strconv.Atoi(expr.Place)
@@ -326,16 +322,16 @@ func NewUnaryExpr(op, expr *Node) (*Node, error) {
 			n.Place = NewTmp()
 			n.Code = append(n.Code, fmt.Sprintf("*, %s, %s, -1", n.Place, expr.Place))
 		}
-	case "!":
+	case NOT:
 		n.Place = NewTmp()
 		n.Code = append(n.Code, fmt.Sprintf("not, %s, %s", n.Place, expr.Place))
-	case "+":
+	case ADD:
 		n.Place = expr.Place
-	case "&":
+	case AMP:
 		// Place attribute of a pointer variable starts with "pointer:"
 		// followed by its place attribute.
 		n.Place = PTR + ":" + expr.Place
-	case "*":
+	case AST:
 		n.Place = DRF + ":" + expr.Place
 	default:
 		return n, fmt.Errorf("%s operator not supported", op.Place)
@@ -350,12 +346,13 @@ func NewPrimaryExprSel(expr, selector *Node) (*Node, error) {
 	varName := fmt.Sprintf("%s.%s", expr.Place, selector.Place)
 	if symEntry, found := Lookup(varName); found {
 		if _, ok := globalSymTab[varName]; ok {
-			return &Node{}, fmt.Errorf("%s not in scope", varName)
+			// TODO verify if this is correct.
+			return &Node{}, fmt.Errorf("undefined: %s", varName)
 		} else {
 			return &Node{symEntry.symbols[0], []string{}}, nil
 		}
 	} else {
-		return &Node{}, fmt.Errorf("%s not in scope", varName)
+		return &Node{}, fmt.Errorf("undefined: %s", varName)
 	}
 }
 
@@ -444,8 +441,7 @@ func NewCompositeLit(typ, val *Node) (*Node, error) {
 			n.Code = append(n.Code, litValCodes...)
 		}
 	} else {
-		// TODO: Update error message.
-		return &Node{}, fmt.Errorf("%s not in scope", typ.Place)
+		return &Node{}, fmt.Errorf("undefined: %s", typ.Place)
 	}
 	return n, nil
 }
@@ -469,7 +465,7 @@ func NewIdentifier(varName string) (*Node, error) {
 func NewFuncDecl(marker, body *Node) (*Node, error) {
 	n := &Node{"", marker.Code}
 	n.Code = append(n.Code, body.Code...)
-	funcSymtabCreated = false // end of function block
+	funcSymtabCreated = true // end of function block
 	// Return statement insertion will be handled when defer stack is
 	// emptied and the code for deferred calls has been inserted.
 	if deferStack.Len > 0 {
@@ -491,11 +487,10 @@ func NewFuncMarker(name, signature *Node) (*Node, error) {
 		n.Code = append(n.Code, fmt.Sprintf("=, %s, %s.%d", v, name.Place, k))
 	}
 	if _, found := globalSymTab[name.Place]; !found {
-		globalSymTab[name.Place] = symTabEntry{
+		globalSymTab[name.Place] = SymTabEntry{
 			kind:    FUNCTION,
 			symbols: []string{signature.Place},
 		}
-		// globalSymTab[name.Place] = []string{fmt.Sprintf("%s:%s", FNC, signature.Place)}
 	} else {
 		return &Node{}, fmt.Errorf("Function %s is already declared\n", name)
 	}
@@ -637,7 +632,7 @@ func NewBlock(stmt *Node) (*Node, error) {
 // block declaration. This marker demarcates the beginning of a new block and
 // the corresponding symbol table is instantiated here.
 func NewBlockMarker() (*Node, error) {
-	if funcSymtabCreated {
+	if !funcSymtabCreated {
 		// The symbol table for functions is created when the rule for
 		// Signature is reached so that the arguments can also be added
 		// At this point the function block/scope (if there was any) has
@@ -645,7 +640,7 @@ func NewBlockMarker() (*Node, error) {
 		NewScope()
 	} else {
 		// Allow creation of symbol table for another function.
-		funcSymtabCreated = true
+		funcSymtabCreated = false
 	}
 	return nil, nil
 }
@@ -659,13 +654,14 @@ func NewIfStmt(typ int, args ...*Node) (*Node, error) {
 	elseLabel := NewLabel()
 	switch typ {
 	case 0:
-		n.Code = utils.AppendToSlice(
+		n.Code = utils.AppendCode(
 			n.Code,
 			fmt.Sprintf("blt, %s, %s, 1", afterLabel, args[0].Place),
 			args[1].Code,
 		)
+
 	case 1:
-		n.Code = utils.AppendToSlice(
+		n.Code = utils.AppendCode(
 			n.Code,
 			fmt.Sprintf("blt, %s, %s, 1", elseLabel, args[0].Place),
 			args[1].Code,
@@ -673,8 +669,9 @@ func NewIfStmt(typ int, args ...*Node) (*Node, error) {
 			fmt.Sprintf("label, %s", elseLabel),
 			args[2].Code,
 		)
+
 	case 2:
-		n.Code = utils.AppendToSlice(
+		n.Code = utils.AppendCode(
 			n.Code,
 			fmt.Sprintf("blt, %s, %s, 1", elseLabel, args[0].Place),
 			args[1].Code,
@@ -682,16 +679,19 @@ func NewIfStmt(typ int, args ...*Node) (*Node, error) {
 			fmt.Sprintf("label, %s", elseLabel),
 			args[2].Code,
 		)
+
 	case 3:
-		n.Code = utils.AppendToSlice(
+		n.Code = utils.AppendCode(
 			args[1].Code,
 			fmt.Sprintf("blt, %s, %s, 1", afterLabel, args[1].Place),
 			args[2].Code,
 		)
+
 	case 4:
 		fallthrough
+
 	case 5:
-		n.Code = utils.AppendToSlice(
+		n.Code = utils.AppendCode(
 			args[1].Code,
 			fmt.Sprintf("blt, %s, %s, 1", elseLabel, args[1].Place),
 			args[2].Code,
@@ -731,7 +731,7 @@ func NewSwitchStmt(expr, caseClause *Node) (*Node, error) {
 	}
 	n.Code = append(n.Code, fmt.Sprintf("%s, %s", tac.JMP, defaultLabel))
 	for k, v := range caseLabels {
-		n.Code = utils.AppendToSlice(
+		n.Code = utils.AppendCode(
 			n.Code,
 			fmt.Sprintf("label, %s", v),
 			caseStmts[2*k+1],
@@ -791,7 +791,7 @@ func NewForStmt(typ int, args ...*Node) (*Node, error) {
 			}
 		}
 	case 1:
-		n.Code = utils.AppendToSlice(
+		n.Code = utils.AppendCode(
 			n.Code,
 			fmt.Sprintf("label, %s", startLabel),
 			args[0].Code,
@@ -809,7 +809,7 @@ func NewForStmt(typ int, args ...*Node) (*Node, error) {
 			}
 		}
 	case 2:
-		n.Code = utils.AppendToSlice(
+		n.Code = utils.AppendCode(
 			n.Code,
 			args[0].Code[0], // init stmt
 			fmt.Sprintf("label, %s", startLabel),
@@ -829,7 +829,7 @@ func NewForStmt(typ int, args ...*Node) (*Node, error) {
 		}
 		n.Code = append(n.Code, args[0].Code[2]) // post stmt
 	}
-	n.Code = utils.AppendToSlice(
+	n.Code = utils.AppendCode(
 		n.Code,
 		fmt.Sprintf("%s, %s", tac.JMP, startLabel),
 		fmt.Sprintf("label, %s", afterLabel),
@@ -932,9 +932,9 @@ func NewIOStmt(typ string, expr *Node) (*Node, error) {
 func NewIncDecStmt(op string, expr *Node) (*Node, error) {
 	n := &Node{"", expr.Code}
 	switch op {
-	case "++":
+	case INC:
 		n.Code = append(n.Code, fmt.Sprintf("+, %s, %s, 1", expr.Place, expr.Place))
-	case "--":
+	case DEC:
 		n.Code = append(n.Code, fmt.Sprintf("-, %s, %s, 1", expr.Place, expr.Place))
 	default:
 		return &Node{}, fmt.Errorf("Invalid operator %s", op)
@@ -1043,8 +1043,8 @@ func NewAssignStmt(typ int, op string, leftExpr, rightExpr *Node) (*Node, error)
 // NewShortDecl returns a short variable declaration.
 func NewShortDecl(identList, exprList *Node) (*Node, error) {
 	n := &Node{"", []string{}}
-	// TODO: Structs do not support multiple short declarations in a single
-	// statement for now.
+	// TODO: Multiple struct initializations using short declaration are not
+	// handled currently.
 	exprName := exprList.Place
 	if strings.HasPrefix(exprName, "struct") {
 		// The following index calculations assume that struct names
@@ -1054,8 +1054,6 @@ func NewShortDecl(identList, exprList *Node) (*Node, error) {
 		if err != nil {
 			return &Node{}, err
 		}
-		// TODO: Multiple struct initializations using short declaration
-		// are not handled currently.
 		structName := identList.Code[0]
 		// keeping structName in the symbol table with type as Struct
 		InsertSymbol(structName, STRUCT, structName)

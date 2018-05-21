@@ -14,9 +14,9 @@ import (
 	"os"
 	"strings"
 
-	parseError "github.com/shivansh/gogo/tmp/errors"
-	"github.com/shivansh/gogo/tmp/lexer"
-	"github.com/shivansh/gogo/tmp/parser"
+	parseError "github.com/shivansh/gogo/goccgen/errors"
+	"github.com/shivansh/gogo/goccgen/lexer"
+	"github.com/shivansh/gogo/goccgen/parser"
 )
 
 // Tac simulates the shell utility tac(1), only difference being that it returns a

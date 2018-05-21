@@ -1,7 +1,7 @@
 CC=        go
 BIN=       ./bin
 SRC=       ./src
-CLEANDIR=  ./tmp
+CLEANDIR=  ./goccgen
 GCFLAGS=   -ldflags "-w"
 DEBUGFLAGS=-gcflags "-N -l"
 

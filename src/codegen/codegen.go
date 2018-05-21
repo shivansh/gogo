@@ -25,6 +25,8 @@ type Addr struct {
 	mem int
 }
 
+// CodeGen updates the data structures for text and data segments with the
+// generated assembly code.
 func CodeGen(t tac.Tac) {
 	ts := new(tac.TextSec)
 	ds := new(tac.DataSec)
@@ -33,8 +35,7 @@ func CodeGen(t tac.Tac) {
 	arrLookup := make(map[string]bool)
 	funcName := ""
 	callerSaved := []string{}
-	// tab specifies the indentation to be given for in-line comments.
-	tab := ""
+	tab := "" // indentation for in-line comments.
 
 	// Define the assembler directives for data and text.
 	ds.Stmts = append(ds.Stmts, "\t.data")
@@ -99,17 +100,13 @@ func CodeGen(t tac.Tac) {
 				break
 			default:
 				if stmt.Op == tac.DECL && !ds.Lookup[stmt.Dst] {
-					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.space\t%d", stmt.Dst, 4*stmt.Src[0].U.IntVal()))
+					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.space\t%d", stmt.Dst, 4*stmt.Src[0].IntVal()))
 					ds.Lookup[stmt.Dst] = true
 					arrLookup[stmt.Dst] = true
-					break
-				}
-				if stmt.Op == tac.DECLSTR {
-					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.asciiz %s", stmt.Dst, stmt.Src[0].U.StrVal()))
+				} else if stmt.Op == tac.DECLSTR {
+					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.asciiz %s", stmt.Dst, stmt.Src[0].StrVal()))
 					ds.Lookup[stmt.Dst] = true
-					break
-				}
-				if !ds.Lookup[stmt.Dst] {
+				} else if !ds.Lookup[stmt.Dst] {
 					ds.Lookup[stmt.Dst] = true
 					if len(stmt.Dst) >= 8 {
 						tab = "\t"
@@ -126,7 +123,7 @@ func CodeGen(t tac.Tac) {
 			case tac.EQ:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[0].U.(type) {
+				switch v := stmt.Src[0].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli\t$%d, %d\t\t%s",
 						blk.Adesc[stmt.Dst].Reg, v, comment))
@@ -144,39 +141,39 @@ func CodeGen(t tac.Tac) {
 
 			case tac.FROM:
 				blk.GetReg(&stmt, ts, arrLookup)
-				switch v := stmt.Src[1].U.(type) {
+				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					comment := fmt.Sprintf("# variable <- array")
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw\t$%d, %d($%d)\t\t%s",
-						blk.Adesc[stmt.Dst].Reg, 4*stmt.Src[1].U.IntVal(), blk.Adesc[stmt.Src[0].U.StrVal()].Reg, comment))
+						blk.Adesc[stmt.Dst].Reg, 4*stmt.Src[1].IntVal(), blk.Adesc[stmt.Src[0].StrVal()].Reg, comment))
 				case tac.Str:
 					comment := fmt.Sprintf("# iterator *= 4")
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsll\t$s2, $%d, 2\t%s", blk.Adesc[v.StrVal()].Reg, comment))
 					comment = fmt.Sprintf("# variable <- array")
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw\t$%d, %s($s2)\t\t%s",
-						blk.Adesc[stmt.Dst].Reg, stmt.Src[0].U.StrVal(), comment))
+						blk.Adesc[stmt.Dst].Reg, stmt.Src[0].StrVal(), comment))
 				}
 
 			case tac.INTO:
 				blk.GetReg(&stmt, ts, arrLookup)
-				switch u := stmt.Src[1].U.(type) {
+				switch u := stmt.Src[1].(type) {
 				case tac.I32:
-					switch v := stmt.Src[2].U.(type) {
+					switch v := stmt.Src[2].(type) {
 					case tac.I32:
 						comment := fmt.Sprintf("# const index -> $s1")
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli\t$s1, %d \t%s", v.IntVal(), comment))
 						comment = fmt.Sprintf("# variable -> array")
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$s1, %d($%d)\t\t%s",
-							4*stmt.Src[1].U.IntVal(), blk.Adesc[stmt.Src[0].U.StrVal()].Reg, comment))
+							4*stmt.Src[1].IntVal(), blk.Adesc[stmt.Src[0].StrVal()].Reg, comment))
 					case tac.Str:
 						comment := fmt.Sprintf("# variable -> array")
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%d, %d($%d)\t\t%s",
-							blk.Adesc[v.StrVal()].Reg, 4*u.IntVal(), blk.Adesc[stmt.Src[0].U.StrVal()].Reg, comment))
+							blk.Adesc[v.StrVal()].Reg, 4*u.IntVal(), blk.Adesc[stmt.Src[0].StrVal()].Reg, comment))
 					default:
 						log.Fatal("Unknown type %T\n", v)
 					}
 				case tac.Str:
-					switch v := stmt.Src[2].U.(type) {
+					switch v := stmt.Src[2].(type) {
 					case tac.I32:
 						comment := fmt.Sprintf("# const index -> $s1")
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli\t$s1, %d \t%s", v.IntVal(), comment))
@@ -184,13 +181,13 @@ func CodeGen(t tac.Tac) {
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsll $s2, $%d, 2\t%s", blk.Adesc[u.StrVal()].Reg, comment))
 						comment = fmt.Sprintf("# variable -> array")
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$s1, %s($s2)\t\t%s",
-							stmt.Src[0].U.StrVal(), comment))
+							stmt.Src[0].StrVal(), comment))
 					case tac.Str:
 						comment := fmt.Sprintf("# iterator *= 4")
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsll $s2, $%d, 2\t%s", blk.Adesc[u.StrVal()].Reg, comment))
 						comment = fmt.Sprintf("# variable -> array")
 						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%d, %s($s2)\t\t%s",
-							blk.Adesc[v.StrVal()].Reg, stmt.Src[0].U.StrVal(), comment))
+							blk.Adesc[v.StrVal()].Reg, stmt.Src[0].StrVal(), comment))
 					default:
 						log.Fatal("Unknown type %T\n", v)
 					}
@@ -199,13 +196,13 @@ func CodeGen(t tac.Tac) {
 			case tac.ADD:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].U.(type) {
+				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\taddi\t$%d, $%d, %s\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tadd\t$%d, $%d, $%d\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -213,13 +210,13 @@ func CodeGen(t tac.Tac) {
 			case tac.OR:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].U.(type) {
+				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tor\t$%d, $%d, %s\t\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tor\t$%d, $%d, $%d\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -227,13 +224,13 @@ func CodeGen(t tac.Tac) {
 			case tac.AND:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].U.(type) {
+				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tand\t$%d, $%d, %s\t\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tand\t$%d, $%d, $%d\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -241,13 +238,13 @@ func CodeGen(t tac.Tac) {
 			case tac.NOR:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].U.(type) {
+				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tnor\t$%d, $%d, %s\t\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tnor\t$%d, $%d, $%d\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -255,13 +252,13 @@ func CodeGen(t tac.Tac) {
 			case tac.XOR:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].U.(type) {
+				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\txor\t$%d, $%d, %s\t\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\txor\t$%d, $%d, $%d\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -270,18 +267,18 @@ func CodeGen(t tac.Tac) {
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tnot\t$%d, $%d\t%s",
-					blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, comment))
+					blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, comment))
 
 			case tac.MUL:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].U.(type) {
+				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmul\t$%d, $%d, %s\t\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmul\t$%d, $%d, $%d\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -289,13 +286,13 @@ func CodeGen(t tac.Tac) {
 			case tac.DIV:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].U.(type) {
+				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tdiv\t$%d, $%d, %s\t\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tdiv\t$%d, $%d, $%d\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -303,13 +300,13 @@ func CodeGen(t tac.Tac) {
 			case tac.SUB:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].U.(type) {
+				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsub\t$%d, $%d, %s\t\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsub\t$%d, $%d, $%d\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -317,13 +314,13 @@ func CodeGen(t tac.Tac) {
 			case tac.REM:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].U.(type) {
+				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\trem\t$%d, $%d, %s\t\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\trem\t$%d, $%d, $%d\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -331,13 +328,13 @@ func CodeGen(t tac.Tac) {
 			case tac.BGT:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].U.(type) {
+				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbgt\t$%d, %s, %s\t\t%s",
-						blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
+						blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbgt\t$%d, $%d, %s\t\t%s",
-						blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
+						blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -345,13 +342,13 @@ func CodeGen(t tac.Tac) {
 			case tac.BGE:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].U.(type) {
+				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbge\t$%d, %s, %s\t\t%s",
-						blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
+						blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbge\t$%d, $%d, %s\t\t%s",
-						blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
+						blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -359,13 +356,13 @@ func CodeGen(t tac.Tac) {
 			case tac.BLT:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].U.(type) {
+				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tblt\t$%d, %s, %s\t\t%s",
-						blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
+						blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tblt\t$%d, $%d, %s\t\t%s",
-						blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
+						blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -373,13 +370,13 @@ func CodeGen(t tac.Tac) {
 			case tac.BLE:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].U.(type) {
+				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tble\t$%d, %s, %s\t\t%s",
-						blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
+						blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tble\t$%d, $%d, %s\t\t%s",
-						blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
+						blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -387,13 +384,13 @@ func CodeGen(t tac.Tac) {
 			case tac.BEQ:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].U.(type) {
+				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbeq\t$%d, %s, %s\t\t%s",
-						blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
+						blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbeq\t$%d, $%d, %s\t\t%s",
-						blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
+						blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -401,41 +398,41 @@ func CodeGen(t tac.Tac) {
 			case tac.BNE:
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].U.(type) {
+				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbne\t$%d, %s, %s\t\t%s",
-						blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
+						blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbne\t$%d, $%d, %s\t\t%s",
-						blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
+						blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case tac.RST:
+			case tac.RST: // right shift
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].U.(type) {
+				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsrl\t$%d, $%d, %s\t\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsrl\t$%d, $%d, $%d\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
 
-			case tac.LST:
+			case tac.LST: // left shift
 				blk.GetReg(&stmt, ts, arrLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].U.(type) {
+				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsll\t$%d, $%d, %s\t\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, v.StrVal(), comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsll\t$%d, $%d, $%d\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].U.StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
 				}
@@ -456,15 +453,14 @@ func CodeGen(t tac.Tac) {
 			case tac.CALL:
 				for r, _ := range blk.Rdesc {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%d, %s", r, blk.Rdesc[r]))
-					// It is the responsibility of the caller to save all the registers
-					// before the callee starts.
+					// It is the responsibility of the caller to save
+					// all the registers before the callee starts.
 					callerSaved = append(callerSaved, fmt.Sprintf("\tlw\t$%d, %s", r, blk.Rdesc[r]))
 				}
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tjal\t%s", stmt.Dst))
 				for _, v := range callerSaved {
 					ts.Stmts = append(ts.Stmts, v)
 				}
-				// ts.Stmts = append(ts.Stmts, callerSaved...)
 
 			case tac.STORE:
 				blk.GetReg(&stmt, ts, arrLookup)
@@ -501,7 +497,7 @@ func CodeGen(t tac.Tac) {
 
 			case tac.PRINTINT:
 				ts.Stmts = append(ts.Stmts, "\tli\t$v0, 1")
-				switch v := stmt.Src[0].U.(type) {
+				switch v := stmt.Src[0].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli\t$a0, %s", v.IntVal()))
 				case tac.Str:
@@ -520,7 +516,7 @@ func CodeGen(t tac.Tac) {
 			// variable shouldn't have the same name as that of dst.
 			if _, ok := blk.Adesc[stmt.Dst]; ok && stmt.Op == tac.PRINTINT {
 				for _, v := range stmt.Src {
-					switch v := v.U.(type) {
+					switch v := v.(type) {
 					case tac.Str:
 						if blk.Adesc[v.StrVal()].Reg == blk.Adesc[stmt.Dst].Reg && v.StrVal() != stmt.Dst {
 							delete(blk.Adesc, v.StrVal())

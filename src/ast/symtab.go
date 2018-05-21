@@ -2,16 +2,14 @@
 
 package ast
 
-type (
-	symTabType map[string]symTabEntry
-)
+type symTabType map[string]SymTabEntry
 
 type SymInfo struct {
 	symTab symTabType
-	parent *SymInfo
+	parent *SymInfo // outer scope
 }
 
-type symTabEntry struct {
+type SymTabEntry struct {
 	kind    symkind
 	symbols []string
 }
@@ -40,7 +38,7 @@ func InsertSymbol(key string, kind symkind, vals ...interface{}) {
 	if _, ok := currScope.symTab[key]; ok {
 		panic("InsertSymbol: key already exists")
 	}
-	values := []string{}
+	var values []string
 	for _, v := range vals {
 		switch v := v.(type) {
 		case string:
@@ -53,14 +51,14 @@ func InsertSymbol(key string, kind symkind, vals ...interface{}) {
 			panic("InsertSymbol: type not supported")
 		}
 	}
-	currScope.symTab[key] = symTabEntry{
+	currScope.symTab[key] = SymTabEntry{
 		kind:    kind,
 		symbols: values,
 	}
 }
 
 // GetSymbol returns the symbol table entry in current scope for a key.
-func GetSymbol(key string) (symTabEntry, bool) {
+func GetSymbol(key string) (SymTabEntry, bool) {
 	entry, ok := currScope.symTab[key]
 	return entry, ok
 }
@@ -70,21 +68,21 @@ func GetSymbol(key string) (symTabEntry, bool) {
 // symbol table is reached. If not found in all these symbol tables, then the
 // global symbol table is looked up which contains the entries corresponding to
 // structs and functions.
-func Lookup(v string) (symTabEntry, bool) {
+func Lookup(v string) (*SymTabEntry, bool) {
 	for scope := currScope; scope != nil; scope = scope.parent {
 		entry, ok := scope.symTab[v]
 		if ok {
-			return entry, true
+			return &entry, true
 		}
 	}
 	// Lookup in global scope in case the variable corresponds to a struct
 	// or a function name.
 	for k, entry := range globalSymTab {
 		if k == v {
-			return entry, true
+			return &entry, true
 		}
 	}
-	return symTabEntry{}, false
+	return &SymTabEntry{}, false
 }
 
 // NewScope creates a new scope.
