@@ -32,7 +32,7 @@ func Tac(s string) []string {
 // GenProductions generates the RHS of productions in the reverse order of
 // rightmost derivations used in the bottom-up parsing of the input program.
 // The routine prints to stdout by default.
-func GenProductions(file string) {
+func GenProductions(file string) error {
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
 		log.Fatal(err)
@@ -42,8 +42,9 @@ func GenProductions(file string) {
 	_, err = p.Parse(s)
 	if err != nil {
 		e := err.(*parseError.Error)
-		fmt.Printf("%s:%d: %s\n", file, e.ErrorToken.Pos.Line, e.Err)
+		return fmt.Errorf("%s:%d: %s\n", file, e.ErrorToken.Pos.Line, e.Err)
 	}
+	return nil
 }
 
 // FindNonTerminal returns the index of the rightmost non-terminal in the given
@@ -62,7 +63,7 @@ func FindNonTerminal(input []string) int {
 
 // RightmostDerivation generates the HTML showing the rightmost derivations
 // used in bottom-up parsing of the input program.
-func RightmostDerivation(file string) {
+func RightmostDerivation(file string) error {
 	// Create a pipe with stdout mapped to its write end.
 	old := os.Stdout
 	r, w, _ := os.Pipe()
@@ -78,7 +79,9 @@ func RightmostDerivation(file string) {
 	}()
 
 	// The output of GenProductions will be buffered in the pipe.
-	GenProductions(file)
+	if err := GenProductions(file); err != nil {
+		return err
+	}
 	w.Close()
 	// Restore the original state (before pipe was created).
 	os.Stdout = old
@@ -164,4 +167,5 @@ func RightmostDerivation(file string) {
 		}
 	}
 	writer.Flush()
+	return nil
 }

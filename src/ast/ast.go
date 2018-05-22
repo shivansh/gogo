@@ -40,8 +40,8 @@ func init() {
 
 // Node represents a node in the AST of a given program.
 type Node struct {
-	// If the node represents an expression, then place stores the name of
-	// the variable storing the value of the expression.
+	// If the AST node represents an expression, then place stores the name
+	// of the variable storing the value of the expression.
 	Place string
 	Code  []string // IR instructions
 }
@@ -109,35 +109,102 @@ func AppendKeyedElement(key, keyList *Node) (*Node, error) {
 func NewVarSpec(typ int, args ...*Node) (*Node, error) {
 	n := &Node{"", []string{}}
 	expr := []string{}
+	var vartype, exprtype symkind
+
+	// Evaluate the type of identifier from the declaration.
+	switch args[1].Place {
+	case "int":
+		vartype = INTEGER
+	case "string":
+		vartype = STRING
+	default:
+		return &Node{}, fmt.Errorf("unsupported type: %s", args[1].Place)
+	}
+
 	// Add the IR instructions for ExpressionList.
 	switch typ {
 	case 1:
 		n.Code = args[2].Code
 		expr = utils.SplitAndSanitize(args[2].Place, ",")
 	case 2:
+		// Infer type of identifier from the expression.
+		if re.MatchString(args[1].Place) {
+			vartype = INTEGER
+		} else {
+			vartype = STRING
+		}
 		n.Code = args[1].Code
 		expr = utils.SplitAndSanitize(args[1].Place, ",")
 	case 3:
 		return &Node{}, nil
 	}
+
 	for k, v := range args[0].Code {
 		renamedVar := RenameVariable(v)
-		// TODO: Handle other types
-		InsertSymbol(v, INTEGER, renamedVar)
+		InsertSymbol(v, vartype, renamedVar)
+
+		// Evaluate type of the expression
+		if typ == 1 {
+			if symEntry, ok := Lookup(RealName(expr[k])); ok {
+				switch symEntry.kind {
+				case ARRAYINT:
+					exprtype = INTEGER
+				case ARRAYSTR:
+					exprtype = STRING
+				default:
+					exprtype = symEntry.kind
+				}
+			} else if re.MatchString(expr[k]) {
+				exprtype = INTEGER
+			} else if strings.HasPrefix(expr[k], ARR) {
+				switch GetPrefix(expr[k]) {
+				case ARRINT:
+					exprtype = INTEGER
+				case ARRSTR:
+					exprtype = STRING
+				default:
+					panic("type not supported by arrays")
+				}
+			} else {
+				exprtype = STRING
+			}
+		} else {
+			exprtype = STRING
+		}
+
 		if typ == 0 {
-			n.Code = append(n.Code, fmt.Sprintf("=, %s, 0", renamedVar))
+			// Initialize identifiers to their default values
+			// depending on type information.
+			switch vartype {
+			case INTEGER:
+				n.Code = append(n.Code, fmt.Sprintf("=, %s, 0", renamedVar))
+			case STRING:
+				n.Code = append(n.Code, fmt.Sprintf("declStr, %s, \"\"", renamedVar))
+			}
 		} else if typ == 1 || typ == 2 {
-			n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
+			if vartype == exprtype {
+				switch vartype {
+				case INTEGER:
+					n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", renamedVar, StripPrefix(expr[k])))
+				case STRING:
+					n.Code = append(n.Code, fmt.Sprintf("declStr, %s, %s", renamedVar, StripPrefix(expr[k])))
+				}
+			} else {
+				exprName := RealName(StripPrefix(expr[k]))
+				return &Node{}, fmt.Errorf("cannot use %s (type %s) as type %s in assignment",
+					exprName, GetType(exprtype), GetType(vartype))
+			}
 		}
 	}
+
 	return n, nil
 }
 
 // --- [ Type declarations ] ---------------------------------------------------
 
 // NewTypeDecl returns a type declaration.
-func NewTypeDecl(args ...*Node) (*Node, error) {
-	typeInfo := utils.SplitAndSanitize(args[1].Place, ",")
+func NewTypeDecl(typespec *Node) (*Node, error) {
+	typeInfo := utils.SplitAndSanitize(typespec.Place, ",")
 	structName := strings.TrimSpace(typeInfo[1])
 	typ := strings.TrimSpace(typeInfo[0])
 	switch typ {
@@ -147,9 +214,9 @@ func NewTypeDecl(args ...*Node) (*Node, error) {
 		//      structName : []{"struct", memberName1, memberType1, ...}
 		globalSymTab[structName] = SymTabEntry{
 			kind:    STRUCT,
-			symbols: args[1].Code,
+			symbols: typespec.Code,
 		}
-	default: // TODO: Add remaining types.
+	default:
 		return &Node{}, fmt.Errorf("Unknown type %s", typ)
 	}
 	// TODO: Member initialization will be done when a new object is
@@ -269,6 +336,7 @@ func NewArithExpr(op string, leftexpr, rightexpr *Node) (*Node, error) {
 	n := &Node{"", leftexpr.Code}
 	n.Code = append(n.Code, rightexpr.Code...)
 	if re.MatchString(leftexpr.Place) && re.MatchString(rightexpr.Place) {
+		// --- [ Constant folding optimization ] -----------------------
 		// Expression is of the form "1 op 2". Such expression can
 		// be reduced by evaluating its value during compilation itself.
 		leftval, err := strconv.Atoi(leftexpr.Place)
@@ -334,7 +402,7 @@ func NewUnaryExpr(op, expr *Node) (*Node, error) {
 	case AST:
 		n.Place = DRF + ":" + expr.Place
 	default:
-		return n, fmt.Errorf("%s operator not supported", op.Place)
+		return &Node{}, fmt.Errorf("%s operator not supported", op.Place)
 	}
 	return n, nil
 }
@@ -361,7 +429,23 @@ func NewPrimaryExprIndex(expr, index *Node) (*Node, error) {
 	n := &Node{"", []string{}}
 	n.Place = NewTmp()
 	// NOTE: Indexing is only supported by array types and not pointer types.
-	InsertSymbol(n.Place, ARRAY, expr.Place, index.Place)
+
+	var exprtype symkind
+	symEntry, ok := Lookup(RealName(expr.Place))
+	if ok {
+		switch symEntry.kind {
+		case INTEGER:
+			exprtype = ARRAYINT
+		case STRING:
+			exprtype = ARRAYSTR
+		default:
+			panic("NewPrimaryExprIndex: indexing not supported on type")
+		}
+	} else {
+		return &Node{}, fmt.Errorf("undefined: %s", RealName(expr.Place))
+	}
+	InsertSymbol(n.Place, exprtype, expr.Place, index.Place)
+
 	n.Code = append(n.Code, index.Code...)
 	n.Code = append(n.Code, fmt.Sprintf("from, %s, %s, %s", n.Place, expr.Place, index.Place))
 	return n, nil
@@ -544,6 +628,19 @@ func AppendParam(decl, declList *Node) (*Node, error) {
 	return n, nil
 }
 
+func NewArrayType(arrLen, arrType string) (*Node, error) {
+	n := &Node{"", []string{}}
+	switch arrType {
+	case "int":
+		n.Place = ARRINT + ":" + arrLen
+	case "string":
+		n.Place = ARRSTR + ":" + arrLen
+	default:
+		panic("NewArrayType: type not supported by arrays")
+	}
+	return n, nil
+}
+
 // NewFieldDecl returns a field declaration.
 func NewFieldDecl(identList, typ *Node) (*Node, error) {
 	n := &Node{"", []string{}}
@@ -709,15 +806,14 @@ func NewSwitchStmt(expr, caseClause *Node) (*Node, error) {
 	n := &Node{"", expr.Code}
 	caseLabels := []string{}
 	caseStmts := caseClause.Code
-	// SplitAndSanitize cannot be used here as removal of empty
-	// entries seems to be causing erroneous index calculations.
+	// SplitAndSanitize cannot be used here as removal of empty entries
+	// seems to be causing erroneous index calculations.
 	// Regression caused in "test/codegen/switch.go".
 	caseTemporaries := strings.Split(caseClause.Place, ",")
 	afterLabel := NewLabel()
 	defaultLabel := afterLabel
-	// The last value in caseTemporaries will be the place value
-	// returned by Empty (arising from the production rule
-	// RepeatExprCaseClause -> Empty).
+	// The last value in caseTemporaries will be the place value returned by
+	// Empty (arising from the rule RepeatExprCaseClause -> Empty).
 	// This has to be ignored.
 	for k, v := range caseTemporaries[:len(caseTemporaries)-1] {
 		caseLabel := NewLabel()
@@ -776,6 +872,7 @@ func NewForStmt(typ int, args ...*Node) (*Node, error) {
 	n := &Node{"", []string{}}
 	startLabel := NewLabel()
 	afterLabel := NewLabel()
+
 	switch typ {
 	case 0:
 		n.Code = append(n.Code, fmt.Sprintf("label, %s", startLabel))
@@ -790,6 +887,7 @@ func NewForStmt(typ int, args ...*Node) (*Node, error) {
 				n.Code = append(n.Code, v)
 			}
 		}
+
 	case 1:
 		n.Code = utils.AppendCode(
 			n.Code,
@@ -808,6 +906,7 @@ func NewForStmt(typ int, args ...*Node) (*Node, error) {
 				n.Code = append(n.Code, v)
 			}
 		}
+
 	case 2:
 		n.Code = utils.AppendCode(
 			n.Code,
@@ -834,6 +933,7 @@ func NewForStmt(typ int, args ...*Node) (*Node, error) {
 		fmt.Sprintf("%s, %s", tac.JMP, startLabel),
 		fmt.Sprintf("label, %s", afterLabel),
 	)
+
 	return n, nil
 }
 
@@ -952,18 +1052,25 @@ func NewAssignStmt(typ int, op string, leftExpr, rightExpr *Node) (*Node, error)
 		rightExpr := utils.SplitAndSanitize(rightExpr.Place, ",")
 		for k, v := range leftExpr {
 			n.Code = append(n.Code, fmt.Sprintf("%s, %s, %s, %s", op, v, v, rightExpr[k]))
-			if symEntry, ok := Lookup(v); ok && symEntry.kind == ARRAY {
+			if symEntry, ok := Lookup(v); ok && (symEntry.kind == ARRAYINT || symEntry.kind == ARRAYSTR) {
+				if symEntry.kind == ARRAYINT {
+					InsertSymbol(v, INTEGER, symEntry.symbols)
+				} else {
+					InsertSymbol(v, STRING, symEntry.symbols)
+				}
 				// The IR notation for assigning an array member to a
 				// variable is of the form -
 				//	into, destination, destination, index, array-name
 				// destination appears twice because of the way register
 				// spilling is currently being handled.
+				//
 				dst := symEntry.symbols[0]
 				index := symEntry.symbols[1]
 				n.Code = append(n.Code, fmt.Sprintf("into, %s, %s, %s, %s", dst, dst, index, v))
 			}
 		}
 		return n, nil
+
 	case 1:
 		n := &Node{"", leftExpr.Code}
 		n.Code = append(n.Code, rightExpr.Code...)
@@ -975,7 +1082,7 @@ func NewAssignStmt(typ int, op string, leftExpr, rightExpr *Node) (*Node, error)
 		for k, v := range leftExpr {
 			if currScope.symTab[RealName(v)].kind == POINTER {
 				if strings.HasPrefix(rightExpr[k], PTR) {
-					varName := RealName(rightExpr[k][8:])
+					varName := RealName(StripPrefix(rightExpr[k]))
 					currScope.symTab[RealName(v)].symbols[1] = currScope.symTab[varName].symbols[0]
 				} else {
 					varName := RealName(rightExpr[k])
@@ -983,25 +1090,30 @@ func NewAssignStmt(typ int, op string, leftExpr, rightExpr *Node) (*Node, error)
 				}
 			} else if strings.HasPrefix(rightExpr[k], DRF) {
 				if strings.HasPrefix(v, DRF) {
-					leftVar := currScope.symTab[RealName(v[6:])].symbols[1]
-					rightVar := currScope.symTab[RealName(rightExpr[k][6:])].symbols[1]
+					leftVar := currScope.symTab[RealName(StripPrefix(v))].symbols[1]
+					rightVar := currScope.symTab[RealName(StripPrefix(rightExpr[k]))].symbols[1]
 					n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", leftVar, rightVar))
 				} else {
 					leftVar := currScope.symTab[RealName(v)].symbols[0]
-					rightVar := currScope.symTab[RealName(rightExpr[k][6:])].symbols[1]
+					rightVar := currScope.symTab[RealName(StripPrefix(rightExpr[k]))].symbols[1]
 					n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", leftVar, rightVar))
 				}
 			} else if strings.HasPrefix(v, DRF) {
-				varName := currScope.symTab[RealName(v[6:])].symbols[1]
+				varName := currScope.symTab[RealName(StripPrefix(v))].symbols[1]
 				n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", varName, rightExpr[k]))
 			} else {
 				n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", v, rightExpr[k]))
-				if symEntry, ok := Lookup(v); ok && symEntry.kind == ARRAY {
+				if symEntry, ok := Lookup(v); ok && (symEntry.kind == ARRAYINT || symEntry.kind == ARRAYSTR) {
 					// The IR notation for assigning an array member to a
 					// variable is of the form -
 					//	into, destination, destination, index, array-name
 					// destination appears twice because of the way register
 					// spilling is currently being handled.
+					if symEntry.kind == ARRAYINT {
+						InsertSymbol(v, INTEGER, symEntry.symbols)
+					} else {
+						InsertSymbol(v, STRING, symEntry.symbols)
+					}
 					dst := symEntry.symbols[0]
 					index := symEntry.symbols[1]
 					n.Code = append(n.Code, fmt.Sprintf("into, %s, %s, %s, %s", dst, dst, index, v))
@@ -1009,6 +1121,7 @@ func NewAssignStmt(typ int, op string, leftExpr, rightExpr *Node) (*Node, error)
 			}
 		}
 		return n, nil
+
 	case 2:
 		n := &Node{"", []string{}}
 		// TODO: Structs do not support multiple short declarations in a
@@ -1037,6 +1150,7 @@ func NewAssignStmt(typ int, op string, leftExpr, rightExpr *Node) (*Node, error)
 		}
 		return n, nil
 	}
+
 	return &Node{}, nil
 }
 
@@ -1086,9 +1200,8 @@ func NewShortDecl(identList, exprList *Node) (*Node, error) {
 		for k, v := range identList.Code {
 			renamedVar := RenameVariable(v)
 			if _, ok := GetSymbol(v); !ok {
-				// TODO: All types are int currently.
 				if strings.HasPrefix(expr[k], PTR) {
-					InsertSymbol(v, POINTER, renamedVar, expr[k][8:])
+					InsertSymbol(v, POINTER, renamedVar, StripPrefix(expr[k]))
 				} else if currScope.symTab[RealName(expr[k])].kind == POINTER {
 					InsertSymbol(v, POINTER, renamedVar, currScope.symTab[RealName(expr[k])].symbols[1])
 				} else if strings.HasPrefix(expr[k], DRF) {
@@ -1101,12 +1214,11 @@ func NewShortDecl(identList, exprList *Node) (*Node, error) {
 			}
 			if strings.HasPrefix(expr[k], ARR) {
 				// TODO: rename arrays
-				n.Code = append(n.Code, fmt.Sprintf("decl, %s, %s", renamedVar, expr[k][6:]))
+				n.Code = append(n.Code, fmt.Sprintf("decl, %s, %s", renamedVar, StripPrefix(expr[k])))
 			} else if strings.HasPrefix(expr[k], DRF) {
-				n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", renamedVar, currScope.symTab[RealName(expr[k][6:])].symbols[1]))
+				n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", renamedVar, currScope.symTab[RealName(StripPrefix(expr[k]))].symbols[1]))
 			} else if strings.HasPrefix(expr[k], STR) {
-				// Check if the RHS is a string.
-				n.Code = append(n.Code, fmt.Sprintf("declStr, %s, %s", renamedVar, expr[k][7:]))
+				n.Code = append(n.Code, fmt.Sprintf("declStr, %s, %s", renamedVar, StripPrefix(expr[k])))
 			} else if currScope.symTab[v].kind != POINTER {
 				n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
 			}

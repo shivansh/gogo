@@ -5,7 +5,7 @@
 genDir="./goccgen"
 src="./src"
 
-mkdir -p "$tmp"
+mkdir -p "$genDir"
 
 if [ -z "$GOPATH" ]; then
     echo "GOPATH environment variable is not set"

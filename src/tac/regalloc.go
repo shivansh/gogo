@@ -50,8 +50,10 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 		switch v := v.(type) {
 		case Str:
 			srcVars = append(srcVars, v.StrVal())
+		case I32:
+			srcVars = append(srcVars, v.StrVal())
 		default:
-			panic("GetRet: invalid type")
+			panic("GetReg: invalid type")
 		}
 	}
 	switch stmt.Op {

@@ -155,8 +155,10 @@ VarSpec
 // TypeSpec  = AliasDecl | TypeDef .
 // AliasDecl = identifier "=" Type
 // TypeDef   = identifier Type
-TypeDecl : kwdType TypeSpec   << ast.NewTypeDecl($0.(*ast.Node), $1.(*ast.Node)) >>
-         ;
+TypeDecl
+        : kwdType TypeSpec   << ast.NewTypeDecl($1.(*ast.Node)) >>
+        ;
+
 TypeSpec
         : TypeDef  << ast.NewNode($0.(*ast.Node)) >>
         ;
@@ -451,7 +453,7 @@ TypeLit
 // TODO: ElementType is taken to be only int for now.
 ArrayType
         : "[" ArrayLength "]" ElementType
-                << ast.InitNode(fmt.Sprintf("array:%s", $1.(*ast.Node).Place), []string{}) >>
+                << ast.NewArrayType($1.(*ast.Node).Place, string($3.(*ast.Node).Place)) >>
         ;
 
 // NOTE: ArrayLength is modified to be only an integer, unlike in Go where it is

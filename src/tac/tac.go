@@ -42,6 +42,7 @@ type TextSec struct {
 	Stmts []interface{}
 }
 
+// Blk represents the structure of a basic block.
 type Blk struct {
 	Stmts []Stmt
 	// Address descriptor:
@@ -60,6 +61,7 @@ type Blk struct {
 	Pq         PriorityQueue
 }
 
+// Tac represents the three-address code for the entire source program.
 type Tac []Blk
 
 // GenTAC generates the three-address code (in-memory) data structure

@@ -13,10 +13,14 @@ var (
 
 // RealName extracts the original name of a variable from its renamed version.
 func RealName(s string) string {
-	i := len(s) - 1
-	for ; i > 0 && s[i] != '.'; i-- {
+	i := 0
+	for ; i < len(s) && s[i] != '.'; i++ {
 	}
-	return s[:i]
+	if i < len(s) {
+		return s[:i]
+	} else {
+		return s
+	}
 }
 
 // NewTmp generates a unique temporary variable name.

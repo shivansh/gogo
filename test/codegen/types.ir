@@ -1,0 +1,7 @@
+func, main
+=, a.0, 1
+declStr, b.1, "str"
+=, c.2, 0
+declStr, d.3, ""
+=, e.4, 2
+declStr, f.5, "Hello types"

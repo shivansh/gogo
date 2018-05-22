@@ -6,7 +6,7 @@ GCFLAGS=   -ldflags "-w"
 DEBUGFLAGS=-gcflags "-N -l"
 
 all:
-	# make deps
+	make deps
 	make scanner
 	make tac
 	make gogo
@@ -31,6 +31,7 @@ test:
 
 travis:
 	make
+	make test
 	git diff --exit-code test
 
 clean:

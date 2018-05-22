@@ -22,13 +22,16 @@ func GenToken(file string) {
 
 // GenIR generates the IR instructions from the input program.
 func GenIR(file string) {
-	parser.GenProductions(file)
+	err := parser.GenProductions(file)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s", err)
+		os.Exit(1)
+	}
 }
 
 // GenAsmFromIR generates the assembly code using IR generated from the input program.
 func GenAsmFromIR(file string) {
-	// A journey of a thousand miles begins with a single step. This is that
-	// step.
+	// A journey of a thousand miles begins with a single step. This is that step.
 	codegen.CodeGen(tac.GenTAC(file))
 }
 
@@ -75,8 +78,8 @@ func GenAsm(file string) {
 
 // GenHTML generates the rightmost derivations used in the bottom-up parsing and
 // pretty-prints them in an HTML format.
-func GenHTML(file string) {
-	parser.RightmostDerivation(file)
+func GenHTML(file string) error {
+	return parser.RightmostDerivation(file)
 }
 
 func main() {
@@ -85,20 +88,27 @@ func main() {
 	ir2asm := flag.Bool("r2s", false, "Generates the MIPS assembly from IR")
 	prod := flag.Bool("p", false, "Generates rightmost derivations used in bottom-up parsing")
 	flag.Parse()
+
 	args := os.Args
 	if len(args) != 3 {
 		fmt.Fprintf(os.Stderr, "Usage: gogo (-r | -r2s | -s) <filename>\n")
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
+
+	var err error
 	if *asm {
 		GenAsm(args[2])
 	} else if *ir {
 		GenIR(args[2])
 	} else if *ir2asm {
-		// TODO: Verify if the input is indeed IR.
+		// TODO: Verify if the input is indeed in a valid IR format.
 		GenAsmFromIR(args[2])
 	} else if *prod {
-		GenHTML(args[2])
+		err = GenHTML(args[2])
+	}
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s", err)
 	}
 }

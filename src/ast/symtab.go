@@ -34,10 +34,6 @@ var (
 // InsertSymbol creates a symbol table entry corresponding to a key in the
 // symbol table.
 func InsertSymbol(key string, kind symkind, vals ...interface{}) {
-	// Check if the key already exists.
-	if _, ok := currScope.symTab[key]; ok {
-		panic("InsertSymbol: key already exists")
-	}
 	var values []string
 	for _, v := range vals {
 		switch v := v.(type) {
