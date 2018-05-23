@@ -3,5 +3,5 @@ func, main
 =, a.y.1, 0
 =, b.x.2, 3
 =, b.y.3, 3
-=, c.4, b.x.2
+declInt, c.4, b.x.2
 ret,

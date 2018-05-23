@@ -1,5 +1,5 @@
 func, main
-=, a.0, 0
+declInt, a.0, 0
 decl, binary.1, 10
 declStr, startSen.2, "Give input number less than 1024\n"
 declStr, newline.3, "\n"
@@ -8,7 +8,7 @@ printStr, startSen.2
 scanInt, a.0
 printStr, newline.3
 printStr, binaryLine.4
-=, i.5, 0
+declInt, i.5, 0
 label, l2
 ble, l0, a.0, 0
 =, t0, 1
@@ -28,7 +28,7 @@ into, binary.1, binary.1, i.5, t1
 jmp, l2
 label, l3
 -, t5, i.5, 1
-=, j.6, t5
+declInt, j.6, t5
 label, l6
 blt, l4, j.6, 0
 =, t6, 1

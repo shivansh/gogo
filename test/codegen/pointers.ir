@@ -1,6 +1,6 @@
 func, main
-=, a.0, 1
-=, b.1, 2
+declInt, a.0, 1
+declInt, b.1, 2
 =, y.3, a.0
 printInt, y.3, y.3
 =, a.0, 4

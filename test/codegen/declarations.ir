@@ -3,16 +3,16 @@ func, temp
 =, return.1, 2
 ret,
 func, main
-=, b.0, 6
-=, d.1, 3
-=, x.2, 3
-=, a.3, d.1
+declInt, b.0, 6
+declInt, d.1, 3
+declInt, x.2, 3
+declInt, a.3, d.1
 printInt, a.3, a.3
 call, temp
-=, c.4, return.0
-=, e.5, return.1
-=, f.6, 0
-=, g.7, 0
+declInt, c.4, return.0
+declInt, e.5, return.1
+declInt, f.6, 0
+declInt, g.7, 0
 call, temp
 =, f.6, return.0
 =, g.7, return.1

@@ -10,11 +10,11 @@ into, a.0, a.0, 1, t1
 =, t2, 2
 into, a.0, a.0, 2, t2
 from, t3, a.0, 0
-=, x.1, t3
+declInt, x.1, t3
 from, t4, a.0, 1
-=, y.2, t4
+declInt, y.2, t4
 from, t5, a.0, 2
-=, z.3, t5
+declInt, z.3, t5
 printInt, x.1, x.1
 printInt, y.2, y.2
 printInt, z.3, z.3

@@ -7,14 +7,14 @@ func, test
 =, return.1, t1
 ret,
 func, main
-=, a.0, 1
+declInt, a.0, 1
 =, a.0, 4
-=, b.1, 1
-=, c.2, 2
-=, d.3, 3
+declInt, b.1, 1
+declInt, c.2, 2
+declInt, d.3, 3
 =, test.0, 1
 =, test.1, 2
 call, test
-=, e.4, return.0
-=, f.5, return.1
+declInt, e.4, return.0
+declInt, f.5, return.1
 ret,

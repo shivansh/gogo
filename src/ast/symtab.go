@@ -39,10 +39,8 @@ func InsertSymbol(key string, kind symkind, vals ...interface{}) {
 		switch v := v.(type) {
 		case string:
 			values = append(values, v)
-			// currScope.symTab[key].symbols = append(currScope.symTab[key].symbols, v)
 		case []string:
 			values = append(values, v...)
-			// currScope.symTab[key] = append(currScope.symTab[key], v...)
 		default:
 			panic("InsertSymbol: type not supported")
 		}
@@ -66,8 +64,7 @@ func GetSymbol(key string) (SymTabEntry, bool) {
 // structs and functions.
 func Lookup(v string) (*SymTabEntry, bool) {
 	for scope := currScope; scope != nil; scope = scope.parent {
-		entry, ok := scope.symTab[v]
-		if ok {
+		if entry, ok := scope.symTab[v]; ok {
 			return &entry, true
 		}
 	}
@@ -81,9 +78,9 @@ func Lookup(v string) (*SymTabEntry, bool) {
 	return &SymTabEntry{}, false
 }
 
-// NewScope creates a new scope.
+// NewScope modifies the symbol table hierarchy, creating a new scope.
 func NewScope() {
-	childSymTab := SymInfo{make(symTabType), currScope}
+	newSymTab := SymInfo{make(symTabType), currScope}
 	// Update the current symbol table to point to the newly created one.
-	currScope = &childSymTab
+	currScope = &newSymTab
 }

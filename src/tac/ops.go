@@ -46,6 +46,7 @@ const (
 
 	// declaration operators
 	DECL    = "decl"
+	DECLInt = "declInt"
 	DECLSTR = "declStr"
 
 	// I/O operators

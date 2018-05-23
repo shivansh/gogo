@@ -1,5 +1,5 @@
 func, main
-=, a.0, -1
+declInt, a.0, -1
 +, t0, a.0, 1
-=, b.1, t0
+declInt, b.1, t0
 ret,

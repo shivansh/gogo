@@ -1,10 +1,10 @@
 func, main
 declStr, withinBlock.0, "\nInside the block\nValue of a: "
 declStr, outsideBlock.1, "\nOutside the block\nValue of a:"
-=, a.2, 1
+declInt, a.2, 1
 printStr, outsideBlock.1
 printInt, a.2, a.2
-=, a.3, 4
+declInt, a.3, 4
 printStr, withinBlock.0
 printInt, a.3, a.3
 printStr, outsideBlock.1

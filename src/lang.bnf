@@ -185,7 +185,7 @@ ConstSpec
 // --- [ Expressions ] ---------------------------------------------------------
 
 ExpressionList
-        : Expression                     << ast.NewExpr($0.(*ast.Node)) >>
+        : Expression                     << ast.NewNode($0.(*ast.Node)) >>
         | Expression "," ExpressionList  << ast.AppendExpr($0.(*ast.Node), $2.(*ast.Node)) >>
         ;
 
@@ -195,47 +195,47 @@ ExpressionList
 // increasing precedence starting from top.
 Expression
         : Expression "||" Term1  << ast.NewBoolExpr(string($1.(*token.Token).Lit), $0.(*ast.Node), $2.(*ast.Node)) >>
-        | Term1                  << ast.NewExpr($0.(*ast.Node)) >>
+        | Term1                  << ast.NewNode($0.(*ast.Node)) >>
         ;
 
 Term1
         : Term1 "&&" Term2  << ast.NewBoolExpr(string($1.(*token.Token).Lit), $0.(*ast.Node), $2.(*ast.Node)) >>
-        | Term2             << ast.NewExpr($0.(*ast.Node)) >>
+        | Term2             << ast.NewNode($0.(*ast.Node)) >>
         ;
 
 Term2
         : Term2 RelOp Term3  << ast.NewRelExpr($1.(*ast.Node), $0.(*ast.Node), $2.(*ast.Node)) >>
-        | Term3              << ast.NewExpr($0.(*ast.Node)) >>
+        | Term3              << ast.NewNode($0.(*ast.Node)) >>
         ;
 
 Term3
         : Term3 "+" Term4  << ast.NewArithExpr(string($1.(*token.Token).Lit), $0.(*ast.Node), $2.(*ast.Node)) >>
-        | Term4            << ast.NewExpr($0.(*ast.Node)) >>
+        | Term4            << ast.NewNode($0.(*ast.Node)) >>
         ;
 
 Term4
         : Term4 "-" Term5  << ast.NewArithExpr(string($1.(*token.Token).Lit), $0.(*ast.Node), $2.(*ast.Node)) >>
-        | Term5            << ast.NewExpr($0.(*ast.Node)) >>
+        | Term5            << ast.NewNode($0.(*ast.Node)) >>
         ;
 
 Term5
         : Term5 "*" Term6  << ast.NewArithExpr(string($1.(*token.Token).Lit), $0.(*ast.Node), $2.(*ast.Node)) >>
-        | Term6            << ast.NewExpr($0.(*ast.Node)) >>
+        | Term6            << ast.NewNode($0.(*ast.Node)) >>
         ;
 
 Term6
         : Term6 "/" Term7  << ast.NewArithExpr(string($1.(*token.Token).Lit), $0.(*ast.Node), $2.(*ast.Node)) >>
-        | Term7            << ast.NewExpr($0.(*ast.Node)) >>
+        | Term7            << ast.NewNode($0.(*ast.Node)) >>
         ;
 
 Term7
         : Term7 "%" Term8  << ast.NewArithExpr(string($1.(*token.Token).Lit), $0.(*ast.Node), $2.(*ast.Node)) >>
-        | Term8            << ast.NewExpr($0.(*ast.Node)) >>
+        | Term8            << ast.NewNode($0.(*ast.Node)) >>
         ;
 
 Term8
-        : "(" Expression ")"  << ast.NewExpr($1.(*ast.Node)) >>
-        | UnaryExpr           << ast.NewExpr($0.(*ast.Node)) >>
+        : "(" Expression ")"  << ast.NewNode($1.(*ast.Node)) >>
+        | UnaryExpr           << ast.NewNode($0.(*ast.Node)) >>
         ;
 
 // TODO: Add support for booleans in IR.
@@ -282,8 +282,8 @@ UnaryOp
 //  PrimaryExpr Arguments .
 PrimaryExpr
         : Operand  << ast.NewNode($0.(*ast.Node)) >>
-        | PrimaryExpr Selector  << ast.NewPrimaryExprSel($0.(*ast.Node), $1.(*ast.Node)) >>
-        | PrimaryExpr Index     << ast.NewPrimaryExprIndex($0.(*ast.Node), $1.(*ast.Node)) >>
+        | PrimaryExpr Selector   << ast.NewPrimaryExprSel($0.(*ast.Node), $1.(*ast.Node)) >>
+        | PrimaryExpr Index      << ast.NewPrimaryExprIndex($0.(*ast.Node), $1.(*ast.Node)) >>
         | PrimaryExpr Arguments  << ast.NewPrimaryExprArgs($0.(*ast.Node), $1.(*ast.Node)) >>
         ;
 
@@ -302,7 +302,7 @@ Literal
         ;
 
 BasicLit
-        : intLit  << ast.InitNode(string($0.(*token.Token).Lit), []string{}) >>
+        : intLit     << ast.InitNode(string($0.(*token.Token).Lit), []string{}) >>
         | stringLit  << ast.InitNode(fmt.Sprintf("string:%s", string($0.(*token.Token).Lit)), []string{}) >>
         ;
 
@@ -322,7 +322,7 @@ CompositeLit
 LiteralType
         : ArrayType  << ast.InitNode($0.(*ast.Node).Place, []string{}) >>
         // When initializing structs, TypeName will be used as the name of struct.
-        | TypeName  << ast.NewNode($0.(*ast.Node)) >>
+        | TypeName   << ast.NewNode($0.(*ast.Node)) >>
         ;
 
 // TypeName  = identifier | QualifiedIdent .
@@ -483,7 +483,7 @@ RepeatFieldDecl
 
 FieldDecl
         : IdentifierList Type  << ast.NewFieldDecl($0.(*ast.Node), $1.(*ast.Node)) >>
-        | empty  << ast.InitNode("", []string{}) >>
+        | empty                << ast.InitNode("", []string{}) >>
         ;
 
 // IdentifierList = identifier { "," identifier } .
@@ -658,7 +658,7 @@ ForStmt
 // When Condition is not specified, do an endless loop by initializing the place
 // value to 1.
 ForClause
-        : terminator terminator  << ast.InitNode("1", []string{"", "", ""}) >>
+        : terminator terminator                     << ast.InitNode("1", []string{"", "", ""}) >>
         | InitStmt terminator terminator            << ast.NewForClause(0, $0.(*ast.Node)) >>
         | terminator Condition terminator           << ast.NewForClause(1, $1.(*ast.Node)) >>
         | terminator terminator PostStmt            << ast.NewForClause(2, $2.(*ast.Node)) >>

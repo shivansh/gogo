@@ -7,7 +7,7 @@ decl, arr.1, 2
 from, t1, arr.1, 0
 =, t1, 5
 into, arr.1, arr.1, 0, t1
-=, a.2, 1
-=, a.3, 4
+declInt, a.2, 1
+declInt, a.3, 4
 =, a.3, 2
 =, a.2, 4

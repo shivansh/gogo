@@ -1,7 +1,7 @@
 func, main
-=, a.0, 0
+declInt, a.0, 0
 declStr, newline.1, "\n"
-=, i.2, 0
+declInt, i.2, 0
 label, l2
 bge, l0, i.2, 4
 =, t0, 1

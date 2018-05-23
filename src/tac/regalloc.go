@@ -72,7 +72,7 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 			reg, _ := strconv.Atoi(item.Name)
 			if _, ok := blk.Rdesc[reg]; ok && !arrLookup[blk.Rdesc[reg]] {
 				comment := fmt.Sprintf("# spilled %s, freed $%s", blk.Rdesc[reg], item.Name)
-				if len(blk.Rdesc[reg]) >= 6 {
+				if len(blk.Rdesc[reg]) >= 3 {
 					tab = "\t"
 				} else {
 					tab = "\t\t"

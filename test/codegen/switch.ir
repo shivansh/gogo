@@ -1,5 +1,5 @@
 func, main
-=, a.0, 1
+declInt, a.0, 1
 beq, l1, a.0, 2
 jmp, l2
 label, l1

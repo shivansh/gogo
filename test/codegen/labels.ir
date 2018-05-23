@@ -1,6 +1,6 @@
 func, main
-=, a.0, 1
-=, b.1, 2
+declInt, a.0, 1
+declInt, b.1, 2
 declStr, newline.2, "\n"
 jmp, l2
 label, l1

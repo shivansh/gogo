@@ -45,7 +45,7 @@ type TextSec struct {
 // Blk represents the structure of a basic block.
 type Blk struct {
 	Stmts []Stmt
-	// Address descriptor:
+	// Address descriptor
 	//	* Keeps track of location where current value of the
 	//	  name can be found at compile time.
 	//	* The location can be either one or a set of -
@@ -53,7 +53,7 @@ type Blk struct {
 	//		- memory address
 	//		- stack (TODO)
 	Adesc map[string]Addr
-	// Register descriptor:
+	// Register descriptor
 	//	* Keeps track of what is currently in each register.
 	//	* Initially all registers are empty.
 	Rdesc      map[int]string

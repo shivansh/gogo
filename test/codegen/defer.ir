@@ -8,7 +8,7 @@ func, midFunc
 declStr, str.1, "Second function call! Result: "
 declStr, newline.2, "\n"
 +, t0, a, c
-=, sum.3, t0
+declInt, sum.3, t0
 printStr, str.1
 printInt, sum.3, sum.3
 printStr, newline.2

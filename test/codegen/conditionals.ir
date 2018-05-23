@@ -1,7 +1,7 @@
 func, main
-=, a.0, 1
-=, b.1, 1
-=, c.2, 4
+declInt, a.0, 1
+declInt, b.1, 1
+declInt, c.2, 4
 +, t0, a.0, b.1
 ble, l0, t0, 3
 =, t1, 1
