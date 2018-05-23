@@ -35,3 +35,13 @@ func AppendCode(slice []string, args ...interface{}) []string {
 	}
 	return slice
 }
+
+// Tac simulates the shell utility tac(1), only difference being that it returns a
+// slice of strings splitted by newline.
+func Tac(s string) []string {
+	record := strings.Split(s, "\n")
+	for i, j := 0, len(record)-1; i < j; i, j = i+1, j-1 {
+		record[i], record[j] = record[j], record[i]
+	}
+	return record
+}

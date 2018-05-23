@@ -1,6 +1,6 @@
-// Package parser generates the rightmost derivations used in the bottom-up parsing
-// of a given go program and pretty-prints them in HTML format, highlighting
-// important characteristics.
+// Package parser generates the rightmost derivations used in the bottom-up
+// parsing of a given go program and pretty-prints them in HTML format,
+// highlighting important characteristics.
 
 package parser
 
@@ -14,20 +14,11 @@ import (
 	"os"
 	"strings"
 
-	parseError "github.com/shivansh/gogo/goccgen/errors"
-	"github.com/shivansh/gogo/goccgen/lexer"
-	"github.com/shivansh/gogo/goccgen/parser"
+	parseError "github.com/shivansh/gogo/src/goccgen/errors"
+	"github.com/shivansh/gogo/src/goccgen/lexer"
+	"github.com/shivansh/gogo/src/goccgen/parser"
+	"github.com/shivansh/gogo/src/utils"
 )
-
-// Tac simulates the shell utility tac(1), only difference being that it returns a
-// slice of strings splitted by newline.
-func Tac(s string) []string {
-	record := strings.Split(s, "\n")
-	for i, j := 0, len(record)-1; i < j; i, j = i+1, j-1 {
-		record[i], record[j] = record[j], record[i]
-	}
-	return record
-}
 
 // GenProductions generates the RHS of productions in the reverse order of
 // rightmost derivations used in the bottom-up parsing of the input program.
@@ -39,6 +30,8 @@ func GenProductions(file string) error {
 	}
 	s := lexer.NewLexer(content)
 	p := parser.NewParser()
+	// When parsing is finished, a final call to the routine PrintIR() (in
+	// package ast) is made. This prints the generated IR instructins.
 	_, err = p.Parse(s)
 	if err != nil {
 		e := err.(*parseError.Error)
@@ -75,7 +68,7 @@ func RightmostDerivation(file string) error {
 	go func() {
 		var buf bytes.Buffer
 		io.Copy(&buf, r)
-		outChan <- Tac(buf.String())
+		outChan <- utils.Tac(buf.String())
 	}()
 
 	// The output of GenProductions will be buffered in the pipe.

@@ -1,14 +1,12 @@
 CC=        go
 BIN=       ./bin
 SRC=       ./src
-CLEANDIR=  ./goccgen
+CLEANDIR=  $(SRC)/goccgen
 GCFLAGS=   -ldflags "-w"
 DEBUGFLAGS=-gcflags "-N -l"
 
 all:
 	make deps
-	make scanner
-	make tac
 	make gogo
 
 .PHONY: scanner tac gogo clean test

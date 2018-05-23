@@ -87,6 +87,7 @@ func main() {
 	ir := flag.Bool("r", false, "Generates IR instructions from go program")
 	ir2asm := flag.Bool("r2s", false, "Generates the MIPS assembly from IR")
 	prod := flag.Bool("p", false, "Generates rightmost derivations used in bottom-up parsing")
+	// optimize := flag.Bool("O", false, "Turn on optimizations")
 	flag.Parse()
 
 	args := os.Args

@@ -99,20 +99,20 @@ func CodeGen(t tac.Tac) {
 				tac.JMP:
 				break
 			default:
+				if len(stmt.Dst) >= 8 {
+					tab = "\t"
+				} else {
+					tab = "\t\t"
+				}
 				if stmt.Op == tac.DECL && !ds.Lookup[stmt.Dst] {
-					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.space\t%d", stmt.Dst, 4*stmt.Src[0].IntVal()))
+					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:%s.space\t%d", stmt.Dst, tab, 4*stmt.Src[0].IntVal()))
 					ds.Lookup[stmt.Dst] = true
 					arrLookup[stmt.Dst] = true
 				} else if stmt.Op == tac.DECLSTR {
-					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:\t.asciiz %s", stmt.Dst, stmt.Src[0].StrVal()))
+					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:%s.asciiz %s", stmt.Dst, tab, stmt.Src[0].StrVal()))
 					ds.Lookup[stmt.Dst] = true
 				} else if !ds.Lookup[stmt.Dst] {
 					ds.Lookup[stmt.Dst] = true
-					if len(stmt.Dst) >= 8 {
-						tab = "\t"
-					} else {
-						tab = "\t\t"
-					}
 					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:%s.word\t0", stmt.Dst, tab))
 				}
 			}
@@ -288,7 +288,7 @@ func CodeGen(t tac.Tac) {
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].(type) {
 				case tac.I32:
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tdiv\t$%d, $%d, %s\t\t%s",
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tdiv\t$%d, $%d, %s\t%s",
 						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tdiv\t$%d, $%d, $%d\t%s",
@@ -330,10 +330,10 @@ func CodeGen(t tac.Tac) {
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].(type) {
 				case tac.I32:
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbgt\t$%d, %s, %s\t\t%s",
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbgt\t$%d, %s, %s\t%s",
 						blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
 				case tac.Str:
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbgt\t$%d, $%d, %s\t\t%s",
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tbgt\t$%d, $%d, %s\t%s",
 						blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
 				default:
 					log.Fatal("Unknown type %T\n", v)
@@ -414,7 +414,7 @@ func CodeGen(t tac.Tac) {
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].(type) {
 				case tac.I32:
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsrl\t$%d, $%d, %s\t\t%s",
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsrl\t$%d, $%d, %s\t%s",
 						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), comment))
 				case tac.Str:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsrl\t$%d, $%d, $%d\t%s",

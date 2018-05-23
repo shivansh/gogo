@@ -95,7 +95,7 @@ import (
 
         "github.com/shivansh/gogo/src/ast"
         "github.com/shivansh/gogo/src/tac"
-        "github.com/shivansh/gogo/goccgen/token"
+        "github.com/shivansh/gogo/src/goccgen/token"
 )
 >>
 

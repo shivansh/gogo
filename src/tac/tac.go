@@ -42,25 +42,6 @@ type TextSec struct {
 	Stmts []interface{}
 }
 
-// Blk represents the structure of a basic block.
-type Blk struct {
-	Stmts []Stmt
-	// Address descriptor
-	//	* Keeps track of location where current value of the
-	//	  name can be found at compile time.
-	//	* The location can be either one or a set of -
-	//		- register
-	//		- memory address
-	//		- stack (TODO)
-	Adesc map[string]Addr
-	// Register descriptor
-	//	* Keeps track of what is currently in each register.
-	//	* Initially all registers are empty.
-	Rdesc      map[int]string
-	NextUseTab [][]UseInfo
-	Pq         PriorityQueue
-}
-
 // Tac represents the three-address code for the entire source program.
 type Tac []Blk
 
@@ -81,6 +62,7 @@ func GenTAC(file string) (tac Tac) {
 	blk := new(Blk)
 	line := 0
 	re := regexp.MustCompile("(^-?[0-9]+$)") // regex for integers
+	startNewBlock := false
 
 	f, err := os.Open(file)
 	if err != nil {
@@ -89,35 +71,27 @@ func GenTAC(file string) (tac Tac) {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		record := strings.Split(scanner.Text(), ",")
-		// Sanitize the records
+		// Sanitize the records.
 		for i := 0; i < len(record); i++ {
 			record[i] = strings.TrimSpace(record[i])
 		}
 		switch record[0] {
 		case LABEL:
 			// label statement is part of the newly created block.
-			if blk != nil {
-				tac = append(tac, *blk) // end the previous block
-			}
-			blk = new(Blk) // start a new block
-			line = 0
+			blk, line = NewBlock(blk, &tac)
 			blk.Stmts = append(blk.Stmts, Stmt{line, record[0], record[1], []SrcVar{}})
 			line++
 
 		case FUNC:
 			// func statement is part of the newly created block.
-			if blk != nil {
-				tac = append(tac, *blk) // end the previous block
-			}
-			blk = new(Blk) // start a new block
-			line = 0
+			blk, line = NewBlock(blk, &tac)
 			blk.Stmts = append(blk.Stmts, Stmt{line, record[0], record[1], []SrcVar{}})
 			line++
 
 		case JMP, BGT, BGE, BLT, BLE, BEQ, BNE:
-			tac = append(tac, *blk) // end the previous block
-			blk = new(Blk)          // start a new block
-			line = 0
+			// Start a new block after updating the current block
+			// with the jump statement.
+			startNewBlock = true
 			fallthrough // move into next section to update blk.Src
 
 		default:
@@ -137,14 +111,33 @@ func GenTAC(file string) (tac Tac) {
 			}
 			blk.Stmts = append(blk.Stmts, Stmt{line, record[0], record[1], sv})
 			line++
+			if startNewBlock {
+				blk, line = NewBlock(blk, &tac)
+				startNewBlock = false
+			}
 		}
 	}
 
-	// Push the last allocated basic block
+	// Push the last allocated basic block.
 	tac = append(tac, *blk)
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
 
 	return
+}
+
+// PrintTAC pretty-prints the three-address code IR.
+func (tac Tac) PrintTAC() {
+	for _, blk := range tac {
+		for _, stmt := range blk.Stmts {
+			fmt.Printf("%v, %v, ", stmt.Op, stmt.Dst)
+			for _, v := range stmt.Src {
+				fmt.Printf("%v, ", v)
+			}
+			fmt.Println()
+		}
+		fmt.Println()
+	}
+
 }
