@@ -6,12 +6,20 @@ set -euo pipefail
 srcDir=$(dirname "$0")/..
 binDir="$srcDir/bin"
 testDir="$srcDir/test"
+lenOpts="$#"
+opt="$1"
 
 checkBuildStatus() {
     if [ ! -e "$binDir/gogo" ]; then
 	# http://mywiki.wooledge.org/BashFAQ/105
 	# http://fvue.nl/wiki/Bash:_Error_handling
 	( cd "$srcDir" && make gogo )
+    fi
+
+    # Check if the script is invoked with a proper flag.
+    if [ $lenOpts -ne 1 ]; then
+	echo "Please provide a valid invocation argument for gogo"
+	exit 1
     fi
 }
 
@@ -50,4 +58,17 @@ runCodegenTests() {
 }
 
 checkBuildStatus
-runCodegenTests
+case "$opt" in
+    "-r2s")
+	runIRTests
+	;;
+    "-p")
+	runParserTests
+	;;
+    "-r")
+	runCodegenTests
+	;;
+    *)
+	echo "Please provide a valid invocation argument for gogo"
+	exit 1
+esac

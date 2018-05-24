@@ -6,6 +6,7 @@ import (
 	"container/heap"
 	"fmt"
 	"log"
+	"sort"
 	"strconv"
 
 	"github.com/shivansh/gogo/src/tac"
@@ -68,6 +69,7 @@ func CodeGen(t tac.Tac) {
 				// The following registers are not allocated -
 				//   * $0 is not a valid register.
 				//   * $1 is reserved by the assembler for
+				//   * $2 ($v0) stores function results.
 				//     pseudo instructions.
 				//   * $v0 and $a0 are special registers.
 				//   * $29 ($sp) stores the stack pointer.
@@ -459,10 +461,16 @@ func CodeGen(t tac.Tac) {
 				// Defer adding the jump statement (basic block terminator)
 				// until the modified variables have been stored in memory.
 				jumpStmt = append(jumpStmt, fmt.Sprintf("\tj\t%s", stmt.Dst))
-				// ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tj\t%s", stmt.Dst))
 
 			case tac.CALL:
-				for r, _ := range blk.Rdesc {
+				// Since range loop over maps are not deterministic, maintain
+				// a slice of sorted keys to preserve ordering across runs.
+				keys := []int{}
+				for k := range blk.Rdesc {
+					keys = append(keys, k)
+				}
+				sort.Ints(keys)
+				for _, r := range keys {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%d, %s", r, blk.Rdesc[r]))
 					// It is the responsibility of the caller to save
 					// all the registers before the callee starts.
@@ -537,10 +545,17 @@ func CodeGen(t tac.Tac) {
 
 		// Store non-empty registers back into memory at the end of basic block.
 		if len(blk.Rdesc) > 0 {
+			// Since range loop over maps are not deterministic, maintain
+			// a slice of sorted keys to preserve ordering across runs.
+			keys := []int{}
+			for k := range blk.Rdesc {
+				keys = append(keys, k)
+			}
+			sort.Ints(keys)
 			ts.Stmts = append(ts.Stmts, fmt.Sprintf("\t# Store variables back into memory"))
-			for k, v := range blk.Rdesc {
-				if !arrLookup[v] {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%d, %s", k, v))
+			for _, k := range keys {
+				if !arrLookup[blk.Rdesc[k]] {
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%d, %s", k, blk.Rdesc[k]))
 				}
 			}
 		}

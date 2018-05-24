@@ -1,82 +1,83 @@
+# Return (2^x - 1)
+
 # Test to find maximum XOR-value of at-most k-elements from 1 to n
 
 	.data
-nStr:	.asciiz "Enter n: "
-n:	.word	0
-kStr:	.asciiz "Enter k: "
-k:	.word	0
-retVal:	.word	0
-str:	.asciiz "Maximum XOR-value: "
-x:	.word	0
-result:	.word	0
+nStr:		.asciiz "Enter n: "
+n:		.word	0
+kStr:		.asciiz "Enter k: "
+k:		.word	0
+retVal:		.word	0
+str:		.asciiz "Maximum XOR-value: "
+x:		.word	0
+result:		.word	0
 
 	.text
-
 
 	.globl main
 	.ent main
 main:
-	li $v0, 4
-	la $a0, nStr
+	li	$v0, 4
+	la	$a0, nStr
 	syscall
-	li $v0, 5
+	li	$v0, 5
 	syscall
-	move $t1, $v0
-	li $v0, 4
-	la $a0, kStr
+	move	$3, $v0
+	li	$v0, 4
+	la	$a0, kStr
 	syscall
-	li $v0, 5
+	li	$v0, 5
 	syscall
-	move $t4, $v0
-	sw $t4, k
-	sw $t1, n
-	jal maxXOR
-	lw $t4, k
-	lw $t1, n
-	sw $t1, n		# spilled n, freed $t1
-	move $t1, $v0
-	li $v0, 4
-	la $a0, str
+	move	$7, $v0
+	sw	$3, n
+	sw	$7, k
+	jal	maxXOR
+	lw	$3, n
+	lw	$7, k
+	move	$15, $v0
+	li	$v0, 4
+	la	$a0, str
 	syscall
-	li $v0, 1
-	move $a0, $t1
+	li	$v0, 1
+	move	$a0, $15
 	syscall
 	# Store variables back into memory
-	sw $t1, retVal
-	sw $t4, k
-	li $v0, 10
+	sw	$3, n
+	sw	$7, k
+	sw	$15, retVal
+	li	$v0, 10
 	syscall
 	.end main
-
 	.globl maxXOR
 	.ent maxXOR
 maxXOR:
+	addi	$sp, $sp, -4
+	sw	$ra, 0($sp)
 	# x = log2(n) + 1
-	li $t1, 0		# x -> $t1
+	li	$3, 0		# x -> $3
 	# Store variables back into memory
-	sw $t1, x
+	sw	$3, x
 
 while:
-	lw $t1, n
-	srl $t1, $t1, 1		# n -> $t1
-	lw $t4, x
-	addi $t4, $t4, 1		# x -> $t4
+	lw	$3, n
+	srl	$3, $3, 1	# n -> $3
+	lw	$7, x
+	addi	$7, $7, 1	# x -> $7
 	# Store variables back into memory
-	sw $t4, x
-	sw $t1, n
+	sw	$3, n
+	sw	$7, x
+	bgt	$3, 0, while	# while -> $0
 
-	lw $t1, n
-	bgt $t1, 0, while		# while -> $t0
-	# Return (2^x - 1)
-	li $t4, 1		# result -> $t4
-	sw $t1, n		# spilled n, freed $t1
-	lw $t1, x
-	sll $t4, $t4, $t1	# result -> $t4
-	sub $t4, $t4, 1		# result -> $t4
-	move $v0, $t4
+	li	$3, 1		# result -> $3
+	lw	$7, x
+	sll	$3, $3, $7	# result -> $3
+	sub	$3, $3, 1	# result -> $3
+	move	$v0, $3
 	# Store variables back into memory
-	sw $t1, x
-	sw $t4, result
+	sw	$3, result
+	sw	$7, x
 
-	jr $ra
+	lw	$ra, 0($sp)
+	addi	$sp, $sp, 4
+	jr	$ra
 	.end maxXOR

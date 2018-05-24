@@ -1,122 +1,112 @@
+# else branch
+
 # Test to find square root (floor value) of a number
 
 	.data
-nStr:	.asciiz "Enter n: "
-x:	.word	0
-ans:	.word	0
-start:	.word	0
-end:	.word	0
-mid:	.word	0
-temp:	.word	0
-str:	.asciiz "Square root of n: "
+nStr:		.asciiz "Enter n: "
+x:		.word	0
+ans:		.word	0
+start:		.word	0
+end:		.word	0
+mid:		.word	0
+temp:		.word	0
+str:		.asciiz "Square root of n: "
 
 	.text
-
 
 	.globl main
 	.ent main
 main:
-	li $v0, 4
-	la $a0, nStr
+	li	$v0, 4
+	la	$a0, nStr
 	syscall
-	li $v0, 5
+	li	$v0, 5
 	syscall
-	move $t1, $v0
-	move $t4, $t1		# ans -> $t4
+	move	$3, $v0
+	move	$7, $3		# ans -> $7
 	# Store variables back into memory
-	sw $t1, x
-	sw $t4, ans
+	sw	$3, x
+	sw	$7, ans
+	beq	$3, 0, exit	# exit -> $0
 
-	lw $t1, x
-	beq $t1, 0, exit		# exit -> $t0
+	lw	$3, x
 	# Store variables back into memory
-	sw $t1, x
+	sw	$3, x
+	beq	$3, 1, exit	# exit -> $0
 
-	lw $t1, x
-	beq $t1, 1, exit		# exit -> $t0
-	li $t4, 1		# start -> $t4
-	move $t3, $t1		# end -> $t3
+	li	$3, 1		# start -> $3
+	lw	$7, x
+	move	$15, $7		# end -> $15
 	# Store variables back into memory
-	sw $t4, start
-	sw $t3, end
-	sw $t1, x
+	sw	$3, start
+	sw	$7, x
+	sw	$15, end
 
 while:
-	lw $t1, start
-	lw $t4, end
-	add $t3, $t1, $t4	# mid -> $t3
-	srl $t3, $t3, 1		# mid -> $t3
-	mul $t2, $t3, $t3	# temp -> $t2
+	lw	$3, start
+	lw	$7, end
+	add	$30, $3, $7	# mid -> $30
+	srl	$30, $30, 1	# mid -> $30
+	mul	$15, $30, $30	# temp -> $15
 	# x is a perfect square
+	lw	$16, x
 	# Store variables back into memory
-	sw $t1, start
-	sw $t4, end
-	sw $t3, mid
-	sw $t2, temp
+	sw	$3, start
+	sw	$7, end
+	sw	$15, temp
+	sw	$16, x
+	sw	$30, mid
+	beq	$15, $16, perfectSquare	# perfectSquare -> $0
 
-	lw $t1, temp
-	lw $t4, x
-	beq $t1, $t4, perfectSquare		# perfectSquare -> $t0
+	lw	$3, temp
+	lw	$7, x
 	# Store variables back into memory
-	sw $t1, temp
-	sw $t4, x
+	sw	$3, temp
+	sw	$7, x
+	blt	$3, $7, ifBranch		# ifBranch -> $0
 
-	lw $t1, temp
-	lw $t4, x
-	blt $t1, $t4, ifBranch		# ifBranch -> $t0
-	# else branch
-	lw $t3, mid
-	sw $t4, x		# spilled x, freed $t4
-	sub $t4, $t3, 1		# end -> $t4
+	lw	$3, mid
+	sub	$7, $3, 1	# end -> $7
+	lw	$30, start
 	# Store variables back into memory
-	sw $t1, temp
-	sw $t4, end
-	sw $t3, mid
+	sw	$3, mid
+	sw	$7, end
+	sw	$30, start
+	ble	$30, $7, while	# while -> $0
 
-	lw $t1, start
-	lw $t4, end
-	ble $t1, $t4, while		# while -> $t0
-	# Store variables back into memory
-	sw $t1, start
-	sw $t4, end
-
-	j exit
+	j	exit
 
 ifBranch:
-	lw $t1, mid
-	addi $t4, $t1, 1		# start -> $t4
-	move $t3, $t1		# ans -> $t3
+	lw	$3, mid
+	addi	$7, $3, 1	# start -> $7
+	move	$30, $3		# ans -> $30
+	lw	$15, end
 	# Store variables back into memory
-	sw $t4, start
-	sw $t3, ans
-	sw $t1, mid
+	sw	$3, mid
+	sw	$7, start
+	sw	$15, end
+	sw	$30, ans
+	ble	$7, $15, while	# while -> $0
 
-	lw $t1, start
-	lw $t4, end
-	ble $t1, $t4, while		# while -> $t0
-	# Store variables back into memory
-	sw $t1, start
-	sw $t4, end
-
-	j exit
+	j	exit
 
 perfectSquare:
-	lw $t1, mid
-	move $t4, $t1		# ans -> $t4
+	lw	$3, mid
+	move	$7, $3		# ans -> $7
 	# Store variables back into memory
-	sw $t4, ans
-	sw $t1, mid
+	sw	$3, mid
+	sw	$7, ans
 
 exit:
-	li $v0, 4
-	la $a0, str
+	li	$v0, 4
+	la	$a0, str
 	syscall
-	li $v0, 1
-	lw $t1, ans
-	move $a0, $t1
+	li	$v0, 1
+	lw	$3, ans
+	move	$a0, $3
 	syscall
 	# Store variables back into memory
-	sw $t1, ans
-	li $v0, 10
+	sw	$3, ans
+	li	$v0, 10
 	syscall
 	.end main

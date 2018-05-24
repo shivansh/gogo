@@ -25,7 +25,8 @@ gogo: $(SRC)/main.go
 	$(CC) build $(GCFLAGS) -o $(BIN)/gogo $(SRC)/main.go
 
 test:
-	scripts/run-tests.sh
+	scripts/run-tests.sh -r2s
+	scripts/run-tests.sh -r
 
 travis:
 	make

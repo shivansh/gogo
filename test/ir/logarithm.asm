@@ -1,58 +1,55 @@
 # Test to find floor value of logarithm (base 2 and base 10) of a number
 
 	.data
-nStr:	.asciiz "Enter n: "
-n:	.word	0
-i:	.word	0
+nStr:		.asciiz "Enter n: "
+n:		.word	0
+i:		.word	0
 base2Str:	.asciiz "log2(n): "
 base10Str:	.asciiz "\nlog10(n): "
 
 	.text
 
-
 	.globl main
 	.ent main
 main:
-	li $v0, 4
-	la $a0, nStr
+	li	$v0, 4
+	la	$a0, nStr
 	syscall
-	li $v0, 5
+	li	$v0, 5
 	syscall
-	move $t1, $v0
-	li $t4, -1		# i -> $t4
+	move	$3, $v0
+	li	$7, -1		# i -> $7
 	# Store variables back into memory
-	sw $t1, n
-	sw $t4, i
+	sw	$3, n
+	sw	$7, i
 
 while:
-	lw $t1, n
-	srl $t1, $t1, 1		# n -> $t1
-	lw $t4, i
-	addi $t4, $t4, 1		# i -> $t4
+	lw	$3, n
+	srl	$3, $3, 1	# n -> $3
+	lw	$7, i
+	addi	$7, $7, 1	# i -> $7
 	# Store variables back into memory
-	sw $t1, n
-	sw $t4, i
+	sw	$3, n
+	sw	$7, i
+	bgt	$3, 0, while	# while -> $0
 
-	lw $t1, n
-	bgt $t1, 0, while		# while -> $t0
-	li $v0, 4
-	la $a0, base2Str
+	li	$v0, 4
+	la	$a0, base2Str
 	syscall
-	li $v0, 1
-	lw $t4, i
-	move $a0, $t4
+	li	$v0, 1
+	lw	$3, i
+	move	$a0, $3
 	syscall
-	li $v0, 4
-	la $a0, base10Str
+	li	$v0, 4
+	la	$a0, base10Str
 	syscall
 	# Ideally
-	div $t4, $t4, 3		# i -> $t4
-	li $v0, 1
-	move $a0, $t4
+	div	$3, $3, 3	# i -> $3
+	li	$v0, 1
+	move	$a0, $3
 	syscall
 	# Store variables back into memory
-	sw $t4, i
-	sw $t1, n
-	li $v0, 10
+	sw	$3, i
+	li	$v0, 10
 	syscall
 	.end main

@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/shivansh/gogo/src/codegen"
 	"github.com/shivansh/gogo/src/parser"
@@ -106,7 +107,11 @@ func main() {
 		// TODO: Verify if the input is indeed in a valid IR format.
 		GenAsmFromIR(args[2])
 	} else if *prod {
-		err = GenHTML(args[2])
+		if err = GenHTML(args[2]); err == nil {
+			index := strings.LastIndex(args[2], ".")
+			genFileName := args[2][:index]
+			fmt.Printf("Successfully created %s.html\n", genFileName)
+		}
 	}
 
 	if err != nil {
