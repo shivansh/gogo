@@ -50,7 +50,7 @@ const (
 	DECLSTR = "declStr"
 
 	// I/O operators
-	SCANINT  = "scanint"
-	PRINTINT = "printint"
-	PRINTSTR = "printstr"
+	SCANINT  = "scanInt"
+	PRINTINT = "printInt"
+	PRINTSTR = "printStr"
 )

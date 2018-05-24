@@ -507,7 +507,7 @@ func CodeGen(t tac.Tac) {
 				ts.Stmts = append(ts.Stmts, "\tsyscall")
 
 			case tac.PRINTSTR:
-				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli\t$v0, 4\n\tla $a0, %s\n\tsyscall", stmt.Dst))
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli\t$v0, 4\n\tla\t$a0, %s\n\tsyscall", stmt.Dst))
 			}
 
 			// In case on of the src variable's register was allocated to dst in GetReg(),
