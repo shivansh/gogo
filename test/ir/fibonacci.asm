@@ -57,21 +57,17 @@ fib:
 
 loop:
 	lw	$3, n
+	ble	$3, 0, exit	# exit -> $0
+	lw	$7, second
+	move	$15, $7		# temp -> $15
+	lw	$30, first
+	add	$7, $7, $30	# second -> $7
+	move	$30, $15	# first -> $30
+	sub	$3, $3, 1	# n -> $3
 	# Store variables back into memory
 	sw	$3, n
-	ble	$3, 0, exit	# exit -> $0
-
-	lw	$3, second
-	move	$7, $3		# temp -> $7
-	lw	$30, first
-	add	$3, $3, $30	# second -> $3
-	move	$30, $7		# first -> $30
-	lw	$15, n
-	sub	$15, $15, 1	# n -> $15
-	# Store variables back into memory
-	sw	$3, second
-	sw	$7, temp
-	sw	$15, n
+	sw	$7, second
+	sw	$15, temp
 	sw	$30, first
 	j	loop
 

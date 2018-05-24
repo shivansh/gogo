@@ -43,6 +43,10 @@ func CodeGen(t tac.Tac) {
 	ts.Stmts = append(ts.Stmts, "\t.text")
 
 	for _, blk := range t {
+		blk.Rdesc = make(map[int]string)
+		blk.Adesc = make(map[string]tac.Addr)
+		blk.Pq = make(tac.PriorityQueue, tac.RegLimit)
+		blk.NextUseTab = make([][]tac.UseInfo, len(blk.Stmts), len(blk.Stmts))
 		// jumpStmt stores the intructions for jump statements which are
 		// responsible for terminating a basic block. These statements
 		// are added to the text segment only after all the block variables
@@ -50,10 +54,10 @@ func CodeGen(t tac.Tac) {
 		jumpStmt := []string{}
 		// exitStmt stores the instructions which terminate a function.
 		exitStmt := ""
-		blk.Rdesc = make(map[int]string)
-		blk.Adesc = make(map[string]tac.Addr)
-		blk.Pq = make(tac.PriorityQueue, tac.RegLimit)
-		blk.NextUseTab = make([][]tac.UseInfo, len(blk.Stmts), len(blk.Stmts))
+		branchOp := "" // branch operator
+		// branchStmt is the statement wrt a jump/branch instruction.
+		branchStmt := ""
+		comment := "" // helper comments added in generated assembly
 
 		if len(blk.Stmts) > 0 && blk.Stmts[0].Op == "func" {
 			funcName = blk.Stmts[0].Dst
@@ -128,7 +132,7 @@ func CodeGen(t tac.Tac) {
 			}
 		}
 
-		for _, stmt := range blk.Stmts {
+		for k, stmt := range blk.Stmts {
 			switch stmt.Op {
 			case tac.EQ, tac.DECLInt:
 				blk.GetReg(&stmt, ts, arrLookup)
@@ -336,88 +340,28 @@ func CodeGen(t tac.Tac) {
 				}
 
 			case tac.BGT:
-				blk.GetReg(&stmt, ts, arrLookup)
-				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].(type) {
-				case tac.I32:
-					jumpStmt = append(jumpStmt, fmt.Sprintf("\tbgt\t$%d, %s, %s\t%s",
-						blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
-				case tac.Str:
-					jumpStmt = append(jumpStmt, fmt.Sprintf("\tbgt\t$%d, $%d, %s\t%s",
-						blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
-				default:
-					log.Fatal("Unknown type %T\n", v)
-				}
+				branchOp = "bgt"
+				goto addBranchInstr
 
 			case tac.BGE:
-				blk.GetReg(&stmt, ts, arrLookup)
-				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].(type) {
-				case tac.I32:
-					jumpStmt = append(jumpStmt, fmt.Sprintf("\tbge\t$%d, %s, %s\t%s",
-						blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
-				case tac.Str:
-					jumpStmt = append(jumpStmt, fmt.Sprintf("\tbge\t$%d, $%d, %s\t%s",
-						blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
-				default:
-					log.Fatal("Unknown type %T\n", v)
-				}
+				branchOp = "bge"
+				goto addBranchInstr
 
 			case tac.BLT:
-				blk.GetReg(&stmt, ts, arrLookup)
-				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].(type) {
-				case tac.I32:
-					jumpStmt = append(jumpStmt, fmt.Sprintf("\tblt\t$%d, %s, %s\t%s",
-						blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
-				case tac.Str:
-					jumpStmt = append(jumpStmt, fmt.Sprintf("\tblt\t$%d, $%d, %s\t\t%s",
-						blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
-				default:
-					log.Fatal("Unknown type %T\n", v)
-				}
+				branchOp = "blt"
+				goto addBranchInstr
 
 			case tac.BLE:
-				blk.GetReg(&stmt, ts, arrLookup)
-				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].(type) {
-				case tac.I32:
-					jumpStmt = append(jumpStmt, fmt.Sprintf("\tble\t$%d, %s, %s\t%s",
-						blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
-				case tac.Str:
-					jumpStmt = append(jumpStmt, fmt.Sprintf("\tble\t$%d, $%d, %s\t%s",
-						blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
-				default:
-					log.Fatal("Unknown type %T\n", v)
-				}
+				branchOp = "ble"
+				goto addBranchInstr
 
 			case tac.BEQ:
-				blk.GetReg(&stmt, ts, arrLookup)
-				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].(type) {
-				case tac.I32:
-					jumpStmt = append(jumpStmt, fmt.Sprintf("\tbeq\t$%d, %s, %s\t%s",
-						blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
-				case tac.Str:
-					jumpStmt = append(jumpStmt, fmt.Sprintf("\tbeq\t$%d, $%d, %s\t%s",
-						blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
-				default:
-					log.Fatal("Unknown type %T\n", v)
-				}
+				branchOp = "beq"
+				goto addBranchInstr
 
 			case tac.BNE:
-				blk.GetReg(&stmt, ts, arrLookup)
-				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				switch v := stmt.Src[1].(type) {
-				case tac.I32:
-					jumpStmt = append(jumpStmt, fmt.Sprintf("\tbne\t$%d, %s, %s\t%s",
-						blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), stmt.Dst, comment))
-				case tac.Str:
-					jumpStmt = append(jumpStmt, fmt.Sprintf("\tbne\t$%d, $%d, %s\t%s",
-						blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment))
-				default:
-					log.Fatal("Unknown type %T\n", v)
-				}
+				branchOp = "bne"
+				goto addBranchInstr
 
 			case tac.RST: // right shift
 				blk.GetReg(&stmt, ts, arrLookup)
@@ -527,6 +471,35 @@ func CodeGen(t tac.Tac) {
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli\t$v0, 4\n\tla\t$a0, %s\n\tsyscall", stmt.Dst))
 			}
 
+			goto storeLiveRegs
+
+		addBranchInstr:
+			blk.GetReg(&stmt, ts, arrLookup)
+			comment = fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
+			switch v := stmt.Src[1].(type) {
+			case tac.I32:
+				branchStmt = fmt.Sprintf("\t%s\t$%d, %s, %s\t%s", branchOp,
+					blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), stmt.Dst, comment)
+			case tac.Str:
+				branchStmt = fmt.Sprintf("\t%s\t$%d, $%d, %s\t%s", branchOp,
+					blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment)
+			default:
+				log.Fatal("Unknown type %T\n", v)
+			}
+			// A jump/branch statement marks the end of a basic block. As a result
+			// these statements are collected in the variable `jumpStmt` and added
+			// only after all the live registers are store back in memory. When a
+			// branch statement follows immediately after a label statement, a new
+			// basic block is not created (see commit 61a9bde). If this is the case,
+			// add the corresponding jump/branch statement right away as it does
+			// not represent the end of basic block.
+			if k-1 >= 0 && blk.Stmts[k-1].Op == tac.LABEL {
+				ts.Stmts = append(ts.Stmts, branchStmt)
+			} else {
+				jumpStmt = append(jumpStmt, branchStmt)
+			}
+
+		storeLiveRegs:
 			// In case on of the src variable's register was allocated to dst in GetReg(),
 			// the src variable's lookup entry was temporarily marked. Find that variable
 			// if it exists and delete its entry. It should be noted that the chosen

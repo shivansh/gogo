@@ -17,21 +17,17 @@ main:
 
 loop1:
 	lw	$3, i
-	# Store variables back into memory
-	sw	$3, i
 	bge	$3, 10, exit1	# exit1 -> $0
-
 	li	$v0, 5
 	syscall
-	move	$3, $v0
-	la	$7, a
-	lw	$15, i
-	sll $s2, $15, 2	# iterator *= 4
-	sw	$3, a($s2)	# variable -> array
-	addi	$15, $15, 1	# i -> $15
+	move	$7, $v0
+	la	$15, a
+	sll $s2, $3, 2	# iterator *= 4
+	sw	$7, a($s2)	# variable -> array
+	addi	$3, $3, 1	# i -> $3
 	# Store variables back into memory
-	sw	$3, v
-	sw	$15, i
+	sw	$3, i
+	sw	$7, v
 	j	loop1
 
 exit1:
@@ -46,18 +42,14 @@ exit1:
 
 loop2:
 	lw	$3, i
-	# Store variables back into memory
-	sw	$3, i
 	bge	$3, 10, exit2	# exit2 -> $0
-
-	lw	$3, i
 	sub	$7, $3, 1	# v1 -> $7
-	lw	$30, v
+	lw	$15, v
 	# Store variables back into memory
 	sw	$3, i
 	sw	$7, v1
-	sw	$30, v
-	bge	$30, 0, branch1	# branch1 -> $0
+	sw	$15, v
+	bge	$15, 0, branch1	# branch1 -> $0
 
 	la	$3, a
 	lw	$7, i
@@ -102,20 +94,16 @@ exit2:
 
 loop3:
 	lw	$3, i
+	bge	$3, 10, exit3	# exit3 -> $0
+	la	$7, sum
+	sll	$s2, $3, 2	# iterator *= 4
+	lw	$15, sum($s2)	# variable <- array
+	lw	$30, maxsum
 	# Store variables back into memory
 	sw	$3, i
-	bge	$3, 10, exit3	# exit3 -> $0
-
-	la	$3, sum
-	lw	$7, i
-	sll	$s2, $7, 2	# iterator *= 4
-	lw	$30, sum($s2)	# variable <- array
-	lw	$15, maxsum
-	# Store variables back into memory
-	sw	$7, i
-	sw	$15, maxsum
-	sw	$30, v
-	bge	$15, $30, branch2	# branch2 -> $0
+	sw	$15, v
+	sw	$30, maxsum
+	bge	$30, $15, branch2	# branch2 -> $0
 
 	lw	$3, v
 	move	$7, $3		# maxsum -> $7

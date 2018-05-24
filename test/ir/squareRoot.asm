@@ -63,7 +63,7 @@ while:
 	# Store variables back into memory
 	sw	$3, temp
 	sw	$7, x
-	blt	$3, $7, ifBranch		# ifBranch -> $0
+	blt	$3, $7, ifBranch	# ifBranch -> $0
 
 	lw	$3, mid
 	sub	$7, $3, 1	# end -> $7

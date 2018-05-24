@@ -21,11 +21,7 @@ main:
 
 while:
 	lw	$3, n
-	# Store variables back into memory
-	sw	$3, n
 	ble	$3, 0, exit	# exit -> $0
-
-	lw	$3, n
 	div	$3, $3, 10	# n -> $3
 	lw	$7, count
 	addi	$7, $7, 1	# count -> $7

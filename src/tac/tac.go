@@ -112,6 +112,23 @@ func GenTAC(file string) (tac Tac) {
 			blk.Stmts = append(blk.Stmts, Stmt{line, record[0], record[1], sv})
 			line++
 			if startNewBlock {
+				// If the variables belonging to a branch instruction
+				// haven't been allocated a register, an allocation is
+				// done. Since the branch instruction marks the end of
+				// the current basic block, a store is performed for all
+				// the variables which have been allocated a register.
+				// If the basic block only contains a label statement,
+				// the branch instruction will invoke a load for its
+				// variables, and immediately after this a store will
+				// be performed for these. This store instruction is
+				// unnecessary since the value of branch variables
+				// wasn't modified in this block. Therefore if such a
+				// case arises, avoid creating a new block.
+				if len(blk.Stmts) == 2 && blk.Stmts[0].Op == LABEL {
+					startNewBlock = false
+					break
+				}
+
 				blk, line = NewBlock(blk, &tac)
 				startNewBlock = false
 			}

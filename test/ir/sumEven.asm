@@ -29,17 +29,13 @@ main:
 loop:
 	lw	$3, i
 	lw	$7, n
+	bge	$3, $7, exit	# exit -> $0
+	rem	$30, $3, 2	# l -> $30
 	# Store variables back into memory
 	sw	$3, i
 	sw	$7, n
-	bge	$3, $7, exit	# exit -> $0
-
-	lw	$3, i
-	rem	$7, $3, 2	# l -> $7
-	# Store variables back into memory
-	sw	$3, i
-	sw	$7, l
-	beq	$7, 1, skip	# skip -> $0
+	sw	$30, l
+	beq	$30, 1, skip	# skip -> $0
 
 	lw	$3, k
 	lw	$7, i

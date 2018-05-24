@@ -30,14 +30,12 @@ main:
 outerFor:
 	lw	$3, i
 	lw	$7, rows
+	bge	$3, $7, exit	# exit -> $0
+	li	$30, 1		# space -> $30
 	# Store variables back into memory
 	sw	$3, i
 	sw	$7, rows
-	bge	$3, $7, exit	# exit -> $0
-
-	li	$3, 1		# space -> $3
-	# Store variables back into memory
-	sw	$3, space
+	sw	$30, space
 
 spcFor:
 	lw	$3, rows
@@ -69,14 +67,10 @@ spcFor:
 innerFor:
 	lw	$3, k
 	lw	$7, i
+	bgt	$3, $7, endLine	# endLine -> $0
 	# Store variables back into memory
 	sw	$3, k
 	sw	$7, i
-	bgt	$3, $7, endLine	# endLine -> $0
-
-	lw	$3, k
-	# Store variables back into memory
-	sw	$3, k
 	beq	$3, 0, labelIf	# labelIf -> $0
 
 	lw	$3, i
