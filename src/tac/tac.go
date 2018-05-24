@@ -124,7 +124,9 @@ func GenTAC(file string) (tac Tac) {
 		log.Fatal(err)
 	}
 
-	return
+	// Perform peephole optimization on the generated three-address code IR.
+	optimizedTac := PeepHole(tac)
+	return *optimizedTac
 }
 
 // PrintTAC pretty-prints the three-address code IR.
@@ -135,9 +137,24 @@ func (tac Tac) PrintTAC() {
 			for _, v := range stmt.Src {
 				fmt.Printf("%v, ", v)
 			}
-			fmt.Println()
+			fmt.Println() // separate basic blocks by a newline
 		}
 		fmt.Println()
 	}
+}
 
+// FixLineNumbers fixes the line numbers in each basic block in case they get
+// disturbed after the optimization passes finish. Correctness of line numbers
+// is essential to ensure proper calculation of next-use information.
+func (tac Tac) FixLineNumbers() {
+	for i, blk := range tac {
+		lineno := 0
+		for j, stmt := range blk.Stmts {
+			if stmt.Line != lineno {
+				stmt.Line = lineno
+			}
+			tac[i].Stmts[j] = stmt
+			lineno++
+		}
+	}
 }
