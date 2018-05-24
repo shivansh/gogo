@@ -39,7 +39,7 @@ type DataSec struct {
 type TextSec struct {
 	// Stmts is a slice of statements which will be flushed into the text
 	// section of the generated assembly file.
-	Stmts []interface{}
+	Stmts []string
 }
 
 // Tac represents the three-address code for the entire source program.

@@ -26,3 +26,25 @@ Code generation
 Parser
 ~~~~~~
 * Fix global declarations.
+
+Optimizations
+~~~~~~~~~~~~~
+Consider the following IR -
+
+    ```
+    label, while
+    ble, exit, n, 0
+    ```
+
+Generated assembly -
+
+    ```
+    while:
+            lw      $3, n
+            # Store variables back into memory
+            sw      $3, n
+            ble     $3, 0, exit     # exit -> $0
+    ```
+
+If a label statement is followed by a branch statement, the load/stores can be avoided (which basically mark the start and end of the basic block).
+i.e. Don't start a new basic block for a branch statement if it immediately follows a label statement.
