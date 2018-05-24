@@ -8,9 +8,7 @@ import (
 
 // RegLimit determines the upper bound on the number of free registers at any
 // given instant supported by the concerned architecture (MIPS in this case).
-// NOTE: Register $1 is reserved by assembler for pseudo instructions and hence
-// is not assigned to variables.
-const RegLimit = 31
+const RegLimit = 32
 
 // Register allocation
 // ~~~~~~~~~~~~~~~~~~~

@@ -62,14 +62,16 @@ func CodeGen(t tac.Tac) {
 		// registers with their next-use set to infinity.
 		// NOTE: Register $1 is reserved by assembler for pseudo
 		// instructions and hence is not assigned to variables.
-		blk.Pq[0] = &tac.UseInfo{}
-		for i := 1; i < tac.RegLimit; i++ {
+		for i := 0; i < tac.RegLimit; i++ {
 			switch i {
-			case 1, 2, 4:
+			case 0, 1, 2, 4, 29, 31:
 				// The following registers are not allocated -
-				//   * Register $1 is reserved by the assembler
-				//     for pseudo instructions.
+				//   * $0 is not a valid register.
+				//   * $1 is reserved by the assembler for
+				//     pseudo instructions.
 				//   * $v0 and $a0 are special registers.
+				//   * $29 ($sp) stores the stack pointer.
+				//   * $31 ($ra) stores the return address.
 				// The nextuse of these registers is set to -∞.
 				blk.Pq[i] = &tac.UseInfo{
 					Name:    strconv.Itoa(i),
