@@ -141,7 +141,7 @@ func RightmostDerivation(file string) error {
 				if err != nil {
 					log.Fatal(err)
 				}
-			} else if strings.Compare(v, "empty") != 0 {
+			} else if v != "empty" {
 				_, err = writer.WriteString(fmt.Sprintf("%s ", v))
 				if err != nil {
 					log.Fatal(err)

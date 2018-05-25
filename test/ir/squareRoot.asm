@@ -14,99 +14,100 @@ str:		.asciiz "Square root of n: "
 
 	.text
 
+
 	.globl main
 	.ent main
 main:
-	li	$v0, 4
-	la	$a0, nStr
+	li	$2, 4
+	la	$4, nStr
 	syscall
-	li	$v0, 5
+	li	$2, 5
 	syscall
-	move	$3, $v0
-	move	$7, $3		# ans -> $7
+	move	$3, $2
+	move	$5, $3		# ans -> $5
 	# Store variables back into memory
 	sw	$3, x
-	sw	$7, ans
-	beq	$3, 0, exit	# exit -> $0
+	sw	$5, ans
+	beq	$3, 0, exit
 
 	lw	$3, x
 	# Store variables back into memory
 	sw	$3, x
-	beq	$3, 1, exit	# exit -> $0
+	beq	$3, 1, exit
 
 	li	$3, 1		# start -> $3
-	lw	$7, x
-	move	$15, $7		# end -> $15
+	sw	$3, start	# spilled start, freed $3
+	lw	$3, x
+	move	$5, $3		# end -> $5
 	# Store variables back into memory
-	sw	$3, start
-	sw	$7, x
-	sw	$15, end
+	sw	$3, x
+	sw	$5, end
 
 while:
 	lw	$3, start
-	lw	$7, end
-	add	$30, $3, $7	# mid -> $30
-	srl	$30, $30, 1	# mid -> $30
-	mul	$15, $30, $30	# temp -> $15
+	lw	$5, end
+	add	$6, $3, $5	# mid -> $6
+	srl	$6, $6, 1	# mid -> $6
+	sw	$3, start	# spilled start, freed $3
+	mul	$3, $6, $6	# temp -> $3
 	# x is a perfect square
-	lw	$16, x
-	# Store variables back into memory
-	sw	$3, start
-	sw	$7, end
-	sw	$15, temp
-	sw	$16, x
-	sw	$30, mid
-	beq	$15, $16, perfectSquare	# perfectSquare -> $0
-
-	lw	$3, temp
-	lw	$7, x
+	sw	$5, end	# spilled end, freed $5
+	lw	$5, x
 	# Store variables back into memory
 	sw	$3, temp
-	sw	$7, x
-	blt	$3, $7, ifBranch	# ifBranch -> $0
+	sw	$5, x
+	sw	$6, mid
+	beq	$3, $5, perfectSquare
+
+	lw	$3, temp
+	lw	$5, x
+	# Store variables back into memory
+	sw	$3, temp
+	sw	$5, x
+	blt	$3, $5, ifBranch
 
 	lw	$3, mid
-	sub	$7, $3, 1	# end -> $7
-	lw	$30, start
+	sub	$5, $3, 1	# end -> $5
+	sw	$3, mid	# spilled mid, freed $3
+	lw	$3, start
 	# Store variables back into memory
-	sw	$3, mid
-	sw	$7, end
-	sw	$30, start
-	ble	$30, $7, while	# while -> $0
+	sw	$3, start
+	sw	$5, end
+	ble	$3, $5, while
 
 	j	exit
 
 ifBranch:
 	lw	$3, mid
-	addi	$7, $3, 1	# start -> $7
-	move	$30, $3		# ans -> $30
-	lw	$15, end
+	addi	$5, $3, 1	# start -> $5
+	move	$6, $3		# ans -> $6
+	sw	$6, ans	# spilled ans, freed $6
+	lw	$6, end
 	# Store variables back into memory
 	sw	$3, mid
-	sw	$7, start
-	sw	$15, end
-	sw	$30, ans
-	ble	$7, $15, while	# while -> $0
+	sw	$5, start
+	sw	$6, end
+	ble	$5, $6, while
 
 	j	exit
 
 perfectSquare:
 	lw	$3, mid
-	move	$7, $3		# ans -> $7
+	move	$5, $3		# ans -> $5
 	# Store variables back into memory
 	sw	$3, mid
-	sw	$7, ans
+	sw	$5, ans
 
 exit:
-	li	$v0, 4
-	la	$a0, str
+	li	$2, 4
+	la	$4, str
 	syscall
-	li	$v0, 1
+	li	$2, 1
 	lw	$3, ans
-	move	$a0, $3
+	move	$4, $3
 	syscall
 	# Store variables back into memory
 	sw	$3, ans
-	li	$v0, 10
+	li	$2, 10
 	syscall
 	.end main

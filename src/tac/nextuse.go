@@ -2,8 +2,6 @@
 
 package tac
 
-import "strings"
-
 const (
 	// Variables which are dead have their next-use set to MaxInt.
 	MaxInt = int(^uint(0) >> 1)
@@ -65,7 +63,7 @@ func (blk Blk) EvalNextUseInfo() {
 // a variable "name" available in line number "line" of the table.
 func (blk Blk) FindNextUse(line int, name string) int {
 	for _, v := range blk.NextUseTab[line] {
-		if strings.Compare(v.Name, name) == 0 {
+		if v.Name == name {
 			return v.Nextuse
 		}
 	}

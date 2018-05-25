@@ -9,47 +9,48 @@ base10Str:	.asciiz "\nlog10(n): "
 
 	.text
 
+
 	.globl main
 	.ent main
 main:
-	li	$v0, 4
-	la	$a0, nStr
+	li	$2, 4
+	la	$4, nStr
 	syscall
-	li	$v0, 5
+	li	$2, 5
 	syscall
-	move	$3, $v0
-	li	$7, -1		# i -> $7
+	move	$3, $2
+	sw	$3, n		# spilled n, freed $3
+	li	$3, -1		# i -> $3
 	# Store variables back into memory
-	sw	$3, n
-	sw	$7, i
+	sw	$3, i
 
 while:
 	lw	$3, n
 	srl	$3, $3, 1	# n -> $3
-	lw	$7, i
-	addi	$7, $7, 1	# i -> $7
+	lw	$5, i
+	addi	$5, $5, 1	# i -> $5
 	# Store variables back into memory
 	sw	$3, n
-	sw	$7, i
-	bgt	$3, 0, while	# while -> $0
+	sw	$5, i
+	bgt	$3, 0, while
 
-	li	$v0, 4
-	la	$a0, base2Str
+	li	$2, 4
+	la	$4, base2Str
 	syscall
-	li	$v0, 1
+	li	$2, 1
 	lw	$3, i
-	move	$a0, $3
+	move	$4, $3
 	syscall
-	li	$v0, 4
-	la	$a0, base10Str
+	li	$2, 4
+	la	$4, base10Str
 	syscall
 	# Ideally
 	div	$3, $3, 3	# i -> $3
-	li	$v0, 1
-	move	$a0, $3
+	li	$2, 1
+	move	$4, $3
 	syscall
 	# Store variables back into memory
 	sw	$3, i
-	li	$v0, 10
+	li	$2, 10
 	syscall
 	.end main

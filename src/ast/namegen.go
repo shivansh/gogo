@@ -18,9 +18,8 @@ func RealName(s string) string {
 	}
 	if i < len(s) {
 		return s[:i]
-	} else {
-		return s
 	}
+	return s
 }
 
 // NewTmp generates a unique temporary variable name.

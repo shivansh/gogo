@@ -57,9 +57,8 @@ func CodeGen(t tac.Tac) {
 		branchOp := "" // branch operator
 		// branchStmt is the statement wrt a jump/branch instruction.
 		branchStmt := ""
-		comment := "" // helper comments added in generated assembly
 
-		if len(blk.Stmts) > 0 && blk.Stmts[0].Op == "func" {
+		if len(blk.Stmts) > 0 && blk.Stmts[0].Op == tac.FUNC {
 			funcName = blk.Stmts[0].Dst
 		}
 
@@ -85,8 +84,14 @@ func CodeGen(t tac.Tac) {
 				}
 			default:
 				blk.Pq[i] = &tac.UseInfo{
-					Name:    strconv.Itoa(i),
-					Nextuse: tac.MaxInt,
+					Name: strconv.Itoa(i),
+					// A higher priority is given to registers
+					// with lower index, resulting in a
+					// deterministic allocation. In case all
+					// the registers have their Nextuse value
+					// initialized to MaxInt, Pop() returns
+					// one non-deterministically.
+					Nextuse: tac.MaxInt - i,
 				}
 			}
 		}
@@ -395,7 +400,7 @@ func CodeGen(t tac.Tac) {
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("%s:", stmt.Dst))
 
 			case tac.FUNC:
-				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\t.globl %s\n\t.ent %s", funcName, funcName))
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\n\t.globl %s\n\t.ent %s", funcName, funcName))
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("%s:", stmt.Dst))
 				if funcName != "main" {
 					ts.Stmts = append(ts.Stmts, "\taddi\t$sp, $sp, -4\n\tsw\t$ra, 0($sp)")
@@ -425,7 +430,7 @@ func CodeGen(t tac.Tac) {
 
 			case tac.STORE:
 				blk.GetReg(&stmt, ts, arrLookup)
-				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove\t$%d, $v0", blk.Adesc[stmt.Dst].Reg))
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove\t$%d, $2", blk.Adesc[stmt.Dst].Reg))
 
 			case tac.CMT:
 				if stmt.Line == 0 {
@@ -436,53 +441,52 @@ func CodeGen(t tac.Tac) {
 
 			case tac.RET:
 				if funcName == "main" {
-					exitStmt = "\tli\t$v0, 10\n\tsyscall\n\t.end main"
+					exitStmt = "\tli\t$2, 10\n\tsyscall\n\t.end main"
 				} else {
 					exitStmt = fmt.Sprintf("\n\tlw\t$ra, 0($sp)\n\taddi\t$sp, $sp, 4\n\tjr\t$ra\n\t.end %s", funcName)
 				}
 				// Check if the variable which is to hold the return value has a register -
-				// 	* if it does then move register's content to $v0
-				//	* else load value of that variable to $v0 from memory
+				// 	* if it does then move register's content to $2 ($v0)
+				//	* else load value of that variable to $2 ($v0) from memory
 				if len(stmt.Dst) > 0 {
 					if _, ok := blk.Adesc[stmt.Dst]; ok {
-						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove\t$v0, $%d", blk.Adesc[stmt.Dst].Reg))
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove\t$2, $%d", blk.Adesc[stmt.Dst].Reg))
 					} else {
-						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw\t$v0, %s", stmt.Dst))
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw\t$2, %s", stmt.Dst))
 					}
 				}
 
 			case tac.SCANINT:
-				ts.Stmts = append(ts.Stmts, "\tli\t$v0, 5\n\tsyscall")
+				ts.Stmts = append(ts.Stmts, "\tli\t$2, 5\n\tsyscall")
 				blk.GetReg(&stmt, ts, arrLookup)
-				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove\t$%d, $v0", blk.Adesc[stmt.Dst].Reg))
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove\t$%d, $2", blk.Adesc[stmt.Dst].Reg))
 
 			case tac.PRINTINT:
-				ts.Stmts = append(ts.Stmts, "\tli\t$v0, 1")
+				ts.Stmts = append(ts.Stmts, "\tli\t$2, 1")
 				switch v := stmt.Src[0].(type) {
 				case tac.I32:
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli\t$a0, %s", v.IntVal()))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli\t$4, %d", v.IntVal()))
 				case tac.Str:
 					blk.GetReg(&stmt, ts, arrLookup)
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove\t$a0, $%d", blk.Adesc[v.StrVal()].Reg))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove\t$4, $%d", blk.Adesc[v.StrVal()].Reg))
 				}
 				ts.Stmts = append(ts.Stmts, "\tsyscall")
 
 			case tac.PRINTSTR:
-				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli\t$v0, 4\n\tla\t$a0, %s\n\tsyscall", stmt.Dst))
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli\t$2, 4\n\tla\t$4, %s\n\tsyscall", stmt.Dst))
 			}
 
 			goto storeLiveRegs
 
 		addBranchInstr:
 			blk.GetReg(&stmt, ts, arrLookup)
-			comment = fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 			switch v := stmt.Src[1].(type) {
 			case tac.I32:
-				branchStmt = fmt.Sprintf("\t%s\t$%d, %s, %s\t%s", branchOp,
-					blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), stmt.Dst, comment)
+				branchStmt = fmt.Sprintf("\t%s\t$%d, %s, %s", branchOp,
+					blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), stmt.Dst)
 			case tac.Str:
-				branchStmt = fmt.Sprintf("\t%s\t$%d, $%d, %s\t%s", branchOp,
-					blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst, comment)
+				branchStmt = fmt.Sprintf("\t%s\t$%d, $%d, %s", branchOp,
+					blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, stmt.Dst)
 			default:
 				log.Fatal("Unknown type %T\n", v)
 			}

@@ -10,40 +10,41 @@ str:		.asciiz "Sum of all even numbers less than n: "
 
 	.text
 
+
 	.globl main
 	.ent main
 main:
-	li	$v0, 4
-	la	$a0, nStr
+	li	$2, 4
+	la	$4, nStr
 	syscall
-	li	$v0, 5
+	li	$2, 5
 	syscall
-	move	$3, $v0
-	li	$7, 0		# i -> $7
-	li	$15, 0		# k -> $15
+	move	$3, $2
+	sw	$3, n		# spilled n, freed $3
+	li	$3, 0		# i -> $3
+	sw	$3, i		# spilled i, freed $3
+	li	$3, 0		# k -> $3
 	# Store variables back into memory
-	sw	$3, n
-	sw	$7, i
-	sw	$15, k
+	sw	$3, k
 
 loop:
 	lw	$3, i
-	lw	$7, n
-	bge	$3, $7, exit	# exit -> $0
-	rem	$30, $3, 2	# l -> $30
+	lw	$5, n
+	bge	$3, $5, exit
+	sw	$5, n		# spilled n, freed $5
+	rem	$5, $3, 2	# l -> $5
 	# Store variables back into memory
 	sw	$3, i
-	sw	$7, n
-	sw	$30, l
-	beq	$30, 1, skip	# skip -> $0
+	sw	$5, l
+	beq	$5, 1, skip
 
 	lw	$3, k
-	lw	$7, i
-	add	$3, $3, $7	# k -> $3
-	addi	$7, $7, 1	# i -> $7
+	lw	$5, i
+	add	$3, $3, $5	# k -> $3
+	addi	$5, $5, 1	# i -> $5
 	# Store variables back into memory
 	sw	$3, k
-	sw	$7, i
+	sw	$5, i
 	j	loop
 
 skip:
@@ -54,15 +55,15 @@ skip:
 	j	loop
 
 exit:
-	li	$v0, 4
-	la	$a0, str
+	li	$2, 4
+	la	$4, str
 	syscall
-	li	$v0, 1
+	li	$2, 1
 	lw	$3, k
-	move	$a0, $3
+	move	$4, $3
 	syscall
 	# Store variables back into memory
 	sw	$3, k
-	li	$v0, 10
+	li	$2, 10
 	syscall
 	.end main

@@ -14,40 +14,40 @@ result:		.word	0
 
 	.text
 
+
 	.globl main
 	.ent main
 main:
-	li	$v0, 4
-	la	$a0, nStr
+	li	$2, 4
+	la	$4, nStr
 	syscall
-	li	$v0, 5
+	li	$2, 5
 	syscall
-	move	$3, $v0
-	li	$v0, 4
-	la	$a0, kStr
+	move	$3, $2
+	li	$2, 4
+	la	$4, kStr
 	syscall
-	li	$v0, 5
+	li	$2, 5
 	syscall
-	move	$7, $v0
-	sw	$3, n
-	sw	$7, k
+	sw	$3, n		# spilled n, freed $3
+	move	$3, $2
+	sw	$3, k
 	jal	maxXOR
-	lw	$3, n
-	lw	$7, k
-	move	$15, $v0
-	li	$v0, 4
-	la	$a0, str
+	lw	$3, k
+	sw	$3, k		# spilled k, freed $3
+	move	$3, $2
+	li	$2, 4
+	la	$4, str
 	syscall
-	li	$v0, 1
-	move	$a0, $15
+	li	$2, 1
+	move	$4, $3
 	syscall
 	# Store variables back into memory
-	sw	$3, n
-	sw	$7, k
-	sw	$15, retVal
-	li	$v0, 10
+	sw	$3, retVal
+	li	$2, 10
 	syscall
 	.end main
+
 	.globl maxXOR
 	.ent maxXOR
 maxXOR:
@@ -61,21 +61,21 @@ maxXOR:
 while:
 	lw	$3, n
 	srl	$3, $3, 1	# n -> $3
-	lw	$7, x
-	addi	$7, $7, 1	# x -> $7
+	lw	$5, x
+	addi	$5, $5, 1	# x -> $5
 	# Store variables back into memory
 	sw	$3, n
-	sw	$7, x
-	bgt	$3, 0, while	# while -> $0
+	sw	$5, x
+	bgt	$3, 0, while
 
 	li	$3, 1		# result -> $3
-	lw	$7, x
-	sll	$3, $3, $7	# result -> $3
+	lw	$5, x
+	sll	$3, $3, $5	# result -> $3
 	sub	$3, $3, 1	# result -> $3
-	move	$v0, $3
+	move	$2, $3
 	# Store variables back into memory
 	sw	$3, result
-	sw	$7, x
+	sw	$5, x
 
 	lw	$ra, 0($sp)
 	addi	$sp, $sp, 4

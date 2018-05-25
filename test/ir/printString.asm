@@ -5,12 +5,13 @@ str:		.asciiz "Hello World!"
 
 	.text
 
+
 	.globl main
 	.ent main
 main:
-	li	$v0, 4
-	la	$a0, str
+	li	$2, 4
+	la	$4, str
 	syscall
-	li	$v0, 10
+	li	$2, 10
 	syscall
 	.end main

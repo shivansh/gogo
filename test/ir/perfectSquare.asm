@@ -11,45 +11,46 @@ notStr:		.asciiz "n is a perfect square."
 
 	.text
 
+
 	.globl main
 	.ent main
 main:
-	li	$v0, 4
-	la	$a0, nStr
+	li	$2, 4
+	la	$4, nStr
 	syscall
-	li	$v0, 5
+	li	$2, 5
 	syscall
-	move	$3, $v0
-	li	$7, 1		# i -> $7
+	move	$3, $2
+	sw	$3, n		# spilled n, freed $3
+	li	$3, 1		# i -> $3
 	# Store variables back into memory
-	sw	$3, n
-	sw	$7, i
+	sw	$3, i
 
 loop:
 	lw	$3, n
-	lw	$7, i
-	sub	$3, $3, $7	# n -> $3
-	addi	$7, $7, 2	# i -> $7
+	lw	$5, i
+	sub	$3, $3, $5	# n -> $3
+	addi	$5, $5, 2	# i -> $5
 	# Store variables back into memory
 	sw	$3, n
-	sw	$7, i
-	bgt	$3, 0, loop	# loop -> $0
+	sw	$5, i
+	bgt	$3, 0, loop
 
-	li	$v0, 4
-	la	$a0, isStr
+	li	$2, 4
+	la	$4, isStr
 	syscall
 	j	exit
 
 	lw	$3, n
 	# Store variables back into memory
 	sw	$3, n
-	bne	$3, 0, exit	# exit -> $0
+	bne	$3, 0, exit
 
-	li	$v0, 4
-	la	$a0, notStr
+	li	$2, 4
+	la	$4, notStr
 	syscall
 
 exit:
-	li	$v0, 10
+	li	$2, 10
 	syscall
 	.end main
