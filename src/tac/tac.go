@@ -76,14 +76,8 @@ func GenTAC(file string) (tac Tac) {
 			record[i] = strings.TrimSpace(record[i])
 		}
 		switch record[0] {
-		case LABEL:
+		case LABEL, FUNC:
 			// label statement is part of the newly created block.
-			blk, line = NewBlock(blk, &tac)
-			blk.Stmts = append(blk.Stmts, Stmt{line, record[0], record[1], []SrcVar{}})
-			line++
-
-		case FUNC:
-			// func statement is part of the newly created block.
 			blk, line = NewBlock(blk, &tac)
 			blk.Stmts = append(blk.Stmts, Stmt{line, record[0], record[1], []SrcVar{}})
 			line++
@@ -142,8 +136,7 @@ func GenTAC(file string) (tac Tac) {
 	}
 
 	// Perform peephole optimization on the generated three-address code IR.
-	optimizedTac := PeepHole(tac)
-	return *optimizedTac
+	return PeepHole(tac)
 }
 
 // PrintTAC pretty-prints the three-address code IR.
@@ -158,6 +151,7 @@ func (tac Tac) PrintTAC() {
 		}
 		fmt.Println()
 	}
+	fmt.Println("--- [ End of TAC ] ---------------")
 }
 
 // FixLineNumbers fixes the line numbers in each basic block in case they get

@@ -1,0 +1,11 @@
+#, Test to demonstrate flow-of-control peephole optimization.
+func, main
+=, n, 0
+label, label1
+#, The generated assembly should not contain the label "label2".
++, n, n, 1
+jmp, label2
+label, label2
+jmp, label3
+label, label3
+ret,

@@ -1,0 +1,21 @@
+#, Test to demostrate the jumps-over-jumps peephole optimization.
+func, main
+=, n, 0
+beq, ifLabel, n, 0
+jmp, elseLabel
+label, ifLabel
++, n, n, 1
+jmp, exit
+label, elseLabel
+#, The generated assembly should not contain the label "ifLabel".
++, n, n, 2
+label, exit
+printInt, n, n
+label, label1
+#, The generated assembly should not contain the label "label2".
++, n, n, 1
+jmp, label2
+label, label2
+jmp, label3
+label, label3
+ret,
