@@ -67,7 +67,9 @@ func RightmostDerivation(file string) error {
 	// is copied in a separate goroutine so that printing doesn't block.
 	go func() {
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		if _, err := io.Copy(&buf, r); err != nil {
+			log.Fatal(err)
+		}
 		outChan <- utils.Tac(buf.String())
 	}()
 
@@ -75,7 +77,9 @@ func RightmostDerivation(file string) error {
 	if err := GenProductions(file); err != nil {
 		return err
 	}
-	w.Close()
+	if err := w.Close(); err != nil {
+		log.Fatal(err)
+	}
 	// Restore the original state (before pipe was created).
 	os.Stdout = old
 
@@ -102,7 +106,11 @@ func RightmostDerivation(file string) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Fatal(err)
+		}
+	}()
 	writer := bufio.NewWriter(f)
 	_, err = writer.WriteString(fmt.Sprintf("<b><u>%s</u></b><br><br>\n", str[0]))
 	if err != nil {
@@ -154,11 +162,12 @@ func RightmostDerivation(file string) error {
 				}
 			}
 		}
-		_, err = writer.WriteString("<br><br>\n")
-		if err != nil {
+		if _, err = writer.WriteString("<br><br>\n"); err != nil {
 			log.Fatal(err)
 		}
 	}
-	writer.Flush()
+	if err := writer.Flush(); err != nil {
+		log.Fatal(err)
+	}
 	return nil
 }

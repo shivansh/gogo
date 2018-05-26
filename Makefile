@@ -28,10 +28,26 @@ test:
 	scripts/run-tests.sh -r2s
 	scripts/run-tests.sh -r
 
+testdiff:
+	git diff --exit-code ./test
+
+gofmt:
+	gofmt -l -s -w ./src
+
+govet:
+	go tool vet -methods=false ./src
+
+errcheck:
+	go get github.com/kisielk/errcheck
+	errcheck -exclude .errcheck-ignore ./src/...
+
 travis:
 	make
 	make test
-	git diff --exit-code test
+	make testdiff
+	make govet
+	make gofmt
+	make errcheck
 
 clean:
 	rm -rf $(CLEANDIR)

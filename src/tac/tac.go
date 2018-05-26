@@ -118,13 +118,11 @@ func GenTAC(file string) (tac Tac) {
 				// unnecessary since the value of branch variables
 				// wasn't modified in this block. Therefore if such a
 				// case arises, avoid creating a new block.
+				startNewBlock = false
 				if len(blk.Stmts) == 2 && blk.Stmts[0].Op == LABEL {
-					startNewBlock = false
 					break
 				}
-
 				blk, line = NewBlock(blk, &tac)
-				startNewBlock = false
 			}
 		}
 	}

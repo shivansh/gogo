@@ -23,8 +23,7 @@ func GenToken(file string) {
 
 // GenIR generates the IR instructions from the input program.
 func GenIR(file string) {
-	err := parser.GenProductions(file)
-	if err != nil {
+	if err := parser.GenProductions(file); err != nil {
 		fmt.Fprintf(os.Stderr, "%s", err)
 		os.Exit(1)
 	}
@@ -47,12 +46,16 @@ func GenAsm(file string) {
 	// copied in a separate goroutine so that printing doesn't block.
 	go func() {
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		if _, err := io.Copy(&buf, r); err != nil {
+			log.Fatal(err)
+		}
 		outChan <- buf.String()
 	}()
 
 	GenIR(file)
-	w.Close()
+	if err := w.Close(); err != nil {
+		log.Fatal(err)
+	}
 	// Restore the original state (before pipe was created).
 	os.Stdout = old
 	ir := <-outChan
@@ -64,12 +67,18 @@ func GenAsm(file string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer f.Close()
+	func() {
+		if err := f.Close(); err != nil {
+			log.Fatal(err)
+		}
+	}()
 	writer := bufio.NewWriter(f)
 	if _, err = writer.WriteString(ir); err != nil {
 		log.Fatal(err)
 	}
-	writer.Flush()
+	if err := writer.Flush(); err != nil {
+		log.Fatal(err)
+	}
 
 	GenAsmFromIR(irFile)
 	if err = os.Remove(irFile); err != nil {

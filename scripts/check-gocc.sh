@@ -14,8 +14,6 @@ else
     goccpath="$GOPATH"/bin/gocc
     if [ -f "$goccpath" ]; then
         "$goccpath" -a -zip -o "$genDir" "$src"/lang.bnf
-        # The generated file is not correctly formatted by default.
-        gofmt -w "./$genDir/parser/productionstable.go"
     else
         echo "gocc is not properly installed"
         exit 1

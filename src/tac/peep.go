@@ -108,7 +108,7 @@ func JumpsOverJumps(tac Tac) Tac {
 //	...
 //	L1: goto L2
 //
-// If there are no more jumps to L1, the entire label can be dropped provied
+// If there are no more jumps to L1, the entire label can be dropped provided
 // that it is preceded by an unconditional jump.
 // Similar logic can be extended to branch statements.
 //
@@ -120,7 +120,6 @@ func JumpsOverJumps(tac Tac) Tac {
 //	L1: a = 1
 //
 // In the above code, L1 is a fallthrough label.
-//
 //
 // ControlFlow performs flow of control optimizations.
 func ControlFlow(tac Tac) Tac {
@@ -214,7 +213,7 @@ func ControlFlow(tac Tac) Tac {
 	// The blocks are supposed be dropped in asceding order of their occurrence
 	// to enable proper index calculations while updating the TAC data structure.
 	keys := []int{}
-	for k, _ := range dropIndices {
+	for k := range dropIndices {
 		keys = append(keys, k)
 	}
 	sort.Ints(keys)

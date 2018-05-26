@@ -6,6 +6,7 @@ notifications:
     email: false
 
 before_script:
+    - go get github.com/kisielk/errcheck
     - go get github.com/goccmack/gocc
 
 script:
