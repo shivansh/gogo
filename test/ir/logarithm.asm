@@ -21,7 +21,7 @@ main:
 	move	$3, $2
 	sw	$3, n		# spilled n, freed $3
 	li	$3, -1		# i -> $3
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, i
 
 while:
@@ -29,7 +29,7 @@ while:
 	srl	$3, $3, 1	# n -> $3
 	lw	$5, i
 	addi	$5, $5, 1	# i -> $5
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, n
 	sw	$5, i
 	bgt	$3, 0, while
@@ -49,7 +49,7 @@ while:
 	li	$2, 1
 	move	$4, $3
 	syscall
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, i
 	li	$2, 10
 	syscall

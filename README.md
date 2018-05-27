@@ -1,7 +1,7 @@
 # gogo
 [![Build Status](https://travis-ci.org/shivansh/gogo.svg?branch=master)](https://travis-ci.org/shivansh/gogo)
 
-Go to MIPS compiler implemented in Go. Made as a course project for CS335 (Compiler Design).
+Go to MIPS compiler, written in Go.
 
 <p align="center">
   <img alt="Logo" src="gopher.svg">

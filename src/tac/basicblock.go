@@ -16,7 +16,7 @@ type Blk struct {
 	// Register descriptor
 	//	* Keeps track of what is currently in each register.
 	//	* Initially all registers are empty.
-	Rdesc      map[int]string
+	Rdesc      map[int]RegDesc
 	NextUseTab [][]UseInfo
 	Pq         PriorityQueue
 }
@@ -33,4 +33,15 @@ func NewBlock(blk *Blk, tac *Tac) (*Blk, int) {
 		blk = new(Blk)
 	}
 	return blk, 0
+}
+
+// MarkDirty marks the given register as dirty. A register whose contents have
+// been modified after being loaded from memory is marked dirty.
+func (blk Blk) MarkDirty(reg int) {
+	blk.Rdesc[reg] = RegDesc{blk.Rdesc[reg].Name, true}
+}
+
+// UnmarkDirty marks the given register as free.
+func (blk Blk) UnmarkDirty(reg int) {
+	blk.Rdesc[reg] = RegDesc{blk.Rdesc[reg].Name, false}
 }

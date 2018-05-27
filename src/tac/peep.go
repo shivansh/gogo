@@ -131,13 +131,15 @@ func ControlFlow(tac Tac) Tac {
 	// In the first pass across the three-address code, inspect and collect
 	// information for the label statements.
 	for blkIndex, blk := range tac {
+		if len(blk.Stmts) == 0 {
+			continue
+		}
 		if op := blk.Stmts[0].Op; op == LABEL {
 			labelName := blk.Stmts[0].Dst
 			// Update inward references of all the blocks to which
 			// the current block references.
 			for _, stmt := range blk.Stmts {
-				switch stmt.Op {
-				case JMP, BEQ, BNE, BLT, BLE, BGT, BGE:
+				if IsBranchOp(stmt.Op) {
 					if _, ok := labelMap[stmt.Dst]; !ok {
 						labelMap[stmt.Dst] = &Label{}
 					}
@@ -150,11 +152,8 @@ func ControlFlow(tac Tac) Tac {
 			// Only if it is preceded by an unconditional jump, it will
 			// be **definite** that the block can be dropped.
 			canDrop := FALSE
-			if len(blk.Stmts) == 2 {
-				switch blk.Stmts[1].Op {
-				case JMP, BEQ, BNE, BLT, BLE, BGT, BGE:
-					canDrop = MAYBE
-				}
+			if len(blk.Stmts) == 2 && IsBranchOp(blk.Stmts[1].Op) {
+				canDrop = MAYBE
 			}
 
 			// Avoid dropping fallthrough labels. Check if the last
@@ -162,9 +161,7 @@ func ControlFlow(tac Tac) Tac {
 			if blkIndex >= 1 {
 				prevBlk := tac[blkIndex-1]
 				index := len(prevBlk.Stmts) - 1
-				switch prevBlk.Stmts[index].Op {
-				case JMP, BEQ, BNE, BLT, BLE, BGT, BGE, CMT:
-				default:
+				if !IsBranchOp(prevBlk.Stmts[index].Op) {
 					// The block is not preceded by an unconditional
 					// jump, hence cannot be dropped in any case.
 					canDrop = FALSE
@@ -184,8 +181,7 @@ func ControlFlow(tac Tac) Tac {
 	// In the second pass, inspect the jump statements.
 	for k, blk := range tac {
 		for _, stmt := range blk.Stmts {
-			switch stmt.Op {
-			case JMP, BEQ, BNE, BLT, BLE, BGT, BGE:
+			if IsBranchOp(stmt.Op) {
 				if labelMap[stmt.Dst].canDrop == MAYBE {
 					// The block which contained only jump/branch
 					// statement were marked MAYBE earlier. Since
@@ -240,12 +236,11 @@ func ControlFlow(tac Tac) Tac {
 		// Keep following the references to the next blocks until we find
 		// one which will not be dropped.
 		for toBeDropped != FALSE {
-			switch blk.Stmts[index].Op {
-			case JMP, BEQ, BNE, BLT, BLE, BGT, BGE:
+			if IsBranchOp(blk.Stmts[index].Op) {
 				// Follow the destination of jump/branch statement.
 				nextBlk = labelMap[blk.Stmts[index].Dst].index
 				toBeDropped = labelMap[tac[nextBlk].Stmts[0].Dst].canDrop
-			default:
+			} else {
 				// Fallthough block is the next valid block.
 				// TODO: Check if nextBlk can reach past the boundary
 				// of the tac data structure.
@@ -253,15 +248,17 @@ func ControlFlow(tac Tac) Tac {
 				toBeDropped = labelMap[blk.Stmts[nextBlk].Dst].canDrop
 			}
 		}
-		prevBlk := keys[i] - 1
-		index = len(tac[prevBlk].Stmts) - 1
-		switch tac[prevBlk].Stmts[index].Op {
-		case JMP, BEQ, BNE, BLT, BLE, BGT, BGE:
-			if _, ok := labelMap[tac[nextBlk].Stmts[0].Dst]; ok {
-				tac[prevBlk].Stmts[index].Dst = tac[nextBlk].Stmts[0].Dst
+		// Update the next valid blocks for all the ones referencing the
+		// current block.
+		for _, prevBlk := range labelMap[blk.Stmts[0].Dst].inRef {
+			index = len(tac[prevBlk].Stmts) - 1
+			if IsBranchOp(tac[prevBlk].Stmts[index].Op) {
+				if _, ok := labelMap[tac[nextBlk].Stmts[0].Dst]; ok {
+					tac[prevBlk].Stmts[index].Dst = tac[nextBlk].Stmts[0].Dst
+				}
 			}
-			// Else the next valid block will be reached via a fallthrough.
 		}
+		// Else the next valid block will be reached via a fallthrough.
 	}
 
 	// Drop the blocks, and update the tac data structure accordingly.
@@ -272,4 +269,13 @@ func ControlFlow(tac Tac) Tac {
 	}
 
 	return tac
+}
+
+// IsBranchOp verifies whether the given operator is jump/branch.
+func IsBranchOp(op string) bool {
+	switch op {
+	case JMP, BEQ, BNE, BLT, BLE, BGT, BGE:
+		return true
+	}
+	return false
 }

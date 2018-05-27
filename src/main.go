@@ -67,7 +67,7 @@ func GenAsm(file string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	func() {
+	defer func() {
 		if err := f.Close(); err != nil {
 			log.Fatal(err)
 		}

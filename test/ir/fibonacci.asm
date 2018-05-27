@@ -27,7 +27,6 @@ main:
 	sw	$3, i
 	jal	fib
 	lw	$3, i
-	sw	$3, i		# spilled i, freed $3
 	move	$3, $2
 	li	$2, 4
 	la	$4, str
@@ -35,7 +34,7 @@ main:
 	li	$2, 1
 	move	$4, $3
 	syscall
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, retVal
 	li	$2, 10
 	syscall
@@ -52,23 +51,26 @@ fib:
 	sw	$3, second	# spilled second, freed $3
 	lw	$3, n
 	sub	$3, $3, 2	# n -> $3
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, n
 
 loop:
 	lw	$3, n
 	ble	$3, 0, exit
-	lw	$5, second
-	move	$6, $5		# temp -> $6
-	lw	$7, first
-	add	$5, $5, $7	# second -> $5
-	move	$7, $6		# first -> $7
-	sub	$3, $3, 1	# n -> $3
-	# Store variables back into memory
-	sw	$3, n
-	sw	$5, second
-	sw	$6, temp
-	sw	$7, first
+	# Store dirty variables back into memory
+
+	lw	$3, second
+	move	$5, $3		# temp -> $5
+	lw	$6, first
+	add	$3, $3, $6	# second -> $3
+	move	$6, $5		# first -> $6
+	sw	$6, first	# spilled first, freed $6
+	lw	$6, n
+	sub	$6, $6, 1	# n -> $6
+	# Store dirty variables back into memory
+	sw	$3, second
+	sw	$5, temp
+	sw	$6, n
 	j	loop
 
 exit:

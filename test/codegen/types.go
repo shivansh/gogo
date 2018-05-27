@@ -7,4 +7,5 @@ func main() {
 	var d string
 	var e int = 2
 	var f string = "Hello types"
+	return
 }

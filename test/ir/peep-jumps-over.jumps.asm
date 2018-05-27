@@ -10,13 +10,13 @@ n:		.word	0
 	.ent main
 main:
 	li	$3, 0		# n -> $3
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, n
 	bne	$3, 0, elseLabel
 
 	lw	$3, n
 	addi	$3, $3, 1	# n -> $3
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, n
 	j	exit
 
@@ -24,7 +24,7 @@ elseLabel:
 	# The generated assembly should not contain the label "ifLabel".
 	lw	$3, n
 	addi	$3, $3, 2	# n -> $3
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, n
 
 exit:
@@ -32,8 +32,7 @@ exit:
 	lw	$3, n
 	move	$4, $3
 	syscall
-	# Store variables back into memory
-	sw	$3, n
+	# Store dirty variables back into memory
 	li	$2, 10
 	syscall
 	.end main

@@ -31,7 +31,7 @@ const RegLimit = 32
 // one "sw" instruction. In case spilling was avoided and one of the free
 // registers was used instead, that too would have resulted in one "sw"
 // instruction at the end of the basic block.
-func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, typeLookup map[string]types.RegType) {
+func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, typeInfo map[string]types.RegType) {
 	// allocReg is a slice of all the register DS which are popped from the
 	// heap and have been assigned a variable's data. These DS are updated
 	// with the newly assigned variable's next-use info and after all the
@@ -41,7 +41,6 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, typeLookup map[string]types.RegTy
 	var allocReg []*UseInfo
 	var srcVars []string
 	var lenSource int // number of source variables
-	var tab string    // indentation for in-line comments
 
 	// Collect all "variables" available in stmt. Register allocation is
 	// first done for the source variables and then for the destination
@@ -66,25 +65,27 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, typeLookup map[string]types.RegTy
 			// element with highest next-use is popped
 			item := heap.Pop(&blk.Pq).(*UseInfo)
 			reg, _ := strconv.Atoi(item.Name)
-			if _, ok := blk.Rdesc[reg]; ok && typeLookup[blk.Rdesc[reg]] != types.ARR {
-				comment := fmt.Sprintf("# spilled %s, freed $%s", blk.Rdesc[reg], item.Name)
-				if len(blk.Rdesc[reg]) >= 3 {
+			if entry, ok := blk.Rdesc[reg]; ok && typeInfo[entry.Name] != types.ARR && entry.Dirty {
+				comment := fmt.Sprintf("# spilled %s, freed $%s", blk.Rdesc[reg].Name, item.Name)
+				tab := "" // indentation for in-line comments
+				if len(blk.Rdesc[reg].Name) >= 3 {
 					tab = "\t"
 				} else {
 					tab = "\t\t"
 				}
-				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%s, %s", item.Name, blk.Rdesc[reg]+tab+comment))
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%s, %s", item.Name, blk.Rdesc[reg].Name+tab+comment))
+				blk.UnmarkDirty(reg)
 			}
 			allocReg = append(allocReg, &UseInfo{strconv.Itoa(reg), blk.FindNextUse(stmt.Line, v)})
-			delete(blk.Adesc, blk.Rdesc[reg])
+			delete(blk.Adesc, blk.Rdesc[reg].Name)
 			delete(blk.Rdesc, reg)
-			blk.Rdesc[reg] = v
+			blk.Rdesc[reg] = RegDesc{v, false}
 			blk.Adesc[v] = Addr{reg, blk.Adesc[v].Mem}
 			if k < lenSource-1 {
-				if typeLookup[v] != types.ARR {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw\t$%d, %s", blk.Adesc[v].Reg, v))
-				} else {
+				if typeInfo[v] == types.ARR {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla\t$%d, %s", blk.Adesc[v].Reg, v))
+				} else {
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw\t$%d, %s", blk.Adesc[v].Reg, v))
 				}
 			}
 		}

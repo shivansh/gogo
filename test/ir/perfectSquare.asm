@@ -23,7 +23,7 @@ main:
 	move	$3, $2
 	sw	$3, n		# spilled n, freed $3
 	li	$3, 1		# i -> $3
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, i
 
 loop:
@@ -31,7 +31,7 @@ loop:
 	lw	$5, i
 	sub	$3, $3, $5	# n -> $3
 	addi	$5, $5, 2	# i -> $5
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, n
 	sw	$5, i
 	bgt	$3, 0, loop
@@ -42,8 +42,7 @@ loop:
 	j	exit
 
 	lw	$3, n
-	# Store variables back into memory
-	sw	$3, n
+	# Store dirty variables back into memory
 	bne	$3, 0, exit
 
 	li	$2, 4

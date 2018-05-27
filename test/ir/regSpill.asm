@@ -37,10 +37,7 @@ main:
 	lw	$3, v3
 	lw	$5, v4
 	lw	$6, v7
-	# Store variables back into memory
-	sw	$3, v3
-	sw	$5, v4
-	sw	$6, v7
+	# Store dirty variables back into memory
 	li	$2, 10
 	syscall
 	.end main
@@ -51,13 +48,13 @@ temp:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)
 	li	$3, 1		# v1 -> $3
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, v1
 
 unsat:
 	li	$3, 4		# v4 -> $3
 	lw	$2, v1
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, v4
 
 	lw	$ra, 0($sp)

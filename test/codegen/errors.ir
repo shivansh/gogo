@@ -1,8 +1,8 @@
 func, test
 =, a, test.0
-=, b, test.1
+=, c, test.1
 +, t0, a, 1
-+, t1, b, 1
++, t1, c, 1
 =, return.0, t0
 =, return.1, t1
 ret,

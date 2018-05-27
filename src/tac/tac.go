@@ -18,6 +18,11 @@ type Addr struct {
 	Mem int
 }
 
+type RegDesc struct {
+	Name  string
+	Dirty bool
+}
+
 // Stmt defines the structure of a single statement in three-address code form.
 type Stmt struct {
 	Line int      // line number where the statement is available
@@ -83,8 +88,8 @@ func GenTAC(file string) (tac Tac) {
 			line++
 
 		case JMP, BGT, BGE, BLT, BLE, BEQ, BNE:
-			// Start a new block after updating the current block
-			// with the jump statement.
+			// Start a new block after appending the jump statement
+			// to the current block.
 			startNewBlock = true
 			fallthrough // move into next section to update blk.Src
 
@@ -106,23 +111,8 @@ func GenTAC(file string) (tac Tac) {
 			blk.Stmts = append(blk.Stmts, Stmt{line, record[0], record[1], sv})
 			line++
 			if startNewBlock {
-				// If the variables belonging to a branch instruction
-				// haven't been allocated a register, an allocation is
-				// done. Since the branch instruction marks the end of
-				// the current basic block, a store is performed for all
-				// the variables which have been allocated a register.
-				// If the basic block only contains a label statement,
-				// the branch instruction will invoke a load for its
-				// variables, and immediately after this a store will
-				// be performed for these. This store instruction is
-				// unnecessary since the value of branch variables
-				// wasn't modified in this block. Therefore if such a
-				// case arises, avoid creating a new block.
-				startNewBlock = false
-				if len(blk.Stmts) == 2 && blk.Stmts[0].Op == LABEL {
-					break
-				}
 				blk, line = NewBlock(blk, &tac)
+				startNewBlock = false
 			}
 		}
 	}
@@ -149,7 +139,7 @@ func (tac Tac) PrintTAC() {
 		}
 		fmt.Println()
 	}
-	fmt.Println("--- [ End of TAC ] ---------------")
+	fmt.Println("--- [ End of TAC ] -----------------")
 }
 
 // FixLineNumbers fixes the line numbers in each basic block in case they get

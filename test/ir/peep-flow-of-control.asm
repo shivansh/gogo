@@ -10,14 +10,14 @@ n:		.word	0
 	.ent main
 main:
 	li	$3, 0		# n -> $3
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, n
 
 label1:
 	# The generated assembly should not contain the label "label2".
 	lw	$3, n
 	addi	$3, $3, 1	# n -> $3
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, n
 	j	label3
 

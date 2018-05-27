@@ -1,46 +1,39 @@
 	.data
-a:	.word	0
-t0:	.word	0
-t1:	.word	0
+a.0:		.word	0
+t0:		.word	0
+t1:		.word	0
 
 	.text
-
 
 	.globl main
 	.ent main
 main:
-	li $t1, 1		# a -> $t1
-	# Store variables back into memory
-	sw $t1, a
+	li	$3, 1		# a.0 -> $3
+	# Store dirty variables back into memory
+	sw	$3, a.0
+	bne	$3, 2, l2
 
-	lw $t1, a
-	beq $t1, 1, l1		# l1 -> $t0
-	# Store variables back into memory
-	sw $t1, a
-
-	j l2
-
-l1:
-	lw $t1, a
-	addi $t4, $t1, 1		# t0 -> $t4
-	move $t1, $t4		# a -> $t1
-	# Store variables back into memory
-	sw $t1, a
-	sw $t4, t0
-
-	j l0
+	lw	$3, a.0
+	addi	$5, $3, 1	# t0 -> $5
+	move	$3, $5		# a.0 -> $3
+	# Store dirty variables back into memory
+	sw	$3, a.0
+	sw	$5, t0
+	j	l0
 
 l2:
-	lw $t1, a
-	addi $t4, $t1, 4		# t1 -> $t4
-	move $t1, $t4		# a -> $t1
-	# Store variables back into memory
-	sw $t4, t1
-	sw $t1, a
-
-	j l0
+	lw	$3, a.0
+	addi	$5, $3, 4	# t1 -> $5
+	move	$3, $5		# a.0 -> $3
+	li	$2, 1
+	move	$4, $3
+	syscall
+	# Store dirty variables back into memory
+	sw	$3, a.0
+	sw	$5, t1
+	j	l0
 
 l0:
-	li $v0, 10
+	li	$2, 10
 	syscall
 	.end main

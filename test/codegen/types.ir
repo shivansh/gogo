@@ -5,3 +5,4 @@ declInt, c.2, 0
 declStr, d.3, ""
 declInt, e.4, 2
 declStr, f.5, "Hello types"
+ret,

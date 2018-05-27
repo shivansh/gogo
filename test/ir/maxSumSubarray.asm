@@ -13,22 +13,25 @@ maxsum:		.word	0
 	.ent main
 main:
 	li	$3, 0		# i -> $3
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, i
 
 loop1:
 	lw	$3, i
 	bge	$3, 10, exit1
+	# Store dirty variables back into memory
+
 	li	$2, 5
 	syscall
-	move	$5, $2
-	la	$6, a
-	sll $s2, $3, 2	# iterator *= 4
-	sw	$5, a($s2)	# variable -> array
-	addi	$3, $3, 1	# i -> $3
-	# Store variables back into memory
-	sw	$3, i
-	sw	$5, v
+	move	$3, $2
+	la	$5, a
+	lw	$6, i
+	sll $s2, $6, 2	# iterator *= 4
+	sw	$3, a($s2)	# variable -> array
+	addi	$6, $6, 1	# i -> $6
+	# Store dirty variables back into memory
+	sw	$3, v
+	sw	$6, i
 	j	loop1
 
 exit1:
@@ -37,20 +40,21 @@ exit1:
 	la	$3, sum
 	sw	$5, 0($3)	# variable -> array
 	li	$3, 1		# i -> $3
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, i
 	sw	$5, v
 
 loop2:
 	lw	$3, i
 	bge	$3, 10, exit2
+	# Store dirty variables back into memory
+
+	lw	$3, i
 	sub	$5, $3, 1	# v1 -> $5
-	sw	$5, v1		# spilled v1, freed $5
-	lw	$5, v
-	# Store variables back into memory
-	sw	$3, i
-	sw	$5, v
-	bge	$5, 0, branch1
+	lw	$3, v
+	# Store dirty variables back into memory
+	sw	$5, v1
+	bge	$3, 0, branch1
 
 	la	$3, a
 	lw	$5, i
@@ -60,7 +64,7 @@ loop2:
 	sll $s2, $5, 2	# iterator *= 4
 	sw	$6, sum($s2)	# variable -> array
 	addi	$5, $5, 1	# i -> $5
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$5, i
 	sw	$6, v
 	j	loop2
@@ -78,7 +82,7 @@ branch1:
 	sll $s2, $5, 2	# iterator *= 4
 	sw	$6, sum($s2)	# variable -> array
 	addi	$5, $5, 1	# i -> $5
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, v1
 	sw	$5, i
 	sw	$6, v
@@ -89,29 +93,29 @@ exit2:
 	la	$3, sum
 	lw	$5, 0($3)	# variable <- array
 	li	$3, 1		# i -> $3
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, i
 	sw	$5, maxsum
 
 loop3:
 	lw	$3, i
 	bge	$3, 10, exit3
-	la	$5, sum
-	sll	$s2, $3, 2	# iterator *= 4
+	# Store dirty variables back into memory
+
+	la	$3, sum
+	lw	$5, i
+	sll	$s2, $5, 2	# iterator *= 4
 	lw	$6, sum($s2)	# variable <- array
-	lw	$5, maxsum
-	# Store variables back into memory
-	sw	$3, i
-	sw	$5, maxsum
+	lw	$3, maxsum
+	# Store dirty variables back into memory
 	sw	$6, v
-	bge	$5, $6, branch2
+	bge	$3, $6, branch2
 
 	lw	$3, v
 	move	$5, $3		# maxsum -> $5
-	sw	$3, v		# spilled v, freed $3
 	lw	$3, i
 	addi	$3, $3, 1	# i -> $3
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, i
 	sw	$5, maxsum
 	j	loop3
@@ -119,7 +123,7 @@ loop3:
 branch2:
 	lw	$3, i
 	addi	$3, $3, 1	# i -> $3
-	# Store variables back into memory
+	# Store dirty variables back into memory
 	sw	$3, i
 	j	loop3
 
@@ -128,8 +132,7 @@ exit3:
 	lw	$3, maxsum
 	move	$4, $3
 	syscall
-	# Store variables back into memory
-	sw	$3, maxsum
+	# Store dirty variables back into memory
 	li	$2, 10
 	syscall
 	.end main
