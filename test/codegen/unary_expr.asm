@@ -9,7 +9,7 @@ b.1:		.word	0
 	.ent main
 main:
 	li	$3, -1		# a.0 -> $3
-	addi	$5, $3, 1	# t0 -> $5
+	addi	$5, $3, 1
 	move	$6, $5		# b.1 -> $6
 	# Store dirty variables back into memory
 	sw	$3, a.0

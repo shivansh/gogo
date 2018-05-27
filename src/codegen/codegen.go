@@ -57,6 +57,9 @@ func CodeGen(t tac.Tac) {
 		jumpStmt := []string{}
 		// exitStmt stores the instructions which terminate a function.
 		exitStmt := ""
+		// dirtyRegCount determines the number of registers which have been
+		// modified after loading their values from memory.
+		dirtyRegCount := 0
 
 		if len(blk.Stmts) > 0 && blk.Stmts[0].Op == tac.FUNC {
 			funcName = blk.Stmts[0].Dst
@@ -118,11 +121,9 @@ func CodeGen(t tac.Tac) {
 				tac.JMP:
 				break
 			default:
-				tab := "" // indentation for in-line comments.
-				if len(stmt.Dst) >= 8 {
+				tab := "\t\t" // indentation for in-line comments.
+				if len(stmt.Dst) >= 7 {
 					tab = "\t"
-				} else {
-					tab = "\t\t"
 				}
 				if stmt.Op == tac.DECL && !ds.Lookup[stmt.Dst] {
 					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:%s.space\t%d", stmt.Dst, tab, 4*stmt.Src[0].IntVal()))
@@ -150,11 +151,9 @@ func CodeGen(t tac.Tac) {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli\t$%d, %d\t\t%s",
 						blk.Adesc[stmt.Dst].Reg, v, comment))
 				case tac.Str:
-					tab := "" // indentation for in-line comments.
+					tab := "\t" // indentation for in-line comments.
 					if blk.Adesc[stmt.Dst].Reg < 10 || blk.Adesc[v.StrVal()].Reg < 10 {
 						tab = "\t\t"
-					} else {
-						tab = "\t"
 					}
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove\t$%d, $%d%s%s",
 						blk.Adesc[stmt.Dst].Reg, blk.Adesc[v.StrVal()].Reg, tab, comment))
@@ -162,6 +161,7 @@ func CodeGen(t tac.Tac) {
 					log.Fatal("Codegen: unknown type %T\n", v)
 				}
 				blk.MarkDirty(blk.Adesc[stmt.Dst].Reg)
+				dirtyRegCount++
 
 			case tac.FROM:
 				blk.GetReg(&stmt, ts, typeInfo)
@@ -178,6 +178,7 @@ func CodeGen(t tac.Tac) {
 						blk.Adesc[stmt.Dst].Reg, stmt.Src[0].StrVal(), comment))
 				}
 				blk.MarkDirty(blk.Adesc[stmt.Dst].Reg)
+				dirtyRegCount++
 
 			case tac.INTO:
 				blk.GetReg(&stmt, ts, typeInfo)
@@ -220,18 +221,18 @@ func CodeGen(t tac.Tac) {
 
 			case tac.ADD:
 				blk.GetReg(&stmt, ts, typeInfo)
-				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].(type) {
 				case tac.I32:
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\taddi\t$%d, $%d, %s\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), comment))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\taddi\t$%d, $%d, %s",
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal()))
 				case tac.Str:
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tadd\t$%d, $%d, $%d\t%s",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tadd\t$%d, $%d, $%d",
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg))
 				default:
 					log.Fatal("Codegen: unknown type %T\n", v)
 				}
 				blk.MarkDirty(blk.Adesc[stmt.Dst].Reg)
+				dirtyRegCount++
 
 			case tac.SUB,
 				tac.MUL,
@@ -245,25 +246,25 @@ func CodeGen(t tac.Tac) {
 				tac.XOR:
 				blk.GetReg(&stmt, ts, typeInfo)
 				op := ConvertOp(stmt.Op)
-				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].(type) {
 				case tac.I32:
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\t%s\t$%d, $%d, %s\t%s", op,
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal(), comment))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\t%s\t$%d, $%d, %s", op,
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal()))
 				case tac.Str:
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\t%s\t$%d, $%d, $%d\t%s", op,
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg, comment))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\t%s\t$%d, $%d, $%d", op,
+						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg))
 				default:
 					log.Fatal("Codegen: unknown type %T\n", v)
 				}
 				blk.MarkDirty(blk.Adesc[stmt.Dst].Reg)
+				dirtyRegCount++
 
 			case tac.NOT:
 				blk.GetReg(&stmt, ts, typeInfo)
-				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
-				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tnot\t$%d, $%d\t%s",
-					blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, comment))
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tnot\t$%d, $%d",
+					blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg))
 				blk.MarkDirty(blk.Adesc[stmt.Dst].Reg)
+				dirtyRegCount++
 
 			case tac.BEQ,
 				tac.BNE,
@@ -320,12 +321,17 @@ func CodeGen(t tac.Tac) {
 					keys = append(keys, k)
 				}
 				sort.Ints(keys)
-				for _, r := range keys {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%d, %s", r, blk.Rdesc[r].Name))
-					blk.UnmarkDirty(r)
+				for _, reg := range keys {
+					varName := blk.Rdesc[reg].Name
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%d, %s", reg, varName))
+					blk.UnmarkDirty(reg)
+					dirtyRegCount--
 					// It is the responsibility of the caller to save
 					// all the registers before the callee starts.
-					callerSaved = append(callerSaved, fmt.Sprintf("\tlw\t$%d, %s", r, blk.Rdesc[r].Name))
+					if !blk.IsLoaded(reg, varName) {
+						callerSaved = append(callerSaved, fmt.Sprintf("\tlw\t$%d, %s", reg, varName))
+						blk.MarkLoaded(reg)
+					}
 				}
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tjal\t%s", stmt.Dst))
 				// Load the caller-saved registers after returning from
@@ -336,6 +342,7 @@ func CodeGen(t tac.Tac) {
 				blk.GetReg(&stmt, ts, typeInfo)
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove\t$%d, $2", blk.Adesc[stmt.Dst].Reg))
 				blk.MarkDirty(blk.Adesc[stmt.Dst].Reg)
+				dirtyRegCount++
 
 			case tac.RET:
 				if funcName == "main" {
@@ -359,6 +366,7 @@ func CodeGen(t tac.Tac) {
 				blk.GetReg(&stmt, ts, typeInfo)
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove\t$%d, $2", blk.Adesc[stmt.Dst].Reg))
 				blk.MarkDirty(blk.Adesc[stmt.Dst].Reg)
+				dirtyRegCount++
 
 			case tac.PRINTINT:
 				ts.Stmts = append(ts.Stmts, "\tli\t$2, 1")
@@ -413,11 +421,13 @@ func CodeGen(t tac.Tac) {
 				keys = append(keys, k)
 			}
 			sort.Ints(keys)
-			ts.Stmts = append(ts.Stmts, fmt.Sprintf("\t# Store dirty variables back into memory"))
-			for _, k := range keys {
-				if typeInfo[blk.Rdesc[k].Name] != types.ARR && blk.Rdesc[k].Dirty {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%d, %s", k, blk.Rdesc[k].Name))
-					blk.UnmarkDirty(k)
+			if dirtyRegCount > 0 {
+				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\t# Store dirty variables back into memory"))
+				for _, k := range keys {
+					if typeInfo[blk.Rdesc[k].Name] != types.ARR && blk.Rdesc[k].Dirty {
+						ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%d, %s", k, blk.Rdesc[k].Name))
+						blk.UnmarkDirty(k)
+					}
 				}
 			}
 		}

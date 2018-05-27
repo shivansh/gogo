@@ -16,9 +16,8 @@ main:
 	sw	$3, i.2
 
 l2:
-	lw	$3, i.2
+	lw	$3, i.2		# i.2 -> $3
 	bge	$3, 4, l0
-	# Store dirty variables back into memory
 
 	li	$3, 1		# t0 -> $3
 	# Store dirty variables back into memory
@@ -31,20 +30,19 @@ l0:
 	sw	$3, t0
 
 l1:
-	lw	$3, t0
+	lw	$3, t0		# t0 -> $3
 	blt	$3, 1, l3
-	# Store dirty variables back into memory
 
-	lw	$3, a.0
-	addi	$3, $3, 1	# a.0 -> $3
+	lw	$3, a.0		# a.0 -> $3
+	addi	$3, $3, 1
 	li	$2, 1
 	move	$4, $3
 	syscall
 	li	$2, 4
 	la	$4, newline.1
 	syscall
-	lw	$5, i.2
-	addi	$5, $5, 1	# i.2 -> $5
+	lw	$5, i.2		# i.2 -> $5
+	addi	$5, $5, 1
 	# Store dirty variables back into memory
 	sw	$3, a.0
 	sw	$5, i.2

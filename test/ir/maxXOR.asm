@@ -58,19 +58,19 @@ maxXOR:
 	sw	$3, x
 
 while:
-	lw	$3, n
-	srl	$3, $3, 1	# n -> $3
-	lw	$5, x
-	addi	$5, $5, 1	# x -> $5
+	lw	$3, n		# n -> $3
+	srl	$3, $3, 1
+	lw	$5, x		# x -> $5
+	addi	$5, $5, 1
 	# Store dirty variables back into memory
 	sw	$3, n
 	sw	$5, x
 	bgt	$3, 0, while
 
 	li	$3, 1		# result -> $3
-	lw	$5, x
-	sll	$3, $3, $5	# result -> $3
-	sub	$3, $3, 1	# result -> $3
+	lw	$5, x		# x -> $5
+	sll	$3, $3, $5
+	sub	$3, $3, 1
 	move	$2, $3
 	# Store dirty variables back into memory
 	sw	$3, result

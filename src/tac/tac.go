@@ -19,8 +19,14 @@ type Addr struct {
 }
 
 type RegDesc struct {
-	Name  string
+	// Name determines the variable name whose value the register stores.
+	Name string
+	// Dirty determines whether the value of the variable stored by the
+	// register has changed after loading from memory.
 	Dirty bool
+	// Loaded determines whether the variable whose value the register is
+	// supposed to store has been loaded from memory.
+	Loaded bool
 }
 
 // Stmt defines the structure of a single statement in three-address code form.

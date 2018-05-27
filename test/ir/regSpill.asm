@@ -25,7 +25,7 @@ main:
 	li	$5, 4		# v4 -> $5
 	li	$6, 5		# v5 -> $6
 	move	$6, $5		# v5 -> $6
-	add	$6, $5, $3	# v5 -> $6
+	add	$6, $5, $3
 	sw	$6, v5		# spilled v5, freed $6
 	li	$6, 5		# v6 -> $6
 	sw	$6, v6		# spilled v6, freed $6

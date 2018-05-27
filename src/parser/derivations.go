@@ -14,9 +14,9 @@ import (
 	"os"
 	"strings"
 
-	parseError "github.com/shivansh/gogo/src/goccgen/errors"
-	"github.com/shivansh/gogo/src/goccgen/lexer"
-	"github.com/shivansh/gogo/src/goccgen/parser"
+	parseError "github.com/shivansh/gogo/goccgen/errors"
+	"github.com/shivansh/gogo/goccgen/lexer"
+	"github.com/shivansh/gogo/goccgen/parser"
 	"github.com/shivansh/gogo/src/utils"
 )
 

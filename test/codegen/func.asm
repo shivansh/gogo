@@ -18,12 +18,12 @@ b.2:		.word	0
 temp:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)
-	lw	$3, temp.0
+	lw	$3, temp.0	# temp.0 -> $3
 	move	$5, $3		# x -> $5
-	lw	$3, temp.1
+	lw	$3, temp.1	# temp.1 -> $3
 	move	$6, $3		# y -> $6
-	addi	$3, $5, 1	# t0 -> $3
-	addi	$7, $6, 1	# t1 -> $7
+	addi	$3, $5, 1
+	addi	$7, $6, 1
 	move	$8, $3		# return.0 -> $8
 	sw	$8, return.0	# spilled return.0, freed $8
 	move	$8, $7		# return.1 -> $8
@@ -48,9 +48,9 @@ main:
 	sw	$3, temp.1
 	jal	temp
 	lw	$3, temp.1
-	lw	$3, return.0
+	lw	$3, return.0	# return.0 -> $3
 	move	$5, $3		# a.1 -> $5
-	lw	$3, return.1
+	lw	$3, return.1	# return.1 -> $3
 	move	$6, $3		# b.2 -> $6
 	li	$2, 1
 	move	$4, $5

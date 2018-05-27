@@ -26,8 +26,8 @@ func NewBlock(blk *Blk, tac *Tac) (*Blk, int) {
 	if blk != nil && len(blk.Stmts) > 0 {
 		*tac = append(*tac, *blk) // end the previous block
 		// Create a new block only if the current one is not empty. If
-		// it is empty, use it. This case arises when a label statement
-		// is encountered after a jump statement. The new block created
+		// it is empty, use it. This case arises when a jump statement
+		// is encountered after a label statement. The new block created
 		// by the jump statement stays empty as the label statement
 		// creates a new block of its own.
 		blk = new(Blk)
@@ -38,10 +38,44 @@ func NewBlock(blk *Blk, tac *Tac) (*Blk, int) {
 // MarkDirty marks the given register as dirty. A register whose contents have
 // been modified after being loaded from memory is marked dirty.
 func (blk Blk) MarkDirty(reg int) {
-	blk.Rdesc[reg] = RegDesc{blk.Rdesc[reg].Name, true}
+	isDirty := true
+	blk.Rdesc[reg] = RegDesc{blk.Rdesc[reg].Name, isDirty, blk.Rdesc[reg].Loaded}
 }
 
 // UnmarkDirty marks the given register as free.
 func (blk Blk) UnmarkDirty(reg int) {
-	blk.Rdesc[reg] = RegDesc{blk.Rdesc[reg].Name, false}
+	isDirty := false
+	blk.Rdesc[reg] = RegDesc{blk.Rdesc[reg].Name, isDirty, blk.Rdesc[reg].Loaded}
+}
+
+// IsDirty determines if the given register is dirty.
+func (blk Blk) IsDirty(reg int) bool {
+	if entry, ok := blk.Rdesc[reg]; ok {
+		return entry.Dirty
+	} else {
+		panic("IsDirty: register not allocated yet")
+	}
+}
+
+// MarkLoaded is invoked after loading a variable from memory, and it marks the
+// corresponding register's entry as loaded.
+func (blk Blk) MarkLoaded(reg int) {
+	loaded := true
+	blk.Rdesc[reg] = RegDesc{blk.Rdesc[reg].Name, blk.Rdesc[reg].Dirty, loaded}
+}
+
+// UnmarkLoaded unmarks the register entry as loaded.
+func (blk Blk) UnmarkLoaded(reg int) {
+	loaded := false
+	blk.Rdesc[reg] = RegDesc{blk.Rdesc[reg].Name, blk.Rdesc[reg].Dirty, loaded}
+}
+
+// IsLoaded determines whether the given register stores the value of the given
+// variable and the value has been loaded from memory.
+func (blk Blk) IsLoaded(reg int, varName string) bool {
+	if entry, ok := blk.Rdesc[reg]; ok {
+		return entry.Name == varName && entry.Loaded
+	} else {
+		panic("IsLoaded: register not allocated yet")
+	}
 }

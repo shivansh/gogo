@@ -3,6 +3,7 @@ package tac
 import (
 	"container/heap"
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/shivansh/gogo/src/types"
@@ -54,7 +55,6 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, typeInfo map[string]types.RegType
 	switch stmt.Op {
 	case BGT, BGE, BLT, BLE, BEQ, BNE, JMP:
 		lenSource = len(srcVars) + 1
-		break
 	default:
 		srcVars = append(srcVars, stmt.Dst)
 		lenSource = len(srcVars)
@@ -62,30 +62,38 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, typeInfo map[string]types.RegType
 
 	for k, v := range srcVars {
 		if _, hasReg := blk.Adesc[v]; !hasReg {
-			// element with highest next-use is popped
+			// Element with next-use farthest in future is popped.
 			item := heap.Pop(&blk.Pq).(*UseInfo)
-			reg, _ := strconv.Atoi(item.Name)
+			reg, err := strconv.Atoi(item.Name)
+			if err != nil {
+				log.Fatal(err)
+			}
 			if entry, ok := blk.Rdesc[reg]; ok && typeInfo[entry.Name] != types.ARR && entry.Dirty {
 				comment := fmt.Sprintf("# spilled %s, freed $%s", blk.Rdesc[reg].Name, item.Name)
-				tab := "" // indentation for in-line comments
+				tab := "\t\t" // indentation for in-line comments
 				if len(blk.Rdesc[reg].Name) >= 3 {
 					tab = "\t"
-				} else {
-					tab = "\t\t"
 				}
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%s, %s", item.Name, blk.Rdesc[reg].Name+tab+comment))
-				blk.UnmarkDirty(reg)
 			}
 			allocReg = append(allocReg, &UseInfo{strconv.Itoa(reg), blk.FindNextUse(stmt.Line, v)})
 			delete(blk.Adesc, blk.Rdesc[reg].Name)
 			delete(blk.Rdesc, reg)
-			blk.Rdesc[reg] = RegDesc{v, false}
+			isDirty, isLoaded := false, false
+			blk.Rdesc[reg] = RegDesc{v, isDirty, isLoaded}
 			blk.Adesc[v] = Addr{reg, blk.Adesc[v].Mem}
+			// Load the variable from memory.
 			if k < lenSource-1 {
 				if typeInfo[v] == types.ARR {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla\t$%d, %s", blk.Adesc[v].Reg, v))
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla\t$%d, %s", reg, v))
 				} else {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw\t$%d, %s", blk.Adesc[v].Reg, v))
+					tab := "\t\t" // indentation for in-line comments
+					if len(v) > 3 {
+						tab = "\t"
+					}
+					comment := fmt.Sprintf("# %s -> $%d", v, reg)
+					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw\t$%d, %s%s", reg, v, tab+comment))
+					blk.MarkLoaded(reg)
 				}
 			}
 		}
@@ -100,7 +108,7 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, typeInfo map[string]types.RegType
 	// then temporarily mark the lookup table corresponding to it to
 	// ensure that the relevant statement is correctly inserted into
 	// the text segment data structure. Once that is done, this entry
-	// will be deleted by the caller.
+	// will be deleted by the caller of GetReg().
 	for i := 0; i < len(srcVars)-1; i++ {
 		if _, ok := blk.Adesc[srcVars[i]]; !ok {
 			blk.Adesc[srcVars[i]] = Addr{blk.Adesc[stmt.Dst].Reg, 0}

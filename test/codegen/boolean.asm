@@ -28,10 +28,9 @@ l0:
 	sw	$3, t0
 
 l1:
-	lw	$3, a.0
-	lw	$5, b.1
+	lw	$3, a.0		# a.0 -> $3
+	lw	$5, b.1		# b.1 -> $5
 	bge	$3, $5, l2
-	# Store dirty variables back into memory
 
 	li	$3, 1		# t1 -> $3
 	# Store dirty variables back into memory
@@ -44,12 +43,10 @@ l2:
 	sw	$3, t1
 
 l3:
-	lw	$3, t0
+	lw	$3, t0		# t0 -> $3
 	beq	$3, 0, l5
-	# Store dirty variables back into memory
 
-	lw	$3, t1
-	# Store dirty variables back into memory
+	lw	$3, t1		# t1 -> $3
 	beq	$3, 0, l5
 
 	li	$3, 1		# t2 -> $3
@@ -63,15 +60,13 @@ l5:
 	sw	$3, t2
 
 l4:
-	lw	$3, t2
+	lw	$3, t2		# t2 -> $3
 	blt	$3, 1, l6
-	# Store dirty variables back into memory
 
 	li	$2, 1
-	lw	$3, a.0
+	lw	$3, a.0		# a.0 -> $3
 	move	$4, $3
 	syscall
-	# Store dirty variables back into memory
 
 l6:
 	li	$2, 10

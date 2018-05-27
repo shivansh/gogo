@@ -34,11 +34,11 @@ firstFunc:
 midFunc:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)
-	lw	$3, midFunc.0
+	lw	$3, midFunc.0	# midFunc.0 -> $3
 	move	$5, $3		# a -> $5
-	lw	$3, midFunc.1
+	lw	$3, midFunc.1	# midFunc.1 -> $3
 	move	$6, $3		# c -> $6
-	add	$3, $5, $6	# t0 -> $3
+	add	$3, $5, $6
 	move	$7, $3		# sum.3 -> $7
 	li	$2, 4
 	la	$4, str.1

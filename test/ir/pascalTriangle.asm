@@ -1,7 +1,7 @@
 	.data
 twoSpc:		.asciiz "  "
 threeSpc:	.asciiz "   "
-newline:		.asciiz "\n"
+newline:	.asciiz "\n"
 str:		.asciiz "Enter number of rows: "
 rows:		.word	0
 coef:		.word	0
@@ -29,21 +29,20 @@ main:
 	sw	$3, i
 
 outerFor:
-	lw	$3, i
-	lw	$5, rows
+	lw	$3, i		# i -> $3
+	lw	$5, rows	# rows -> $5
 	bge	$3, $5, exit
-	# Store dirty variables back into memory
 
 	li	$3, 1		# space -> $3
 	# Store dirty variables back into memory
 	sw	$3, space
 
 spcFor:
-	lw	$3, rows
-	lw	$5, i
-	sub	$6, $3, $5	# temp -> $6
+	lw	$3, rows	# rows -> $3
+	lw	$5, i		# i -> $5
+	sub	$6, $3, $5
 	li	$3, 0		# k -> $3
-	lw	$5, space
+	lw	$5, space	# space -> $5
 	# Store dirty variables back into memory
 	sw	$3, k
 	sw	$6, temp
@@ -52,8 +51,8 @@ spcFor:
 	li	$2, 4
 	la	$4, twoSpc
 	syscall
-	lw	$3, space
-	addi	$3, $3, 1	# space -> $3
+	lw	$3, space	# space -> $3
+	addi	$3, $3, 1
 	# Store dirty variables back into memory
 	sw	$3, space
 	j	spcFor
@@ -63,26 +62,23 @@ spcFor:
 	sw	$3, k
 
 innerFor:
-	lw	$3, k
-	lw	$5, i
+	lw	$3, k		# k -> $3
+	lw	$5, i		# i -> $5
 	bgt	$3, $5, endLine
-	# Store dirty variables back into memory
 
-	lw	$3, k
-	# Store dirty variables back into memory
+	lw	$3, k		# k -> $3
 	beq	$3, 0, labelIf
 
-	lw	$3, i
-	# Store dirty variables back into memory
+	lw	$3, i		# i -> $3
 	beq	$3, 0, labelIf
 
-	lw	$3, i
-	lw	$5, k
-	sub	$6, $3, $5	# temp -> $6
-	addi	$6, $6, 1	# temp -> $6
-	lw	$3, coef
-	mul	$3, $3, $6	# coef -> $3
-	div	$3, $3, $5	# coef -> $3
+	lw	$3, i		# i -> $3
+	lw	$5, k		# k -> $5
+	sub	$6, $3, $5
+	addi	$6, $6, 1
+	lw	$3, coef	# coef -> $3
+	mul	$3, $3, $6
+	div	$3, $3, $5
 	# Store dirty variables back into memory
 	sw	$3, coef
 	sw	$6, temp
@@ -98,11 +94,11 @@ labelCoef:
 	la	$4, threeSpc
 	syscall
 	li	$2, 1
-	lw	$3, coef
+	lw	$3, coef	# coef -> $3
 	move	$4, $3
 	syscall
-	lw	$3, k
-	addi	$3, $3, 1	# k -> $3
+	lw	$3, k		# k -> $3
+	addi	$3, $3, 1
 	# Store dirty variables back into memory
 	sw	$3, k
 	j	innerFor
@@ -111,8 +107,8 @@ endLine:
 	li	$2, 4
 	la	$4, newline
 	syscall
-	lw	$3, i
-	addi	$3, $3, 1	# i -> $3
+	lw	$3, i		# i -> $3
+	addi	$3, $3, 1
 	# Store dirty variables back into memory
 	sw	$3, i
 	j	outerFor

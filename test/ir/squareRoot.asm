@@ -30,38 +30,36 @@ main:
 	sw	$5, ans
 	beq	$3, 0, exit
 
-	lw	$3, x
-	# Store dirty variables back into memory
+	lw	$3, x		# x -> $3
 	beq	$3, 1, exit
 
 	li	$3, 1		# start -> $3
 	sw	$3, start	# spilled start, freed $3
-	lw	$3, x
+	lw	$3, x		# x -> $3
 	move	$5, $3		# end -> $5
 	# Store dirty variables back into memory
 	sw	$5, end
 
 while:
-	lw	$3, start
-	lw	$5, end
-	add	$6, $3, $5	# mid -> $6
-	srl	$6, $6, 1	# mid -> $6
-	mul	$3, $6, $6	# temp -> $3
+	lw	$3, start	# start -> $3
+	lw	$5, end		# end -> $5
+	add	$6, $3, $5
+	srl	$6, $6, 1
+	mul	$3, $6, $6
 	# x is a perfect square
-	lw	$5, x
+	lw	$5, x		# x -> $5
 	# Store dirty variables back into memory
 	sw	$3, temp
 	sw	$6, mid
 	beq	$3, $5, perfectSquare
 
-	lw	$3, temp
-	lw	$5, x
-	# Store dirty variables back into memory
+	lw	$3, temp	# temp -> $3
+	lw	$5, x		# x -> $5
 	blt	$3, $5, ifBranch
 
-	lw	$3, mid
-	sub	$5, $3, 1	# end -> $5
-	lw	$3, start
+	lw	$3, mid		# mid -> $3
+	sub	$5, $3, 1
+	lw	$3, start	# start -> $3
 	# Store dirty variables back into memory
 	sw	$5, end
 	ble	$3, $5, while
@@ -69,11 +67,11 @@ while:
 	j	exit
 
 ifBranch:
-	lw	$3, mid
-	addi	$5, $3, 1	# start -> $5
+	lw	$3, mid		# mid -> $3
+	addi	$5, $3, 1
 	move	$6, $3		# ans -> $6
 	sw	$6, ans	# spilled ans, freed $6
-	lw	$6, end
+	lw	$6, end		# end -> $6
 	# Store dirty variables back into memory
 	sw	$5, start
 	ble	$5, $6, while
@@ -81,7 +79,7 @@ ifBranch:
 	j	exit
 
 perfectSquare:
-	lw	$3, mid
+	lw	$3, mid		# mid -> $3
 	move	$5, $3		# ans -> $5
 	# Store dirty variables back into memory
 	sw	$5, ans
@@ -91,10 +89,9 @@ exit:
 	la	$4, str
 	syscall
 	li	$2, 1
-	lw	$3, ans
+	lw	$3, ans		# ans -> $3
 	move	$4, $3
 	syscall
-	# Store dirty variables back into memory
 	li	$2, 10
 	syscall
 	.end main

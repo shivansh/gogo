@@ -15,8 +15,8 @@ main:
 
 label1:
 	# The generated assembly should not contain the label "label2".
-	lw	$3, n
-	addi	$3, $3, 1	# n -> $3
+	lw	$3, n		# n -> $3
+	addi	$3, $3, 1
 	# Store dirty variables back into memory
 	sw	$3, n
 	j	label3

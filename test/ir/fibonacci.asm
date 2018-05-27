@@ -49,24 +49,23 @@ fib:
 	sw	$3, first	# spilled first, freed $3
 	li	$3, 1		# second -> $3
 	sw	$3, second	# spilled second, freed $3
-	lw	$3, n
-	sub	$3, $3, 2	# n -> $3
+	lw	$3, n		# n -> $3
+	sub	$3, $3, 2
 	# Store dirty variables back into memory
 	sw	$3, n
 
 loop:
-	lw	$3, n
+	lw	$3, n		# n -> $3
 	ble	$3, 0, exit
-	# Store dirty variables back into memory
 
-	lw	$3, second
+	lw	$3, second	# second -> $3
 	move	$5, $3		# temp -> $5
-	lw	$6, first
-	add	$3, $3, $6	# second -> $3
+	lw	$6, first	# first -> $6
+	add	$3, $3, $6
 	move	$6, $5		# first -> $6
 	sw	$6, first	# spilled first, freed $6
-	lw	$6, n
-	sub	$6, $6, 1	# n -> $6
+	lw	$6, n		# n -> $6
+	sub	$6, $6, 1
 	# Store dirty variables back into memory
 	sw	$3, second
 	sw	$5, temp

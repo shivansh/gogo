@@ -21,12 +21,12 @@ f.5:		.word	0
 test:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)
-	lw	$3, test.0
+	lw	$3, test.0	# test.0 -> $3
 	move	$5, $3		# a -> $5
-	lw	$3, test.1
+	lw	$3, test.1	# test.1 -> $3
 	move	$6, $3		# c -> $6
-	addi	$3, $5, 1	# t0 -> $3
-	addi	$7, $6, 1	# t1 -> $7
+	addi	$3, $5, 1
+	addi	$7, $6, 1
 	move	$8, $3		# return.0 -> $8
 	sw	$8, return.0	# spilled return.0, freed $8
 	move	$8, $7		# return.1 -> $8
@@ -60,9 +60,9 @@ main:
 	sw	$3, test.1
 	jal	test
 	lw	$3, test.1
-	lw	$3, return.0
+	lw	$3, return.0	# return.0 -> $3
 	move	$5, $3		# e.4 -> $5
-	lw	$3, return.1
+	lw	$3, return.1	# return.1 -> $3
 	sw	$5, e.4	# spilled e.4, freed $5
 	move	$5, $3		# f.5 -> $5
 	# Store dirty variables back into memory

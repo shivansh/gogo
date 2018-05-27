@@ -17,13 +17,12 @@ main:
 
 l1:
 	li	$2, 1
-	lw	$3, a.0
+	lw	$3, a.0		# a.0 -> $3
 	move	$4, $3
 	syscall
 	li	$2, 4
 	la	$4, newline.2
 	syscall
-	# Store dirty variables back into memory
 	li	$2, 10
 	syscall
 	.end main
@@ -31,7 +30,7 @@ l2:
 	li	$3, 4		# a.0 -> $3
 	li	$2, 1
 	sw	$3, a.0	# spilled a.0, freed $3
-	lw	$3, b.1
+	lw	$3, b.1		# b.1 -> $3
 	move	$4, $3
 	syscall
 	li	$2, 4

@@ -13,8 +13,8 @@ main:
 	sw	$3, a.0
 	bne	$3, 2, l2
 
-	lw	$3, a.0
-	addi	$5, $3, 1	# t0 -> $5
+	lw	$3, a.0		# a.0 -> $3
+	addi	$5, $3, 1
 	move	$3, $5		# a.0 -> $3
 	# Store dirty variables back into memory
 	sw	$3, a.0
@@ -22,8 +22,8 @@ main:
 	j	l0
 
 l2:
-	lw	$3, a.0
-	addi	$5, $3, 4	# t1 -> $5
+	lw	$3, a.0		# a.0 -> $3
+	addi	$5, $3, 4
 	move	$3, $5		# a.0 -> $3
 	li	$2, 1
 	move	$4, $3

@@ -35,9 +35,8 @@ l0:
 	sw	$3, t2
 
 l1:
-	lw	$3, t2
+	lw	$3, t2		# t2 -> $3
 	blt	$3, 1, l4
-	# Store dirty variables back into memory
 
 	j	l5
 

@@ -28,29 +28,28 @@ main:
 	sw	$3, k
 
 loop:
-	lw	$3, i
-	lw	$5, n
+	lw	$3, i		# i -> $3
+	lw	$5, n		# n -> $5
 	bge	$3, $5, exit
-	# Store dirty variables back into memory
 
-	lw	$3, i
-	rem	$5, $3, 2	# l -> $5
+	lw	$3, i		# i -> $3
+	rem	$5, $3, 2
 	# Store dirty variables back into memory
 	sw	$5, l
 	beq	$5, 1, skip
 
-	lw	$3, k
-	lw	$5, i
-	add	$3, $3, $5	# k -> $3
-	addi	$5, $5, 1	# i -> $5
+	lw	$3, k		# k -> $3
+	lw	$5, i		# i -> $5
+	add	$3, $3, $5
+	addi	$5, $5, 1
 	# Store dirty variables back into memory
 	sw	$3, k
 	sw	$5, i
 	j	loop
 
 skip:
-	lw	$3, i
-	addi	$3, $3, 1	# i -> $3
+	lw	$3, i		# i -> $3
+	addi	$3, $3, 1
 	# Store dirty variables back into memory
 	sw	$3, i
 	j	loop
@@ -60,10 +59,9 @@ exit:
 	la	$4, str
 	syscall
 	li	$2, 1
-	lw	$3, k
+	lw	$3, k		# k -> $3
 	move	$4, $3
 	syscall
-	# Store dirty variables back into memory
 	li	$2, 10
 	syscall
 	.end main

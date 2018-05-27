@@ -25,10 +25,10 @@ main:
 	sw	$3, i
 
 while:
-	lw	$3, n
-	srl	$3, $3, 1	# n -> $3
-	lw	$5, i
-	addi	$5, $5, 1	# i -> $5
+	lw	$3, n		# n -> $3
+	srl	$3, $3, 1
+	lw	$5, i		# i -> $5
+	addi	$5, $5, 1
 	# Store dirty variables back into memory
 	sw	$3, n
 	sw	$5, i
@@ -38,14 +38,14 @@ while:
 	la	$4, base2Str
 	syscall
 	li	$2, 1
-	lw	$3, i
+	lw	$3, i		# i -> $3
 	move	$4, $3
 	syscall
 	li	$2, 4
 	la	$4, base10Str
 	syscall
 	# Ideally
-	div	$3, $3, 3	# i -> $3
+	div	$3, $3, 3
 	li	$2, 1
 	move	$4, $3
 	syscall

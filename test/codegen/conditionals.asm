@@ -15,7 +15,7 @@ main:
 	li	$5, 1		# b.1 -> $5
 	li	$6, 4		# c.2 -> $6
 	sw	$6, c.2	# spilled c.2, freed $6
-	add	$6, $3, $5	# t0 -> $6
+	add	$6, $3, $5
 	# Store dirty variables back into memory
 	sw	$3, a.0
 	sw	$5, b.1
@@ -33,15 +33,13 @@ l0:
 	sw	$3, t1
 
 l1:
-	lw	$3, t1
+	lw	$3, t1		# t1 -> $3
 	blt	$3, 1, l2
-	# Store dirty variables back into memory
 
 	li	$2, 1
-	lw	$3, a.0
+	lw	$3, a.0		# a.0 -> $3
 	move	$4, $3
 	syscall
-	# Store dirty variables back into memory
 	j	l6
 
 	li	$3, 1		# t2 -> $3
@@ -55,23 +53,20 @@ l2:
 	sw	$3, t2
 
 l3:
-	lw	$3, t2
+	lw	$3, t2		# t2 -> $3
 	blt	$3, 1, l5
-	# Store dirty variables back into memory
 
 	li	$2, 1
-	lw	$3, b.1
+	lw	$3, b.1		# b.1 -> $3
 	move	$4, $3
 	syscall
-	# Store dirty variables back into memory
 	j	l4
 
 l5:
 	li	$2, 1
-	lw	$3, c.2
+	lw	$3, c.2		# c.2 -> $3
 	move	$4, $3
 	syscall
-	# Store dirty variables back into memory
 
 l4:
 

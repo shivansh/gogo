@@ -39,9 +39,8 @@ main:
 	sw	$3, i.5
 
 l2:
-	lw	$3, a.0
+	lw	$3, a.0		# a.0 -> $3
 	ble	$3, 0, l0
-	# Store dirty variables back into memory
 
 	li	$3, 1		# t0 -> $3
 	# Store dirty variables back into memory
@@ -54,23 +53,22 @@ l0:
 	sw	$3, t0
 
 l1:
-	lw	$3, t0
+	lw	$3, t0		# t0 -> $3
 	blt	$3, 1, l3
-	# Store dirty variables back into memory
 
 	la	$3, binary.1
-	lw	$5, i.5
+	lw	$5, i.5		# i.5 -> $5
 	sll	$s2, $5, 2	# iterator *= 4
 	lw	$6, binary.1($s2)	# variable <- array
 	sw	$6, t1		# spilled t1, freed $6
-	lw	$6, a.0
-	rem	$7, $6, 2	# t2 -> $7
+	lw	$6, a.0		# a.0 -> $6
+	rem	$7, $6, 2
 	move	$8, $7		# t1 -> $8
 	sll $s2, $5, 2	# iterator *= 4
 	sw	$8, binary.1($s2)	# variable -> array
-	div	$9, $6, 2	# t3 -> $9
+	div	$9, $6, 2
 	move	$6, $9		# a.0 -> $6
-	addi	$10, $5, 1	# t4 -> $10
+	addi	$10, $5, 1
 	move	$5, $10		# i.5 -> $5
 	# Store dirty variables back into memory
 	sw	$5, i.5
@@ -82,17 +80,16 @@ l1:
 	j	l2
 
 l3:
-	lw	$3, i.5
-	sub	$5, $3, 1	# t5 -> $5
+	lw	$3, i.5		# i.5 -> $3
+	sub	$5, $3, 1
 	move	$3, $5		# j.6 -> $3
 	# Store dirty variables back into memory
 	sw	$3, j.6
 	sw	$5, t5
 
 l6:
-	lw	$3, j.6
+	lw	$3, j.6		# j.6 -> $3
 	blt	$3, 0, l4
-	# Store dirty variables back into memory
 
 	li	$3, 1		# t6 -> $3
 	# Store dirty variables back into memory
@@ -105,18 +102,17 @@ l4:
 	sw	$3, t6
 
 l5:
-	lw	$3, t6
+	lw	$3, t6		# t6 -> $3
 	blt	$3, 1, l7
-	# Store dirty variables back into memory
 
 	la	$3, binary.1
-	lw	$5, j.6
+	lw	$5, j.6		# j.6 -> $5
 	sll	$s2, $5, 2	# iterator *= 4
 	lw	$6, binary.1($s2)	# variable <- array
 	li	$2, 1
 	move	$4, $6
 	syscall
-	sub	$5, $5, 1	# j.6 -> $5
+	sub	$5, $5, 1
 	# Store dirty variables back into memory
 	sw	$5, j.6
 	sw	$6, t7

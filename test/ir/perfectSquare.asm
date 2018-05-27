@@ -27,10 +27,10 @@ main:
 	sw	$3, i
 
 loop:
-	lw	$3, n
-	lw	$5, i
-	sub	$3, $3, $5	# n -> $3
-	addi	$5, $5, 2	# i -> $5
+	lw	$3, n		# n -> $3
+	lw	$5, i		# i -> $5
+	sub	$3, $3, $5
+	addi	$5, $5, 2
 	# Store dirty variables back into memory
 	sw	$3, n
 	sw	$5, i
@@ -41,8 +41,7 @@ loop:
 	syscall
 	j	exit
 
-	lw	$3, n
-	# Store dirty variables back into memory
+	lw	$3, n		# n -> $3
 	bne	$3, 0, exit
 
 	li	$2, 4

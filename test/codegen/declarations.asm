@@ -45,10 +45,10 @@ main:
 	jal	temp
 	lw	$3, d.1
 	lw	$5, a.3
-	lw	$6, return.0
+	lw	$6, return.0	# return.0 -> $6
 	move	$7, $6		# c.4 -> $7
 	sw	$7, c.4	# spilled c.4, freed $7
-	lw	$7, return.1
+	lw	$7, return.1	# return.1 -> $7
 	move	$8, $7		# e.5 -> $8
 	sw	$8, e.5	# spilled e.5, freed $8
 	li	$8, 0		# f.6 -> $8
@@ -62,10 +62,6 @@ main:
 	jal	temp
 	lw	$3, d.1
 	lw	$5, a.3
-	lw	$3, d.1
-	lw	$5, a.3
-	lw	$6, return.0
-	lw	$7, return.1
 	lw	$8, g.7
 	move	$8, $6		# f.6 -> $8
 	move	$9, $7		# g.7 -> $9
