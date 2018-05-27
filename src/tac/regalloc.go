@@ -4,6 +4,8 @@ import (
 	"container/heap"
 	"fmt"
 	"strconv"
+
+	"github.com/shivansh/gogo/src/types"
 )
 
 // RegLimit determines the upper bound on the number of free registers at any
@@ -29,7 +31,7 @@ const RegLimit = 32
 // one "sw" instruction. In case spilling was avoided and one of the free
 // registers was used instead, that too would have resulted in one "sw"
 // instruction at the end of the basic block.
-func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
+func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, typeLookup map[string]types.RegType) {
 	// allocReg is a slice of all the register DS which are popped from the
 	// heap and have been assigned a variable's data. These DS are updated
 	// with the newly assigned variable's next-use info and after all the
@@ -64,7 +66,7 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 			// element with highest next-use is popped
 			item := heap.Pop(&blk.Pq).(*UseInfo)
 			reg, _ := strconv.Atoi(item.Name)
-			if _, ok := blk.Rdesc[reg]; ok && !arrLookup[blk.Rdesc[reg]] {
+			if _, ok := blk.Rdesc[reg]; ok && typeLookup[blk.Rdesc[reg]] != types.ARR {
 				comment := fmt.Sprintf("# spilled %s, freed $%s", blk.Rdesc[reg], item.Name)
 				if len(blk.Rdesc[reg]) >= 3 {
 					tab = "\t"
@@ -79,7 +81,7 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, arrLookup map[string]bool) {
 			blk.Rdesc[reg] = v
 			blk.Adesc[v] = Addr{reg, blk.Adesc[v].Mem}
 			if k < lenSource-1 {
-				if !arrLookup[v] {
+				if typeLookup[v] != types.ARR {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw\t$%d, %s", blk.Adesc[v].Reg, v))
 				} else {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla\t$%d, %s", blk.Adesc[v].Reg, v))

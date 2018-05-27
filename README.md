@@ -14,21 +14,12 @@ Go to MIPS compiler implemented in Go. Made as a course project for CS335 (Compi
 
 ## Components
 
-| Component | Demo | Status |
-|:------------------------:|:----------------------------------------------------------------------------------------------------------------------------------:|:------------------:|
-| Token generation / Lexer | [`test1.out`](test/lexer/test1.out) | :heavy_check_mark: |
-| Parser | [`struct.go`](test/parser/struct.go) :arrow_right: [`struct.html`](https://shivanshrai84.gitlab.io/staticPages/assets/struct.html) | :heavy_check_mark: |
-| IR generation | [`scope.go`](test/codegen/scope.go) :arrow_right: [`scope.ir`](test/codegen/scope.ir) | :heavy_check_mark: |
-| Code generation | [`pascalTriangle.ir`](test/ir/pascalTriangle.ir) :arrow_right: [`pascalTriangle.asm`](test/ir/pascalTriangle.asm) | :heavy_check_mark: |
-
-The file [main.go](src/main.go) contains routines described as follows corresponding to each component -
-
-|    Routine   | Description                                                                                      |
-|:------------:|--------------------------------------------------------------------------------------------------|
-| `GenToken()` | Generates the tokens returned by lexer from the input program                                    |
-|  `GenAsmFromIR()`  | Generates the assembly code using the IR generated from the input program                        |
-|  `GenHTML()` | Generates the rightmost derivations used in the bottom-up parsing and pretty-prints them in HTML |
-|  `GenAsm()`  | GenAsm generates the assembly code from the input program                                        |
+| Component | Demo |
+|:------------------------:|:----------------------------------------------------------------------------------------------------------------------------------:|
+| Token generation / Lexer | [`test1.out`](test/lexer/test1.out) |
+| Parser | [`struct.go`](test/parser/struct.go) :arrow_right: [`struct.html`](https://shivanshrai84.gitlab.io/staticPages/assets/struct.html) |
+| IR generation | [`scope.go`](test/codegen/scope.go) :arrow_right: [`scope.ir`](test/codegen/scope.ir) |
+| Code generation | [`pascalTriangle.ir`](test/ir/pascalTriangle.ir) :arrow_right: [`pascalTriangle.asm`](test/ir/pascalTriangle.asm) |
 
 ## Setting up
 Run `./scripts/setup.sh` from the root directory of the project to set up the pre-commit git hooks.
@@ -42,17 +33,13 @@ The following should generate relevant binaries inside the directory `bin` -
 make
 ```
 
-Alternatively, individual components can be built via -
+The generated binary `bin/gogo` can be used as follows -
 ```
-make deps
-make gentoken
-make tac
-make gogo
-```
-
-The generated binary `bin/gogo` can be used to generate `(Tokens | Assembly | HTML)` from the corresponding `(go | IR | go)` files -
-```
-bin/gogo test.go
+Usage: gogo (-r | -r2s | -s) <filename>
+  -p	Generates rightmost derivations used in bottom-up parsing
+  -r	Generates IR instructions from go program
+  -r2s  Generates the MIPS assembly from IR
+  -s	Generates MIPS assembly from go program
 ```
 
 **NOTE:** The generated MIPS assembly has been tested to work on [SPIM](http://spimsimulator.sourceforge.net/) MIPS32 simulator.

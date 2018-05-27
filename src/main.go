@@ -102,7 +102,7 @@ func main() {
 
 	args := os.Args
 	if len(args) != 3 {
-		fmt.Fprintf(os.Stderr, "Usage: gogo (-r | -r2s | -s) <filename>\n")
+		fmt.Fprintf(os.Stderr, "Usage: gogo (-p | -r | -r2s | -s) <filename>\n")
 		flag.PrintDefaults()
 		os.Exit(1)
 	}

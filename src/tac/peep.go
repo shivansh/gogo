@@ -219,7 +219,8 @@ func ControlFlow(tac Tac) Tac {
 	sort.Ints(keys)
 
 	// The blocks which reference the to-be-dropped blocks should be updated
-	// to point to the corresponding next valid block. Consider the code -
+	// to point to the corresponding next valid block (which won't be dropped).
+	// Consider the code -
 	//
 	//	L1: a = 0
 	//	    goto L2

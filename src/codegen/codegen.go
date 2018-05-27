@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/shivansh/gogo/src/tac"
+	"github.com/shivansh/gogo/src/types"
 )
 
 type Addr struct {
@@ -32,11 +33,13 @@ func CodeGen(t tac.Tac) {
 	ts := new(tac.TextSec)
 	ds := new(tac.DataSec)
 	ds.Lookup = make(map[string]bool)
-	// arrLookup keeps track of all the arrays declared.
-	arrLookup := make(map[string]bool)
+	// typeLookup keeps track of all the types of declared variables. This
+	// information is useful during register allocation, as for example a
+	// register storing an integer will have different load/store operations
+	// than a register storing an array type.
+	typeLookup := make(map[string]types.RegType)
 	funcName := ""
 	callerSaved := []string{}
-	tab := "" // indentation for in-line comments.
 
 	// Define the assembler directives for data and text.
 	ds.Stmts = append(ds.Stmts, "\t.data")
@@ -118,6 +121,7 @@ func CodeGen(t tac.Tac) {
 				tac.JMP:
 				break
 			default:
+				tab := "" // indentation for in-line comments.
 				if len(stmt.Dst) >= 8 {
 					tab = "\t"
 				} else {
@@ -126,12 +130,14 @@ func CodeGen(t tac.Tac) {
 				if stmt.Op == tac.DECL && !ds.Lookup[stmt.Dst] {
 					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:%s.space\t%d", stmt.Dst, tab, 4*stmt.Src[0].IntVal()))
 					ds.Lookup[stmt.Dst] = true
-					arrLookup[stmt.Dst] = true
+					typeLookup[stmt.Dst] = types.ARR
 				} else if stmt.Op == tac.DECLSTR {
 					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:%s.asciiz %s", stmt.Dst, tab, stmt.Src[0].StrVal()))
 					ds.Lookup[stmt.Dst] = true
+					typeLookup[stmt.Dst] = types.STR
 				} else if !ds.Lookup[stmt.Dst] {
 					ds.Lookup[stmt.Dst] = true
+					typeLookup[stmt.Dst] = types.INT
 					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:%s.word\t0", stmt.Dst, tab))
 				}
 			}
@@ -140,13 +146,14 @@ func CodeGen(t tac.Tac) {
 		for k, stmt := range blk.Stmts {
 			switch stmt.Op {
 			case tac.EQ, tac.DECLInt:
-				blk.GetReg(&stmt, ts, arrLookup)
+				blk.GetReg(&stmt, ts, typeLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[0].(type) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli\t$%d, %d\t\t%s",
 						blk.Adesc[stmt.Dst].Reg, v, comment))
 				case tac.Str:
+					tab := "" // indentation for in-line comments.
 					if blk.Adesc[stmt.Dst].Reg < 10 || blk.Adesc[v.StrVal()].Reg < 10 {
 						tab = "\t\t"
 					} else {
@@ -159,7 +166,7 @@ func CodeGen(t tac.Tac) {
 				}
 
 			case tac.FROM:
-				blk.GetReg(&stmt, ts, arrLookup)
+				blk.GetReg(&stmt, ts, typeLookup)
 				switch v := stmt.Src[1].(type) {
 				case tac.I32:
 					comment := fmt.Sprintf("# variable <- array")
@@ -174,7 +181,7 @@ func CodeGen(t tac.Tac) {
 				}
 
 			case tac.INTO:
-				blk.GetReg(&stmt, ts, arrLookup)
+				blk.GetReg(&stmt, ts, typeLookup)
 				switch u := stmt.Src[1].(type) {
 				case tac.I32:
 					switch v := stmt.Src[2].(type) {
@@ -213,7 +220,7 @@ func CodeGen(t tac.Tac) {
 				}
 
 			case tac.ADD:
-				blk.GetReg(&stmt, ts, arrLookup)
+				blk.GetReg(&stmt, ts, typeLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].(type) {
 				case tac.I32:
@@ -227,7 +234,7 @@ func CodeGen(t tac.Tac) {
 				}
 
 			case tac.OR:
-				blk.GetReg(&stmt, ts, arrLookup)
+				blk.GetReg(&stmt, ts, typeLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].(type) {
 				case tac.I32:
@@ -241,7 +248,7 @@ func CodeGen(t tac.Tac) {
 				}
 
 			case tac.AND:
-				blk.GetReg(&stmt, ts, arrLookup)
+				blk.GetReg(&stmt, ts, typeLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].(type) {
 				case tac.I32:
@@ -255,7 +262,7 @@ func CodeGen(t tac.Tac) {
 				}
 
 			case tac.NOR:
-				blk.GetReg(&stmt, ts, arrLookup)
+				blk.GetReg(&stmt, ts, typeLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].(type) {
 				case tac.I32:
@@ -269,7 +276,7 @@ func CodeGen(t tac.Tac) {
 				}
 
 			case tac.XOR:
-				blk.GetReg(&stmt, ts, arrLookup)
+				blk.GetReg(&stmt, ts, typeLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].(type) {
 				case tac.I32:
@@ -283,13 +290,13 @@ func CodeGen(t tac.Tac) {
 				}
 
 			case tac.NOT:
-				blk.GetReg(&stmt, ts, arrLookup)
+				blk.GetReg(&stmt, ts, typeLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tnot\t$%d, $%d\t%s",
 					blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, comment))
 
 			case tac.MUL:
-				blk.GetReg(&stmt, ts, arrLookup)
+				blk.GetReg(&stmt, ts, typeLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].(type) {
 				case tac.I32:
@@ -303,7 +310,7 @@ func CodeGen(t tac.Tac) {
 				}
 
 			case tac.DIV:
-				blk.GetReg(&stmt, ts, arrLookup)
+				blk.GetReg(&stmt, ts, typeLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].(type) {
 				case tac.I32:
@@ -317,7 +324,7 @@ func CodeGen(t tac.Tac) {
 				}
 
 			case tac.SUB:
-				blk.GetReg(&stmt, ts, arrLookup)
+				blk.GetReg(&stmt, ts, typeLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].(type) {
 				case tac.I32:
@@ -331,7 +338,7 @@ func CodeGen(t tac.Tac) {
 				}
 
 			case tac.REM:
-				blk.GetReg(&stmt, ts, arrLookup)
+				blk.GetReg(&stmt, ts, typeLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].(type) {
 				case tac.I32:
@@ -369,7 +376,7 @@ func CodeGen(t tac.Tac) {
 				goto addBranchInstr
 
 			case tac.RST: // right shift
-				blk.GetReg(&stmt, ts, arrLookup)
+				blk.GetReg(&stmt, ts, typeLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].(type) {
 				case tac.I32:
@@ -383,7 +390,7 @@ func CodeGen(t tac.Tac) {
 				}
 
 			case tac.LST: // left shift
-				blk.GetReg(&stmt, ts, arrLookup)
+				blk.GetReg(&stmt, ts, typeLookup)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[1].(type) {
 				case tac.I32:
@@ -429,7 +436,7 @@ func CodeGen(t tac.Tac) {
 				ts.Stmts = append(ts.Stmts, callerSaved...)
 
 			case tac.STORE:
-				blk.GetReg(&stmt, ts, arrLookup)
+				blk.GetReg(&stmt, ts, typeLookup)
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove\t$%d, $2", blk.Adesc[stmt.Dst].Reg))
 
 			case tac.CMT:
@@ -458,7 +465,7 @@ func CodeGen(t tac.Tac) {
 
 			case tac.SCANINT:
 				ts.Stmts = append(ts.Stmts, "\tli\t$2, 5\n\tsyscall")
-				blk.GetReg(&stmt, ts, arrLookup)
+				blk.GetReg(&stmt, ts, typeLookup)
 				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove\t$%d, $2", blk.Adesc[stmt.Dst].Reg))
 
 			case tac.PRINTINT:
@@ -467,7 +474,7 @@ func CodeGen(t tac.Tac) {
 				case tac.I32:
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tli\t$4, %d", v.IntVal()))
 				case tac.Str:
-					blk.GetReg(&stmt, ts, arrLookup)
+					blk.GetReg(&stmt, ts, typeLookup)
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tmove\t$4, $%d", blk.Adesc[v.StrVal()].Reg))
 				}
 				ts.Stmts = append(ts.Stmts, "\tsyscall")
@@ -479,7 +486,7 @@ func CodeGen(t tac.Tac) {
 			goto storeLiveRegs
 
 		addBranchInstr:
-			blk.GetReg(&stmt, ts, arrLookup)
+			blk.GetReg(&stmt, ts, typeLookup)
 			switch v := stmt.Src[1].(type) {
 			case tac.I32:
 				branchStmt = fmt.Sprintf("\t%s\t$%d, %s, %s", branchOp,
@@ -531,7 +538,7 @@ func CodeGen(t tac.Tac) {
 			sort.Ints(keys)
 			ts.Stmts = append(ts.Stmts, fmt.Sprintf("\t# Store variables back into memory"))
 			for _, k := range keys {
-				if !arrLookup[blk.Rdesc[k]] {
+				if typeLookup[blk.Rdesc[k]] != types.ARR {
 					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%d, %s", k, blk.Rdesc[k]))
 				}
 			}
