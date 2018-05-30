@@ -70,8 +70,7 @@ type Tac []Blk
 //		* before label instruction
 //		* at jump instruction
 func GenTAC(file string) (tac Tac) {
-	blk := new(Blk)
-	line := 0
+	blk, line := InitBlock(), 0
 	re := regexp.MustCompile("(^-?[0-9]+$)") // regex for integers
 	startNewBlock := false
 
@@ -129,8 +128,12 @@ func GenTAC(file string) (tac Tac) {
 		log.Fatal(err)
 	}
 
+	labelMap := tac.LabelInfo()
+	tac.EvalFlowGraph(labelMap)
+	tac.EvalDataFlowSets()
+
 	// Perform peephole optimization on the generated three-address code IR.
-	return PeepHole(tac)
+	return tac.PeepHole()
 }
 
 // PrintTAC pretty-prints the three-address code IR.
@@ -141,9 +144,10 @@ func (tac Tac) PrintTAC() {
 			for _, v := range stmt.Src {
 				fmt.Printf("%v, ", v)
 			}
-			fmt.Println() // separate basic blocks by a newline
+			fmt.Println()
 		}
-		fmt.Println()
+		fmt.Printf("Left child index: %d\n", blk.child.left)
+		fmt.Printf("Right child index: %d\n\n", blk.child.right)
 	}
 	fmt.Println("--- [ End of TAC ] -----------------")
 }

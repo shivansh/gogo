@@ -19,6 +19,106 @@ type Blk struct {
 	Rdesc      map[int]RegDesc
 	NextUseTab [][]UseInfo
 	Pq         PriorityQueue
+	child      Child
+	pred       map[int]bool // immediate predecessors of the basic block
+	dataflow   DataFlowInfo
+}
+
+// Child determines the index of the left and right child of a basic block in a
+// flow graph.
+type Child struct {
+	left  int
+	right int
+}
+
+// set represents the type of data sets used in data-flow analysis.
+type set map[string]bool
+
+// DataFlowInfo represents the data structures used in the data-flow analysis.
+type DataFlowInfo struct {
+	Gen  set
+	Kill set
+	In   set
+	Out  set
+}
+
+type Label struct {
+	// inRef determines the inward references to the current block. It stores
+	// the indices of blocks which reference it. A block references another
+	// block via a jump/branch statement.
+	inRef   []int
+	index   int // index of the basic block this label belongs to
+	canDrop int
+}
+
+type labelinfotype map[string]*Label
+
+// LabelInfo traverses across the tac DS and collects details about label
+// statements.
+func (tac Tac) LabelInfo() labelinfotype {
+	// labelMap maps a label name with its relevant details.
+	labelMap := make(map[string]*Label)
+	for blkIndex, blk := range tac {
+		if len(blk.Stmts) == 0 {
+			continue
+		}
+		if op := blk.Stmts[0].Op; op == LABEL {
+			labelName := blk.Stmts[0].Dst
+			// Update inward references of all the blocks to which
+			// the current block references.
+			for _, stmt := range blk.Stmts {
+				if IsBranchOp(stmt.Op) {
+					if _, ok := labelMap[stmt.Dst]; !ok {
+						labelMap[stmt.Dst] = &Label{}
+					}
+					labelMap[stmt.Dst].inRef = append(labelMap[stmt.Dst].inRef, blkIndex)
+				}
+			}
+
+			// If the basic block contains only a jump statement, it
+			// **might** be dropped in case another block references
+			// it. Only if it is preceded by an unconditional jump,
+			// it will be **definite** that the block can be dropped.
+			canDrop := FALSE
+			if len(blk.Stmts) == 2 && IsBranchOp(blk.Stmts[1].Op) {
+				canDrop = MAYBE
+			}
+
+			// Avoid dropping fallthrough labels. Check if the last
+			// statement of the previous block is a jump/branch.
+			if blkIndex >= 1 {
+				prevBlk := tac[blkIndex-1]
+				index := len(prevBlk.Stmts) - 1
+				if !IsBranchOp(prevBlk.Stmts[index].Op) {
+					// The block is not preceded by an
+					// unconditional jump, hence cannot be
+					// dropped in any case.
+					canDrop = FALSE
+				}
+			}
+
+			// Update the current block details.
+			if _, ok := labelMap[labelName]; !ok {
+				labelMap[labelName] = &Label{[]int{}, blkIndex, canDrop}
+			} else {
+				labelMap[labelName].index = blkIndex
+				labelMap[labelName].canDrop = canDrop
+			}
+		}
+	}
+
+	return labelMap
+}
+
+// InitBlock initializes the basic block data structure.
+func InitBlock() *Blk {
+	blk := new(Blk)
+	blk.pred = make(map[int]bool)
+	blk.dataflow.Gen = make(set)
+	blk.dataflow.Kill = make(set)
+	blk.dataflow.In = make(set)
+	blk.dataflow.Out = make(set)
+	return blk
 }
 
 // NewBlock creates a new basic block and initializes its line number to 0.
@@ -30,7 +130,7 @@ func NewBlock(blk *Blk, tac *Tac) (*Blk, int) {
 		// is encountered after a label statement. The new block created
 		// by the jump statement stays empty as the label statement
 		// creates a new block of its own.
-		blk = new(Blk)
+		blk = InitBlock()
 	}
 	return blk, 0
 }
