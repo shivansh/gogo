@@ -443,5 +443,7 @@ func CodeGen(t tac.Tac) {
 	for _, s := range ds.Stmts {
 		fmt.Println(s)
 	}
-	ts.Stmts.WriteTo(os.Stdout)
+	if _, err := ts.Stmts.WriteTo(os.Stdout); err != nil {
+		log.Fatal(err)
+	}
 }
