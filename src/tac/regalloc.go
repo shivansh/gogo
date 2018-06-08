@@ -74,7 +74,7 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, typeInfo map[string]types.RegType
 				if len(blk.Rdesc[reg].Name) >= 3 {
 					tab = "\t"
 				}
-				ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tsw\t$%s, %s", item.Name, blk.Rdesc[reg].Name+tab+comment))
+				fmt.Fprintf(&ts.Stmts, "\tsw\t$%s, %s\n", item.Name, blk.Rdesc[reg].Name+tab+comment)
 			}
 			allocReg = append(allocReg, &UseInfo{strconv.Itoa(reg), blk.FindNextUse(stmt.Line, v)})
 			delete(blk.Adesc, blk.Rdesc[reg].Name)
@@ -85,14 +85,14 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, typeInfo map[string]types.RegType
 			// Load the variable from memory.
 			if k < lenSource-1 {
 				if typeInfo[v] == types.ARR {
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tla\t$%d, %s", reg, v))
+					fmt.Fprintf(&ts.Stmts, "\tla\t$%d, %s\n", reg, v)
 				} else {
 					tab := "\t\t" // indentation for in-line comments
 					if len(v) > 3 {
 						tab = "\t"
 					}
 					comment := fmt.Sprintf("# %s -> $%d", v, reg)
-					ts.Stmts = append(ts.Stmts, fmt.Sprintf("\tlw\t$%d, %s%s", reg, v, tab+comment))
+					fmt.Fprintf(&ts.Stmts, "\tlw\t$%d, %s%s\n", reg, v, tab+comment)
 					blk.MarkLoaded(reg)
 				}
 			}

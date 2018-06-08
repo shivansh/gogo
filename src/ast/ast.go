@@ -471,6 +471,7 @@ func NewPrimaryExprArgs(expr, args *Node) (*Node, error) {
 	return n, nil
 }
 
+// NewCompositeLit returns a composite literal.
 func NewCompositeLit(typ, val *Node) (*Node, error) {
 	n := &Node{typ.Place, []string{}}
 	// Check if the LiteralType corresponds to ArrayType. This is done
@@ -502,6 +503,7 @@ func NewCompositeLit(typ, val *Node) (*Node, error) {
 					if k%2 == 0 {
 						structInit = append(structInit, v)
 						// TODO: Update default values depending on type.
+						// The default type is currently assumed to be int.
 						structInit = append(structInit, "0")
 					}
 				}
@@ -867,7 +869,6 @@ func NewForStmt(typ int, args ...*Node) (*Node, error) {
 	case 0:
 		n.Code = append(n.Code, fmt.Sprintf("label, %s", startLabel))
 		blockCode = args[0].Code
-		goto labelTerminator
 
 	case 1:
 		n.Code = utils.AppendCode(
@@ -877,7 +878,6 @@ func NewForStmt(typ int, args ...*Node) (*Node, error) {
 			fmt.Sprintf("blt, %s, %s, 1", afterLabel, args[0].Place),
 		)
 		blockCode = args[1].Code
-		goto labelTerminator
 
 	case 2:
 		n.Code = utils.AppendCode(
@@ -888,10 +888,8 @@ func NewForStmt(typ int, args ...*Node) (*Node, error) {
 			fmt.Sprintf("blt, %s, %s, 1", afterLabel, args[0].Place),
 		)
 		blockCode = args[1].Code
-		goto labelTerminator
 	}
 
-labelTerminator:
 	for _, v := range blockCode {
 		v := strings.TrimSpace(v)
 		switch v {

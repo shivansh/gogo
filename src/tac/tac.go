@@ -5,6 +5,7 @@ package tac
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"log"
 	"os"
@@ -50,7 +51,7 @@ type DataSec struct {
 type TextSec struct {
 	// Stmts is a slice of statements which will be flushed into the text
 	// section of the generated assembly file.
-	Stmts []string
+	Stmts bytes.Buffer
 }
 
 // Tac represents the three-address code for the entire source program.

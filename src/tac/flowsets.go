@@ -44,8 +44,8 @@ func (tac Tac) EvalTransferFuncs() {
 				}
 			}
 			// Verify if the newly computed IN set is same as the
-			// one computed in the previous iteration. If it is,
-			// the fix-point computation stops.
+			// one computed in the previous iteration. If it isn't,
+			// the fix-point computation needs to repeat.
 			if !reflect.DeepEqual(newIn, tac[k].dataflow.In) {
 				again = true
 			}
