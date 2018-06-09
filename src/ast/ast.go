@@ -58,8 +58,7 @@ func InitNode(place string, code []string) (*Node, error) {
 
 // NewTopLevelDecl returns a top level declaration.
 func NewTopLevelDecl(topDecl, repeatTopDecl *Node) (*Node, error) {
-	n := &Node{"", append(topDecl.Code, repeatTopDecl.Code...)}
-	return n, nil
+	return &Node{"", append(topDecl.Code, repeatTopDecl.Code...)}, nil
 }
 
 // NewTypeDef returns a type definition.
@@ -74,16 +73,14 @@ func NewTypeDef(ident string, typ AstNode) (AstNode, error) {
 
 // NewElementList returns a keyed element list.
 func NewElementList(key, keyList *Node) (*Node, error) {
-	n := &Node{fmt.Sprintf("%s, %s", key.Place, keyList.Place),
-		append(key.Code, keyList.Code...)}
-	return n, nil
+	return &Node{fmt.Sprintf("%s, %s", key.Place, keyList.Place),
+		append(key.Code, keyList.Code...)}, nil
 }
 
 // AppendKeyedElement appends a keyed element to a list of keyed elements.
 func AppendKeyedElement(key, keyList *Node) (*Node, error) {
-	n := &Node{fmt.Sprintf("%s, %s", key.Place, keyList.Place),
-		append(key.Code, keyList.Code...)}
-	return n, nil
+	return &Node{fmt.Sprintf("%s, %s", key.Place, keyList.Place),
+		append(key.Code, keyList.Code...)}, nil
 }
 
 // --- [ Variable declarations ] -----------------------------------------------
@@ -124,8 +121,6 @@ func NewVarSpec(typ int, args ...*Node) (*Node, error) {
 		}
 		n.Code = args[1].Code
 		expr = utils.SplitAndSanitize(args[1].Place, ",")
-	case 3:
-		return &Node{}, nil
 	}
 
 	for k, v := range args[0].Code {
@@ -234,9 +229,8 @@ func NewConstSpec(typ int, args ...*Node) (*Node, error) {
 
 // AppendExpr appends a list of expressions to a given expression.
 func AppendExpr(expr, exprlist *Node) (*Node, error) {
-	n := &Node{"", append(expr.Code, exprlist.Code...)}
-	n.Place = fmt.Sprintf("%s,%s", expr.Place, exprlist.Place)
-	return n, nil
+	return &Node{fmt.Sprintf("%s,%s", expr.Place, exprlist.Place),
+		append(expr.Code, exprlist.Code...)}, nil
 }
 
 // NewBoolExpr returns a new logical expression.
@@ -519,9 +513,7 @@ func NewIdentifier(varName string) (*Node, error) {
 
 // NewFuncDecl returns a function declaration.
 func NewFuncDecl(marker, body *Node) (AstNode, error) {
-	n := &FuncType{
-		Node{"", append(marker.Code, body.Code...)},
-	}
+	n := &FuncType{Node{"", append(marker.Code, body.Code...)}}
 	funcSymtabCreated = true // end of function block
 	// Return statement insertion will be handled when the defer stack is
 	// emptied and the code for deferred calls has been inserted.

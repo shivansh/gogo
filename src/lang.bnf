@@ -109,7 +109,7 @@ Start
         ;
 
 SourceFile
-        : PackageClause terminator RepeatTerminator RepeatTopLevelDecl  << ast.InitNode("", $3.(*ast.Node).Code) >>
+        : PackageClause terminator RepeatTerminator RepeatTopLevelDecl  << $3, nil >>
         ;
 
 // TODO: Package parsing logic will be complete when support for imports has
@@ -132,15 +132,15 @@ RepeatTopLevelDecl
         ;
 
 TopLevelDecl
-        : Declaration RepeatTerminator   << ast.InitNode("", $0.(*ast.Node).Code) >>
+        : Declaration RepeatTerminator   << $0, nil >>
         | FunctionDecl RepeatTerminator  << ast.InitNode("", $0.(*ast.FuncType).Code) >>
         ;
 
 // Declaration = ConstDecl | TypeDecl | VarDecl .
 Declaration
-        : ConstDecl  << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | TypeDecl   << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | VarDecl    << ast.InitNode("", $0.(*ast.Node).Code) >>
+        : ConstDecl
+        | TypeDecl
+        | VarDecl
         ;
 
 // --- [ Variable declarations ] -----------------------------------------------
@@ -155,7 +155,7 @@ VarSpec
         : IdentifierList Type                     << ast.NewVarSpec(0, $0.(*ast.Node), $1.(*ast.Node)) >>
         | IdentifierList Type "=" ExpressionList  << ast.NewVarSpec(1, $0.(*ast.Node), $1.(*ast.Node), $3.(*ast.Node)) >>
         | IdentifierList "=" ExpressionList       << ast.NewVarSpec(2, $0.(*ast.Node), $2.(*ast.Node)) >>
-        | empty                                   << ast.NewVarSpec(3) >>
+        | empty                                   << ast.InitNode("", []string{}) >>
         ;
 
 // --- [ Type declarations ] ---------------------------------------------------
@@ -183,7 +183,7 @@ TypeDef
 // IdentifierList = identifier { "," identifier } .
 // ExpressionList = Expression { "," Expression } .
 ConstDecl
-        : kwdConst ConstSpec  << ast.InitNode("", $1.(*ast.Node).Code) >>
+        : kwdConst ConstSpec  << $1, nil >>
         ;
 
 ConstSpec
@@ -302,11 +302,11 @@ PrimaryExpr
 // OperandName = identifier | QualifiedIdent.
 Operand
         : Literal
-        | OperandName  << ast.InitNode($0.(*ast.Node).Place, []string{}) >>
+        | OperandName
         ;
 
 Literal
-        : BasicLit  << ast.InitNode($0.(*ast.Node).Place, []string{}) >>
+        : BasicLit
         | CompositeLit
         ;
 
@@ -329,7 +329,7 @@ CompositeLit
         ;
 
 LiteralType
-        : ArrayType  << ast.InitNode($0.(*ast.Node).Place, []string{}) >>
+        : ArrayType
         // When initializing structs, TypeName will be used as the name of struct.
         | TypeName
         ;
@@ -430,7 +430,7 @@ Result
 //      - parameters cannot end in ','
 Parameters
         : "(" RepeatTerminator ")"  << ast.InitNode("", []string{}) >>
-        | "(" ParameterList ")"     << ast.InitNode("", $1.(*ast.Node).Code) >>
+        | "(" ParameterList ")"     << $1, nil >>
         ;
 
 ParameterList
@@ -445,7 +445,7 @@ RepeatParameterDecl
 // TODO: It is currently assumed that the return types will always be int. Make
 // this generic across all types.
 ParameterDecl
-        : IdentifierList Type  << ast.InitNode("", $0.(*ast.Node).Code) >>
+        : IdentifierList Type  << $0, nil >>
         | Type                 << ast.InitNode("", []string{$0.(*ast.Node).Place}) >>
         // The final generate node of parameters (in NewParamList) contains
         // the type info in the Code attribute, hence the type here too is placed
@@ -482,7 +482,7 @@ ArrayLength
         ;
 
 ElementType
-        : Type  << ast.InitNode($0.(*ast.Node).Place, []string{}) >>
+        : Type
         ;
 
 // StructType    = kwdStruct "{" { FieldDecl ";" } "}" .
@@ -497,7 +497,7 @@ StructType
 RepeatFieldDecl
         : FieldDecl terminator RepeatTerminator RepeatFieldDecl
                                       << ast.AppendFieldDecl($0.(*ast.Node), $3.(*ast.Node)) >>
-        | FieldDecl RepeatTerminator  << ast.InitNode("", $0.(*ast.Node).Code) >>
+        | FieldDecl RepeatTerminator  << $0, nil >>
         ;
 
 FieldDecl
@@ -518,7 +518,7 @@ FunctionName
         ;
 
 FunctionBody
-        : Block  << ast.InitNode("", $0.(*ast.Node).Code) >>
+        : Block
         ;
 
 RepeatTerminator
@@ -531,30 +531,31 @@ RepeatTerminator
 StatementList
         : Statement terminator RepeatTerminator StatementList
                                       << ast.NewStmtList($0.(*ast.Node), $3.(*ast.Node)) >>
-        | Statement RepeatTerminator  << ast.InitNode("", $0.(*ast.Node).Code) >>
+        | Statement RepeatTerminator  << $0, nil >>
         ;
 
 // Statement = Declaration | LabeledStmt | SimpleStmt |
 //             GoStmt | ReturnStmt | BreakStmt | ContinueStmt | GotoStmt |
 //             FallthroughStmt | Block | IfStmt | SwitchStmt | SelectStmt | ForStmt |
 //             DeferStmt .
-// NOTE: The following statements have been additionally introduced.
-//      - PrintIntStmt
+// NOTE: The following statements have been additionally introduced in the BNF -
+//      * PrintIntStmt
+//      * ScanStmt
 Statement
-        : Declaration   << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | LabeledStmt   << ast.InitNode("", $0.(*ast.LabeledStmt).Code) >>
-        | SimpleStmt    << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | ReturnStmt    << ast.InitNode("", $0.(*ast.ReturnStmt).Code) >>
-        | BreakStmt     << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | ContinueStmt  << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | GotoStmt      << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | Block         << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | IfStmt        << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | SwitchStmt    << ast.InitNode("", $0.(*ast.SwitchStmt).Code) >>
-        | ForStmt       << ast.InitNode("", $0.(*ast.ForStmt).Code) >>
-        | DeferStmt     << ast.InitNode("", $0.(*ast.DeferStmt).Code) >>
-        | PrintStmt     << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | ScanStmt      << ast.InitNode("", $0.(*ast.Node).Code) >>
+        : Declaration
+        | LabeledStmt  << ast.InitNode("", $0.(*ast.LabeledStmt).Code) >>
+        | SimpleStmt
+        | ReturnStmt   << ast.InitNode("", $0.(*ast.ReturnStmt).Code) >>
+        | BreakStmt
+        | ContinueStmt
+        | GotoStmt
+        | Block
+        | IfStmt
+        | SwitchStmt  << ast.InitNode("", $0.(*ast.SwitchStmt).Code) >>
+        | ForStmt     << ast.InitNode("", $0.(*ast.ForStmt).Code) >>
+        | DeferStmt   << ast.InitNode("", $0.(*ast.DeferStmt).Code) >>
+        | PrintStmt
+        | ScanStmt
         ;
 
 // LabeledStmt = Label ":" Statement .
@@ -571,14 +572,16 @@ LabeledStmt
 // assign_op = [ add_op | mul_op ] "=" .
 // ShortVarDecl = IdentifierList ":=" ExpressionList .
 SimpleStmt
-        : EmptyStmt     << ast.InitNode("", []string{}) >>
-        | Assignment    << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | ShortVarDecl  << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | IncDecStmt    << ast.InitNode("", $0.(*ast.Node).Code) >>
+        : EmptyStmt
+        | Assignment
+        | ShortVarDecl
+        | IncDecStmt
         | ExpressionStmt
         ;
 
-EmptyStmt : empty ;
+EmptyStmt
+        : empty  << ast.InitNode("", []string{}) >>
+        ;
 
 ReturnStmt
         : kwdRet                 << ast.NewReturnStmt() >>
@@ -677,7 +680,7 @@ ForStmt
 // When Condition is not specified, do an endless loop by initializing the place
 // value to 1.
 ForClause
-        : terminator terminator                     << ast.InitNode("1", []string{"", "", ""}) >>
+        : terminator terminator                     << ast.InitNode("", []string{}) >>
         | InitStmt terminator terminator            << ast.NewForClause(0, $0.(*ast.Node)) >>
         | terminator Condition terminator           << ast.NewForClause(1, $1.(*ast.Node)) >>
         | terminator terminator PostStmt            << ast.NewForClause(2, $2.(*ast.Node)) >>
@@ -689,11 +692,11 @@ ForClause
         ;
 
 InitStmt
-        : SimpleStmt  << ast.InitNode("", $0.(*ast.Node).Code) >>
+        : SimpleStmt
         ;
 
 PostStmt
-        : SimpleStmt  << ast.InitNode("", $0.(*ast.Node).Code) >>
+        : SimpleStmt
         ;
 
 // FIXME: Condition can only be a binary expression.
@@ -708,12 +711,12 @@ DeferStmt
         ;
 
 PrintStmt
-        : PrintIntStmt  << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | PrintStrStmt  << ast.InitNode("", $0.(*ast.Node).Code) >>
+        : PrintIntStmt
+        | PrintStrStmt
         ;
 
 ScanStmt
-        : ScanIntStmt  << ast.InitNode("", $0.(*ast.Node).Code) >>
+        : ScanIntStmt
         ;
 
 PrintIntStmt
