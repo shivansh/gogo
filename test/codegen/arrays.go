@@ -1,3 +1,5 @@
+package main
+
 func main() {
 	a := [2]int{}
 	a[0] = 1

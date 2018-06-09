@@ -38,7 +38,7 @@ func init() {
 	re = regexp.MustCompile("(^-?[0-9]+$)") // integers
 }
 
-// Node represents a node in the AST of a given program.
+// Node implements the common parts of AstNode.
 type Node struct {
 	// If the AST node represents an expression, then place stores the name
 	// of the variable storing the value of the expression.
@@ -62,11 +62,6 @@ func PrintIR(src *Node) (*Node, error) {
 // InitNode initializes an AST node with the given "Place" and "Code" attributes.
 func InitNode(place string, code []string) (*Node, error) {
 	return &Node{place, code}, nil
-}
-
-// NewNode creates a new AST node from the attributes of the given non-terminal.
-func NewNode(attr *Node) (*Node, error) {
-	return &Node{attr.Place, attr.Code}, nil
 }
 
 // --- [ Top level declarations ] ----------------------------------------------
@@ -113,9 +108,9 @@ func NewVarSpec(typ int, args ...*Node) (*Node, error) {
 
 	// Evaluate the type of identifier from the declaration.
 	switch args[1].Place {
-	case "int":
+	case INT:
 		vartype = INTEGER
-	case "string":
+	case STR:
 		vartype = STRING
 	default:
 		return &Node{}, fmt.Errorf("unsupported type: %s", args[1].Place)
@@ -626,9 +621,9 @@ func AppendParam(decl, declList *Node) (*Node, error) {
 func NewArrayType(arrLen, arrType string) (*Node, error) {
 	n := &Node{"", []string{}}
 	switch arrType {
-	case "int":
+	case INT:
 		n.Place = ARRINT + ":" + arrLen
-	case "string":
+	case STR:
 		n.Place = ARRSTR + ":" + arrLen
 	default:
 		panic("NewArrayType: type not supported by arrays")
@@ -1182,8 +1177,7 @@ func NewShortDecl(identList, exprList *Node) (*Node, error) {
 	} else {
 		n.Code = exprList.Code
 		expr := utils.SplitAndSanitize(exprList.Place, ",")
-		numIdent := len(identList.Code) // number of identifiers
-		if numIdent != len(expr) {
+		if numIdent := len(identList.Code); numIdent != len(identList.Code) {
 			return &Node{}, ErrCountMismatch(numIdent, len(expr))
 		}
 		for k, v := range identList.Code {
@@ -1193,8 +1187,6 @@ func NewShortDecl(identList, exprList *Node) (*Node, error) {
 					InsertSymbol(v, POINTER, renamedVar, StripPrefix(expr[k]))
 				} else if currScope.symTab[RealName(expr[k])].kind == POINTER {
 					InsertSymbol(v, POINTER, renamedVar, currScope.symTab[RealName(expr[k])].symbols[1])
-				} else if strings.HasPrefix(expr[k], DRF) {
-					InsertSymbol(v, INTEGER, renamedVar)
 				} else {
 					InsertSymbol(v, INTEGER, renamedVar)
 				}

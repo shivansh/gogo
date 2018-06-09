@@ -1,3 +1,5 @@
+package main
+
 func temp(x, y int) (int, int) {
 	return x + 1, y + 1
 }

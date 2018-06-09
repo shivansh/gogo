@@ -1,3 +1,5 @@
+package main
+
 func main() {
 	a := 0
 	newline := "\n"

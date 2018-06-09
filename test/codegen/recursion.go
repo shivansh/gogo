@@ -1,3 +1,5 @@
+package main
+
 // PrintNatNums prints the first n natural numbers in decreasing order.
 func PrintNatNums(n int) int {
         newline := "\n"
@@ -8,7 +10,7 @@ func PrintNatNums(n int) int {
         printInt n
         printStr newline
         x := PrintNatNums(n-1)
-        
+
         return 1 + x
 }
 

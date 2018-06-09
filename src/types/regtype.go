@@ -8,7 +8,7 @@ package types
 type RegType int
 
 const (
-	NIL = iota
+	NIL RegType = iota
 	INT
 	STR
 	ARR

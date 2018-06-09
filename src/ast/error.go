@@ -6,8 +6,8 @@ import (
 )
 
 var (
-	ErrDeclArr    = errors.New("Use short declaration for declaring arrays")
-	ErrDeclStruct = errors.New("Use short declaration for declaring structs")
+	ErrDeclArr    = errors.New("use short declaration for declaring arrays")
+	ErrDeclStruct = errors.New("use short declaration for declaring structs")
 	ErrShortDecl  = errors.New("no new variables on left side of :=")
 )
 

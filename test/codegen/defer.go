@@ -1,3 +1,5 @@
+package main
+
 func firstFunc() {
 	str := "First function call!\n"
 	printStr str

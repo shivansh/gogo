@@ -1,3 +1,5 @@
+package main
+
 type Node struct {
 	x int
 	y int
@@ -6,6 +8,6 @@ type Node struct {
 func main() {
 	a := Node{}
 	b := Node{1 + 2, 3}
-	c := b.x 
+	c := b.x
 	return
 }

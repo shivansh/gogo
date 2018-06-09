@@ -20,7 +20,7 @@ type symkind uint8
 
 // The following declarations determine the values which can be taken by symkind.
 const (
-	NIL = iota
+	NIL symkind = iota
 	FUNCTION
 	DEREF
 	POINTER
@@ -63,7 +63,11 @@ func StripPrefix(place string) string {
 	}
 	if i < len(place) {
 		return place[i+1:]
-	} else {
-		return place
 	}
+	return place
+}
+
+// StructType represents an AST node of type struct.
+type StructType struct {
+	Node
 }

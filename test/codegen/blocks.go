@@ -1,3 +1,5 @@
+package main
+
 func main() {
 	withinBlock := "\nInside the block\nValue of a: "
 	outsideBlock := "\nOutside the block\nValue of a:"
@@ -12,6 +14,6 @@ func main() {
 	}
 	printStr outsideBlock
 	printInt a
-	
+
 	return
 }

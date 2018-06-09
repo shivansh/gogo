@@ -1,3 +1,5 @@
+package main
+
 func main() {
 	a := [3]int{}
 	a[0], a[1], a[2] = 0, 1, 2

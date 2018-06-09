@@ -1,3 +1,5 @@
+package main
+
 func main() {
 	// a = 4
 	a := 4 + 2 - 3/3*2

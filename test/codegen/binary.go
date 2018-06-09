@@ -1,3 +1,5 @@
+package main
+
 func main(){
 	var a int
 	binary := [10]int{}

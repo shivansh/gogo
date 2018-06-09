@@ -108,9 +108,18 @@ Start
         : SourceFile  << ast.PrintIR($0.(*ast.Node)) >>
         ;
 
-// SourceFile : PackageClause terminator RepeatTerminator RepeatImportDecl RepeatTopLevelDecl
 SourceFile
-        : RepeatTopLevelDecl  << ast.InitNode("", $0.(*ast.Node).Code) >>
+        : PackageClause terminator RepeatTerminator RepeatTopLevelDecl  << ast.InitNode("", $3.(*ast.Node).Code) >>
+        ;
+
+// TODO: Package parsing logic will be complete when support for imports has
+// been integrated.
+PackageClause
+        : kwdPackage PackageName
+        ;
+
+PackageName
+        : identifier
         ;
 
 // --- [ Top level declarations ] ----------------------------------------------
@@ -160,7 +169,7 @@ TypeDecl
         ;
 
 TypeSpec
-        : TypeDef  << ast.NewNode($0.(*ast.Node)) >>
+        : TypeDef
         ;
 
 TypeDef
@@ -185,7 +194,7 @@ ConstSpec
 // --- [ Expressions ] ---------------------------------------------------------
 
 ExpressionList
-        : Expression                     << ast.NewNode($0.(*ast.Node)) >>
+        : Expression
         | Expression "," ExpressionList  << ast.AppendExpr($0.(*ast.Node), $2.(*ast.Node)) >>
         ;
 
@@ -195,47 +204,47 @@ ExpressionList
 // increasing precedence starting from top.
 Expression
         : Expression "||" Term1  << ast.NewBoolExpr(string($1.(*token.Token).Lit), $0.(*ast.Node), $2.(*ast.Node)) >>
-        | Term1                  << ast.NewNode($0.(*ast.Node)) >>
+        | Term1
         ;
 
 Term1
         : Term1 "&&" Term2  << ast.NewBoolExpr(string($1.(*token.Token).Lit), $0.(*ast.Node), $2.(*ast.Node)) >>
-        | Term2             << ast.NewNode($0.(*ast.Node)) >>
+        | Term2
         ;
 
 Term2
         : Term2 RelOp Term3  << ast.NewRelExpr($1.(*ast.Node), $0.(*ast.Node), $2.(*ast.Node)) >>
-        | Term3              << ast.NewNode($0.(*ast.Node)) >>
+        | Term3
         ;
 
 Term3
         : Term3 "+" Term4  << ast.NewArithExpr(string($1.(*token.Token).Lit), $0.(*ast.Node), $2.(*ast.Node)) >>
-        | Term4            << ast.NewNode($0.(*ast.Node)) >>
+        | Term4
         ;
 
 Term4
         : Term4 "-" Term5  << ast.NewArithExpr(string($1.(*token.Token).Lit), $0.(*ast.Node), $2.(*ast.Node)) >>
-        | Term5            << ast.NewNode($0.(*ast.Node)) >>
+        | Term5
         ;
 
 Term5
         : Term5 "*" Term6  << ast.NewArithExpr(string($1.(*token.Token).Lit), $0.(*ast.Node), $2.(*ast.Node)) >>
-        | Term6            << ast.NewNode($0.(*ast.Node)) >>
+        | Term6
         ;
 
 Term6
         : Term6 "/" Term7  << ast.NewArithExpr(string($1.(*token.Token).Lit), $0.(*ast.Node), $2.(*ast.Node)) >>
-        | Term7            << ast.NewNode($0.(*ast.Node)) >>
+        | Term7
         ;
 
 Term7
         : Term7 "%" Term8  << ast.NewArithExpr(string($1.(*token.Token).Lit), $0.(*ast.Node), $2.(*ast.Node)) >>
-        | Term8            << ast.NewNode($0.(*ast.Node)) >>
+        | Term8
         ;
 
 Term8
-        : "(" Expression ")"  << ast.NewNode($1.(*ast.Node)) >>
-        | UnaryExpr           << ast.NewNode($0.(*ast.Node)) >>
+        : "(" Expression ")"  << $1, nil >>
+        | UnaryExpr
         ;
 
 // TODO: Add support for booleans in IR.
@@ -259,7 +268,7 @@ RelOp
 
 // UnaryExpr  = PrimaryExpr | unary_op UnaryExpr .
 UnaryExpr
-        : PrimaryExpr        << ast.NewNode($0.(*ast.Node)) >>
+        : PrimaryExpr
         | UnaryOp UnaryExpr  << ast.NewUnaryExpr($0.(*ast.Node), $1.(*ast.Node)) >>
         ;
 
@@ -281,7 +290,7 @@ UnaryOp
 //  PrimaryExpr TypeAssertion |
 //  PrimaryExpr Arguments .
 PrimaryExpr
-        : Operand  << ast.NewNode($0.(*ast.Node)) >>
+        : Operand
         | PrimaryExpr Selector   << ast.NewPrimaryExprSel($0.(*ast.Node), $1.(*ast.Node)) >>
         | PrimaryExpr Index      << ast.NewPrimaryExprIndex($0.(*ast.Node), $1.(*ast.Node)) >>
         | PrimaryExpr Arguments  << ast.NewPrimaryExprArgs($0.(*ast.Node), $1.(*ast.Node)) >>
@@ -292,13 +301,13 @@ PrimaryExpr
 // BasicLit    = int_lit | float_lit | imaginary_lit | rune_lit | string_lit .
 // OperandName = identifier | QualifiedIdent.
 Operand
-        : Literal      << ast.NewNode($0.(*ast.Node)) >>
+        : Literal
         | OperandName  << ast.InitNode($0.(*ast.Node).Place, []string{}) >>
         ;
 
 Literal
-        : BasicLit      << ast.InitNode($0.(*ast.Node).Place, []string{}) >>
-        | CompositeLit  << ast.NewNode($0.(*ast.Node)) >>
+        : BasicLit  << ast.InitNode($0.(*ast.Node).Place, []string{}) >>
+        | CompositeLit
         ;
 
 BasicLit
@@ -322,7 +331,7 @@ CompositeLit
 LiteralType
         : ArrayType  << ast.InitNode($0.(*ast.Node).Place, []string{}) >>
         // When initializing structs, TypeName will be used as the name of struct.
-        | TypeName   << ast.NewNode($0.(*ast.Node)) >>
+        | TypeName
         ;
 
 // TypeName  = identifier | QualifiedIdent .
@@ -336,7 +345,7 @@ LiteralValue
         // NOTE: We don't support adding a ',' after the last KeyedElement
         // as opposed to the official go language.
         // TODO: Support for struct initialization.
-        | "{" RepeatTerminator ElementList "}"  << ast.NewNode($2.(*ast.Node)) >>
+        | "{" RepeatTerminator ElementList "}"  << $2, nil >>
         ;
 
 ElementList
@@ -350,11 +359,11 @@ RepeatKeyedElement
         ;
 
 KeyedElement
-        : Element  << ast.NewNode($0.(*ast.Node)) >>
+        : Element
         ;
 
 Element
-        : Expression  << ast.NewNode($0.(*ast.Node)) >>
+        : Expression
         ;
 
 OperandName
@@ -373,7 +382,7 @@ Selector
         ;
 
 Index
-        : "[" Expression "]"  << ast.NewNode($1.(*ast.Node)) >>
+        : "[" Expression "]"  << $1, nil >>
         ;
 
 // Arguments      = "(" [ ( ExpressionList | Type [ "," ExpressionList ] ) [ "..." ] [ "," ] ] ")" .
@@ -381,7 +390,7 @@ Index
 // arguments are supported for the time being.
 Arguments
         : "(" ")"                 << ast.InitNode("", []string{}) >>
-        | "(" ExpressionList ")"  << ast.NewNode($1.(*ast.Node)) >>
+        | "(" ExpressionList ")"  << $1, nil >>
         ;
 
 // FunctionDecl = "func" FunctionName Signature [ FunctionBody ] .
@@ -440,11 +449,11 @@ ParameterDecl
 //             SliceType | MapType | ChannelType .
 Type
         : type  << ast.InitNode(string($0.(*token.Token).Lit), []string{}) >>
-        | TypeLit  << ast.NewNode($0.(*ast.Node)) >>
+        | TypeLit
         ;
 
 TypeLit
-        : StructType  << ast.InitNode("struct", $0.(*ast.Node).Code) >>
+        : StructType
         ;
 
 // ArrayType   = "[" ArrayLength "]" ElementType .
@@ -472,7 +481,7 @@ ElementType
 // Tag           = string_lit .
 StructType
         : kwdStruct RepeatTerminator "{" RepeatTerminator RepeatFieldDecl "}"
-                << ast.InitNode("", $4.(*ast.Node).Code) >>
+                << ast.InitNode("struct", $4.(*ast.Node).Code) >>
         ;
 
 RepeatFieldDecl
@@ -552,11 +561,11 @@ LabeledStmt
 // assign_op = [ add_op | mul_op ] "=" .
 // ShortVarDecl = IdentifierList ":=" ExpressionList .
 SimpleStmt
-        : EmptyStmt       << ast.InitNode("", []string{}) >>
-        | Assignment      << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | ShortVarDecl    << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | IncDecStmt      << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | ExpressionStmt  << ast.NewNode($0.(*ast.Node)) >>
+        : EmptyStmt     << ast.InitNode("", []string{}) >>
+        | Assignment    << ast.InitNode("", $0.(*ast.Node).Code) >>
+        | ShortVarDecl  << ast.InitNode("", $0.(*ast.Node).Code) >>
+        | IncDecStmt    << ast.InitNode("", $0.(*ast.Node).Code) >>
+        | ExpressionStmt
         ;
 
 EmptyStmt : empty ;
@@ -635,7 +644,7 @@ ExprCaseClause
 // switch statement.
 // ExprSwitchCase : kwdCase ExpressionList
 ExprSwitchCase
-        : kwdCase Expression  << ast.NewNode($1.(*ast.Node)) >>
+        : kwdCase Expression  << $1, nil >>
         | kwdDefault          << ast.InitNode("default", []string{}) >>
         ;
 
@@ -679,7 +688,7 @@ PostStmt
 
 // FIXME: Condition can only be a binary expression.
 Condition
-        : Expression  << ast.NewNode($0.(*ast.Node)) >>
+        : Expression
         ;
 
 // DeferStmt = "defer" Expression .
@@ -710,7 +719,7 @@ ScanIntStmt
         ;
 
 ExpressionStmt
-        : Expression  << ast.NewNode($0.(*ast.Node)) >>
+        : Expression
         ;
 
 IncDecStmt

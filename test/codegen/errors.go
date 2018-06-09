@@ -1,3 +1,5 @@
+package main
+
 // test increments the arguments by 1 and returns them.
 func test(a, c int) (int, int) {
 	return a + 1, c + 1
