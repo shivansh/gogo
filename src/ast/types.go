@@ -1,6 +1,6 @@
 package ast
 
-// Prefix decarations used as symbol table metadata. The use of these constants
+// Prefix declarations used as symbol table metadata. The use of these constants
 // is to act as meta information stored in the place attribute of a node.
 // Currently these are simply prepended to the place attribute, and checked for
 // presence when required.
@@ -13,6 +13,7 @@ const (
 	ARRSTR = "arrstr"
 	INT    = "int"
 	STR    = "string"
+	STRCT  = "struct"
 )
 
 // symkind determines the kind of symbol table entry.
@@ -67,7 +68,75 @@ func StripPrefix(place string) string {
 	return place
 }
 
-// StructType represents an AST node of type struct.
-type StructType struct {
-	Node
+// AstNode defines a node in the AST of a given program.
+type AstNode interface {
+	place() string
+	code() []string
 }
+
+// Node implements the common parts of AstNode.
+type Node struct {
+	// If the AST node represents an expression, then place stores the name
+	// of the variable storing the value of the expression.
+	Place string
+	Code  []string // IR instructions
+}
+
+func (node *Node) place() string {
+	return node.Place
+}
+
+func (node *Node) code() []string {
+	return node.Code
+}
+
+type (
+	// StructType represents an AST node of a struct.
+	StructType struct {
+		Node
+		Name string // name of the struct
+		Len  int    // number of members
+	}
+
+	// ArrayType represents an AST node of an array.
+	ArrayType struct {
+		Node
+		// TODO: Update type of Type.
+		Type string // type of elements
+		Len  int    // array size
+	}
+
+	// FuncType represents an AST node of a function.
+	FuncType struct {
+		Node
+	}
+)
+
+// --- [ Statements ] ----------------------------------------------------------
+
+type (
+	// LabeledStmt represents an AST node of a label statement.
+	LabeledStmt struct {
+		Node
+	}
+
+	// ReturnStmt represents an AST node for a return statement.
+	ReturnStmt struct {
+		Node
+	}
+
+	// SwitchStmt represents an AST node for a switch statement.
+	SwitchStmt struct {
+		Node
+	}
+
+	// ForStmt represents an AST node for a for statement.
+	ForStmt struct {
+		Node
+	}
+
+	// DeferStmt represents an AST node for a defer statement.
+	DeferStmt struct {
+		Node
+	}
+)

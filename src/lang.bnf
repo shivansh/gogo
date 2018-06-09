@@ -133,7 +133,7 @@ RepeatTopLevelDecl
 
 TopLevelDecl
         : Declaration RepeatTerminator   << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | FunctionDecl RepeatTerminator  << ast.InitNode("", $0.(*ast.Node).Code) >>
+        | FunctionDecl RepeatTerminator  << ast.InitNode("", $0.(*ast.FuncType).Code) >>
         ;
 
 // Declaration = ConstDecl | TypeDecl | VarDecl .
@@ -165,7 +165,7 @@ VarSpec
 // AliasDecl = identifier "=" Type
 // TypeDef   = identifier Type
 TypeDecl
-        : kwdType TypeSpec   << ast.NewTypeDecl($1.(*ast.Node)) >>
+        : kwdType TypeSpec   << ast.NewTypeDecl($1.(ast.AstNode)) >>
         ;
 
 TypeSpec
@@ -173,7 +173,7 @@ TypeSpec
         ;
 
 TypeDef
-        : identifier Type  << ast.NewTypeDef(string($0.(*token.Token).Lit), $1.(*ast.Node)) >>
+        : identifier Type  << ast.NewTypeDef(string($0.(*token.Token).Lit), $1.(ast.AstNode)) >>
         ;
 
 // --- [ Constant declarations ] -----------------------------------------------
@@ -420,6 +420,10 @@ Signature
 Result
         : Parameters  << ast.NewResult($0.(*ast.Node)) >>
         | Type        << ast.InitNode("1", []string{}) >>
+        // FIXME: The place value "1" above is required to make the testcase
+        // `test/codegen/recursion.go` pass. It is basically a hardcoded return
+        // value to make this specific instance of recursion work. This will be
+        // fixed when recursion is implemented correctly.
         ;
 
 // TODO - ignore terminator
@@ -438,15 +442,21 @@ RepeatParameterDecl
         | empty                                  << ast.InitNode("", []string{}) >>
         ;
 
+// TODO: It is currently assumed that the return types will always be int. Make
+// this generic across all types.
 ParameterDecl
         : IdentifierList Type  << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | Type                 << ast.InitNode("", []string{fmt.Sprintf("int")}) >>
+        | Type                 << ast.InitNode("", []string{$0.(*ast.Node).Place}) >>
+        // The final generate node of parameters (in NewParamList) contains
+        // the type info in the Code attribute, hence the type here too is placed
+        // in the code attribute.
         ;
 
 // Type      = TypeName | TypeLit | "(" Type ")" .
 // TypeName  = identifier | QualifiedIdent .
 // TypeLit   = ArrayType | StructType | PointerType | FunctionType | InterfaceType |
 //             SliceType | MapType | ChannelType .
+// TODO: Make type to be more generic to handle different type of objects.
 Type
         : type  << ast.InitNode(string($0.(*token.Token).Lit), []string{}) >>
         | TypeLit
@@ -481,7 +491,7 @@ ElementType
 // Tag           = string_lit .
 StructType
         : kwdStruct RepeatTerminator "{" RepeatTerminator RepeatFieldDecl "}"
-                << ast.InitNode("struct", $4.(*ast.Node).Code) >>
+                << ast.NewStruct($4.(*ast.Node)) >>
         ;
 
 RepeatFieldDecl
@@ -532,17 +542,17 @@ StatementList
 //      - PrintIntStmt
 Statement
         : Declaration   << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | LabeledStmt   << ast.InitNode("", $0.(*ast.Node).Code) >>
+        | LabeledStmt   << ast.InitNode("", $0.(*ast.LabeledStmt).Code) >>
         | SimpleStmt    << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | ReturnStmt    << ast.InitNode("", $0.(*ast.Node).Code) >>
+        | ReturnStmt    << ast.InitNode("", $0.(*ast.ReturnStmt).Code) >>
         | BreakStmt     << ast.InitNode("", $0.(*ast.Node).Code) >>
         | ContinueStmt  << ast.InitNode("", $0.(*ast.Node).Code) >>
         | GotoStmt      << ast.InitNode("", $0.(*ast.Node).Code) >>
         | Block         << ast.InitNode("", $0.(*ast.Node).Code) >>
         | IfStmt        << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | SwitchStmt    << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | ForStmt       << ast.InitNode("", $0.(*ast.Node).Code) >>
-        | DeferStmt     << ast.InitNode("", $0.(*ast.Node).Code) >>
+        | SwitchStmt    << ast.InitNode("", $0.(*ast.SwitchStmt).Code) >>
+        | ForStmt       << ast.InitNode("", $0.(*ast.ForStmt).Code) >>
+        | DeferStmt     << ast.InitNode("", $0.(*ast.DeferStmt).Code) >>
         | PrintStmt     << ast.InitNode("", $0.(*ast.Node).Code) >>
         | ScanStmt      << ast.InitNode("", $0.(*ast.Node).Code) >>
         ;
@@ -617,7 +627,7 @@ IfStmt
 
 // SwitchStmt = ExprSwitchStmt | TypeSwitchStmt .
 SwitchStmt
-        : ExprSwitchStmt  << ast.InitNode("", $0.(*ast.Node).Code) >>
+        : ExprSwitchStmt
         ;
 
 // ExprSwitchStmt = "switch" [ SimpleStmt ";" ] [ Expression ] "{" { ExprCaseClause } "}" .
@@ -734,7 +744,7 @@ Assignment
         ;
 
 ShortVarDecl
-        : IdentifierList shortAssign ExpressionList  << ast.NewShortDecl($0.(*ast.Node), $2.(*ast.Node)) >>
+        : IdentifierList shortAssign ExpressionList  << ast.NewShortDecl($0.(*ast.Node), $2.(ast.AstNode)) >>
         ;
 
 Label
