@@ -32,10 +32,16 @@ func GenProductions(file string) error {
 	p := parser.NewParser()
 	// When parsing is finished, a final call to the routine PrintIR() (in
 	// package ast) is made. This prints the generated IR instructins.
-	_, err = p.Parse(s)
-	if err != nil {
-		e := err.(*parseError.Error)
-		return fmt.Errorf("%s:%d: %s\n", file, e.ErrorToken.Pos.Line, e.Err)
+	if _, err = p.Parse(s); err != nil {
+		if e := err.(*parseError.Error); e.Err == nil {
+			// The error is encountered while parsing.
+			return fmt.Errorf("%s:%d: expected one of %s, found %s\n", file,
+				e.ErrorToken.Pos.Line, e.ExpectedTokens, e.ErrorToken.Lit)
+		} else {
+			// The error is encountered due to violation of go syntax rules,
+			// eg. variable redeclaration, assignment count mismatch etc.
+			return fmt.Errorf("%s:%d: %v\n", file, e.ErrorToken.Pos.Line, e.Err)
+		}
 	}
 	return nil
 }

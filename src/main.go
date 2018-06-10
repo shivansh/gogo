@@ -24,7 +24,7 @@ func GenToken(file string) {
 // GenIR generates the IR instructions from the input program.
 func GenIR(file string) {
 	if err := parser.GenProductions(file); err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintf(os.Stderr, "%v", err)
 		os.Exit(1)
 	}
 }
