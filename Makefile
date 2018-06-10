@@ -27,6 +27,7 @@ gogo: $(SRC)/main.go
 test:
 	scripts/run-tests.sh -r2s
 	scripts/run-tests.sh -r
+	make testdiff
 
 testdiff:
 	git diff --exit-code ./test
@@ -44,7 +45,6 @@ errcheck:
 travis:
 	make
 	make test
-	make testdiff
 	make govet
 	make gofmt
 	make errcheck

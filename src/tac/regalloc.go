@@ -108,7 +108,7 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, typeInfo map[string]types.RegType
 	// temporarily mark the lookup table corresponding to it to ensure that
 	// the relevant statement is correctly inserted into the text segment
 	// data structure. Once that is done, this entry will be deleted by the
-	// caller (codegen) of GetReg().
+	// caller (CodeGen) of GetReg().
 	for i := 0; i < len(srcVars)-1; i++ {
 		if _, ok := blk.Adesc[srcVars[i]]; !ok {
 			blk.Adesc[srcVars[i]] = Addr{blk.Adesc[stmt.Dst].Reg, 0}

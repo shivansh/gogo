@@ -473,17 +473,15 @@ func NewCompositeLit(typ, val *Node) (AstNode, error) {
 			if len(litVals) == 0 {
 				for k, v := range symEntry.symbols {
 					if k%2 == 0 {
-						structInit = append(structInit, v)
 						// TODO: Update default values depending on type.
 						// The default type is currently assumed to be int.
-						structInit = append(structInit, "0")
+						structInit = append(structInit, v, "0")
 					}
 				}
 			} else {
 				for k, v := range symEntry.symbols {
 					if k%2 == 0 {
-						structInit = append(structInit, v)
-						structInit = append(structInit, litVals[k/2])
+						structInit = append(structInit, v, litVals[k/2])
 					}
 				}
 			}

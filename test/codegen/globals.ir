@@ -1,0 +1,5 @@
+declInt, a.0, 2
+func, main
+declInt, c.1, 4
+ret,
+declInt, b.2, 8

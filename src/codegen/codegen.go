@@ -3,12 +3,10 @@
 package codegen
 
 import (
-	"container/heap"
 	"fmt"
 	"log"
 	"os"
 	"sort"
-	"strconv"
 
 	"github.com/shivansh/gogo/src/tac"
 	"github.com/shivansh/gogo/src/types"
@@ -44,16 +42,67 @@ func CodeGen(t tac.Tac) {
 	// entryPoint determines whether the source program contains a main
 	// function (entry point).
 	entryPoint := false
+	// globals stores the code for the global declarations. This code is
+	// inserted at the beginning of the entry point, i.e. the main routine.
+	globals := new(tac.TextSec)
+	// globalLineNo stores the line number of global declarations.
+	globalLineNo := make(map[int]bool)
 
 	// Define the assembler directives for data and text.
 	fmt.Fprintln(&ds.Stmts, "\t.data")
 	fmt.Fprintln(&ts.Stmts, "\t.text")
 
+	// Make a single pass across the entire three-address code and collect
+	// code for the global declarations. This code will be inserted in the
+	// main routine, i.e. the entry point.
+	funcScope := false
 	for _, blk := range t {
-		blk.Rdesc = make(map[int]tac.RegDesc)
-		blk.Adesc = make(map[string]tac.Addr)
-		blk.Pq = make(tac.PriorityQueue, tac.RegLimit)
-		blk.NextUseTab = make([][]tac.UseInfo, len(blk.Stmts), len(blk.Stmts))
+		if len(blk.Stmts) == 0 {
+			continue
+		}
+		switch blk.Stmts[0].Op {
+		case tac.FUNC, tac.LABEL:
+			// Since labels can only occur inside a function, we are
+			// still in a function's scope. This handles multiple
+			// occurrences of return statements within the same function
+			// in the body of conditionals.
+			// For reference see 'test/codegen/labels.go'.
+			funcScope = true
+		}
+		for _, stmt := range blk.Stmts {
+			switch stmt.Op {
+			case tac.RET:
+				funcScope = false
+
+			case tac.EQ, tac.DECLInt:
+				if funcScope {
+					break
+				}
+				blk.InitRegDS()
+				blk.InitHeap()
+				// Update the next-use info for the given block.
+				blk.EvalNextUseInfo()
+				blk.GetReg(&stmt, globals, typeInfo)
+				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
+				switch v := stmt.Src[0].(type) {
+				case tac.I32:
+					fmt.Fprintf(&globals.Stmts, "\tli\t$%d, %d\t\t%s\n", blk.Adesc[stmt.Dst].Reg, v, comment)
+					comment = "# global decl -> memory"
+					fmt.Fprintf(&globals.Stmts, "\tsw\tt%d, %s\t\t%s\n", blk.Adesc[stmt.Dst].Reg, stmt.Dst, comment)
+					globalLineNo[stmt.Line] = true
+				case tac.Str:
+					// It is not required to handle strings separately here
+					// as the only side-effect of string declaration are
+					// limited to data section and not text section.
+				default:
+					log.Fatal("Codegen: unknown type %T\n", v)
+				}
+			}
+		}
+	}
+
+	for _, blk := range t {
+		blk.InitRegDS()
 		// jumpStmt stores the intructions for jump statements which are
 		// responsible for terminating a basic block. These statements
 		// are added to the text segment only after all the block variables
@@ -69,40 +118,7 @@ func CodeGen(t tac.Tac) {
 			funcName = blk.Stmts[0].Dst
 		}
 
-		// Initialize the priority-queue with all the available free
-		// registers with their next-use set to infinity.
-		// NOTE: Register $1 is reserved by assembler for pseudo
-		// instructions and hence is not assigned to variables.
-		for i := 0; i < tac.RegLimit; i++ {
-			switch i {
-			case 0, 1, 2, 4, 29, 31:
-				// The following registers are not allocated -
-				//   * $0 is not a valid register.
-				//   * $1 is reserved by the assembler for
-				//   * $2 ($v0) stores function results.
-				//     pseudo instructions.
-				//   * $v0 and $a0 are special registers.
-				//   * $29 ($sp) stores the stack pointer.
-				//   * $31 ($ra) stores the return address.
-				// The nextuse of these registers is set to -∞.
-				blk.Pq[i] = &tac.UseInfo{
-					Name:    strconv.Itoa(i),
-					Nextuse: tac.MinInt,
-				}
-			default:
-				blk.Pq[i] = &tac.UseInfo{
-					Name: strconv.Itoa(i),
-					// A higher priority is given to registers
-					// with lower index, resulting in a
-					// deterministic allocation. In case all
-					// the registers have their Nextuse value
-					// initialized to MaxInt, Pop() returns
-					// one non-deterministically.
-					Nextuse: tac.MaxInt - i,
-				}
-			}
-		}
-		heap.Init(&blk.Pq)
+		blk.InitHeap()
 		// Update the next-use info for the given block.
 		blk.EvalNextUseInfo()
 
@@ -110,6 +126,13 @@ func CodeGen(t tac.Tac) {
 		// pass through the entire three-address code and for each
 		// assignment statement, update the DS for data section.
 		for _, stmt := range blk.Stmts {
+			if ds.Lookup[stmt.Dst] {
+				continue
+			}
+			tab := "\t\t" // indentation for in-line comments.
+			if len(stmt.Dst) > 6 {
+				tab = "\t"
+			}
 			switch stmt.Op {
 			case tac.LABEL,
 				tac.FUNC,
@@ -124,30 +147,26 @@ func CodeGen(t tac.Tac) {
 				tac.BNE,
 				tac.JMP:
 				break
+			case tac.DECL:
+				typeInfo[stmt.Dst] = types.ARR
+				fmt.Fprintf(&ds.Stmts, "%s:%s.space\t%d\n", stmt.Dst, tab, 4*stmt.Src[0].IntVal())
+			case tac.DECLSTR:
+				typeInfo[stmt.Dst] = types.STR
+				fmt.Fprintf(&ds.Stmts, "%s:%s.asciiz %s\n", stmt.Dst, tab, stmt.Src[0].StrVal())
 			default:
-				tab := "\t\t" // indentation for in-line comments.
-				if len(stmt.Dst) >= 7 {
-					tab = "\t"
-				}
-				if stmt.Op == tac.DECL && !ds.Lookup[stmt.Dst] {
-					fmt.Fprintf(&ds.Stmts, "%s:%s.space\t%d\n", stmt.Dst, tab, 4*stmt.Src[0].IntVal())
-					ds.Lookup[stmt.Dst] = true
-					typeInfo[stmt.Dst] = types.ARR
-				} else if stmt.Op == tac.DECLSTR {
-					fmt.Fprintf(&ds.Stmts, "%s:%s.asciiz %s\n", stmt.Dst, tab, stmt.Src[0].StrVal())
-					ds.Lookup[stmt.Dst] = true
-					typeInfo[stmt.Dst] = types.STR
-				} else if !ds.Lookup[stmt.Dst] {
-					ds.Lookup[stmt.Dst] = true
-					typeInfo[stmt.Dst] = types.INT
-					fmt.Fprintf(&ds.Stmts, "%s:%s.word\t0\n", stmt.Dst, tab)
-				}
+				typeInfo[stmt.Dst] = types.INT
+				fmt.Fprintf(&ds.Stmts, "%s:%s.word\t0\n", stmt.Dst, tab)
 			}
+			ds.Lookup[stmt.Dst] = true
 		}
 
 		for k, stmt := range blk.Stmts {
 			switch stmt.Op {
 			case tac.EQ, tac.DECLInt:
+				// Avoid re-generating code for global declarations.
+				if globalLineNo[stmt.Line] {
+					continue
+				}
 				blk.GetReg(&stmt, ts, typeInfo)
 				comment := fmt.Sprintf("# %s -> $%d", stmt.Dst, blk.Adesc[stmt.Dst].Reg)
 				switch v := stmt.Src[0].(type) {
@@ -192,12 +211,12 @@ func CodeGen(t tac.Tac) {
 						comment := "# const index -> $s1"
 						fmt.Fprintf(&ts.Stmts, "\tli\t$s1, %d \t%s\n", v.IntVal(), comment)
 						comment = "# variable -> array"
-						fmt.Fprintf(&ts.Stmts, "\tsw\t$s1, %d($%d)\t%s\n",
-							4*stmt.Src[1].IntVal(), blk.Adesc[stmt.Src[0].StrVal()].Reg, comment)
+						fmt.Fprintf(&ts.Stmts, "\tsw\t$s1, %d($%d)\t%s\n", 4*stmt.Src[1].IntVal(),
+							blk.Adesc[stmt.Src[0].StrVal()].Reg, comment)
 					case tac.Str:
 						comment := "# variable -> array"
-						fmt.Fprintf(&ts.Stmts, "\tsw\t$%d, %d($%d)\t%s\n",
-							blk.Adesc[v.StrVal()].Reg, 4*u.IntVal(), blk.Adesc[stmt.Src[0].StrVal()].Reg, comment)
+						fmt.Fprintf(&ts.Stmts, "\tsw\t$%d, %d($%d)\t%s\n", blk.Adesc[v.StrVal()].Reg,
+							4*u.IntVal(), blk.Adesc[stmt.Src[0].StrVal()].Reg, comment)
 					default:
 						log.Fatal("Codegen: unknown type %T\n", v)
 					}
@@ -214,8 +233,8 @@ func CodeGen(t tac.Tac) {
 						comment := "# iterator *= 4"
 						fmt.Fprintf(&ts.Stmts, "\tsll $s2, $%d, 2\t%s\n", blk.Adesc[u.StrVal()].Reg, comment)
 						comment = "# variable -> array"
-						fmt.Fprintf(&ts.Stmts, "\tsw\t$%d, %s($s2)\t%s\n",
-							blk.Adesc[v.StrVal()].Reg, stmt.Src[0].StrVal(), comment)
+						fmt.Fprintf(&ts.Stmts, "\tsw\t$%d, %s($s2)\t%s\n", blk.Adesc[v.StrVal()].Reg,
+							stmt.Src[0].StrVal(), comment)
 					default:
 						log.Fatal("Codegen: unknown type %T\n", v)
 					}
@@ -225,11 +244,11 @@ func CodeGen(t tac.Tac) {
 				blk.GetReg(&stmt, ts, typeInfo)
 				switch v := stmt.Src[1].(type) {
 				case tac.I32:
-					fmt.Fprintf(&ts.Stmts, "\taddi\t$%d, $%d, %s\n",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal())
+					fmt.Fprintf(&ts.Stmts, "\taddi\t$%d, $%d, %s\n", blk.Adesc[stmt.Dst].Reg,
+						blk.Adesc[stmt.Src[0].StrVal()].Reg, v.StrVal())
 				case tac.Str:
-					fmt.Fprintf(&ts.Stmts, "\tadd\t$%d, $%d, $%d\n",
-						blk.Adesc[stmt.Dst].Reg, blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg)
+					fmt.Fprintf(&ts.Stmts, "\tadd\t$%d, $%d, $%d\n", blk.Adesc[stmt.Dst].Reg,
+						blk.Adesc[stmt.Src[0].StrVal()].Reg, blk.Adesc[v.StrVal()].Reg)
 				default:
 					log.Fatal("Codegen: unknown type %T\n", v)
 				}
@@ -311,6 +330,10 @@ func CodeGen(t tac.Tac) {
 				fmt.Fprintf(&ts.Stmts, "%s:\n", stmt.Dst)
 				if funcName != "main" {
 					fmt.Fprintln(&ts.Stmts, "\taddi\t$sp, $sp, -4\n\tsw\t$ra, 0($sp)")
+				} else {
+					// Add code for global declarations.
+					fmt.Fprintf(&ts.Stmts, "%s", globals.Stmts.String())
+					globals.Stmts.Reset()
 				}
 
 			case tac.JMP:

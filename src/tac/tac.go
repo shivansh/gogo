@@ -89,7 +89,7 @@ func GenTAC(file string) (tac Tac) {
 		switch record[0] {
 		case LABEL, FUNC:
 			// label statement is part of the newly created block.
-			blk, line = NewBlock(blk, &tac)
+			blk, line = blk.NewBlock(&tac)
 			blk.Stmts = append(blk.Stmts, Stmt{line, record[0], record[1], []SrcVar{}})
 			line++
 
@@ -117,7 +117,7 @@ func GenTAC(file string) (tac Tac) {
 			blk.Stmts = append(blk.Stmts, Stmt{line, record[0], record[1], sv})
 			line++
 			if startNewBlock {
-				blk, line = NewBlock(blk, &tac)
+				blk, line = blk.NewBlock(&tac)
 				startNewBlock = false
 			}
 		}
