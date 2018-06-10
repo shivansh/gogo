@@ -14,9 +14,6 @@ t2:		.word	0
 t1:		.word	0
 
 	.text
-
-	.globl firstFunc
-	.ent firstFunc
 firstFunc:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)
@@ -28,9 +25,6 @@ firstFunc:
 	addi	$sp, $sp, 4
 	jr	$ra
 	.end firstFunc
-
-	.globl midFunc
-	.ent midFunc
 midFunc:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)
@@ -59,9 +53,6 @@ midFunc:
 	addi	$sp, $sp, 4
 	jr	$ra
 	.end midFunc
-
-	.globl lastFunc
-	.ent lastFunc
 lastFunc:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)

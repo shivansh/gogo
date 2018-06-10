@@ -11,9 +11,6 @@ f.6:		.word	0
 g.7:		.word	0
 
 	.text
-
-	.globl temp
-	.ent temp
 temp:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)

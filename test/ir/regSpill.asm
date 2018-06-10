@@ -41,9 +41,6 @@ main:
 	li	$2, 10
 	syscall
 	.end main
-
-	.globl temp
-	.ent temp
 temp:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)

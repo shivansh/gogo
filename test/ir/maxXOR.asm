@@ -46,9 +46,6 @@ main:
 	li	$2, 10
 	syscall
 	.end main
-
-	.globl maxXOR
-	.ent maxXOR
 maxXOR:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)

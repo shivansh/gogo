@@ -9,9 +9,6 @@ x.1:		.word	0
 t2:		.word	0
 
 	.text
-
-	.globl PrintNatNums
-	.ent PrintNatNums
 PrintNatNums:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)

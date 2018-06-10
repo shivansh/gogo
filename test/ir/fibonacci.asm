@@ -39,9 +39,6 @@ main:
 	li	$2, 10
 	syscall
 	.end main
-
-	.globl fib
-	.ent fib
 fib:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)

@@ -41,6 +41,9 @@ func CodeGen(t tac.Tac) {
 	typeInfo := make(map[string]types.RegType)
 	funcName := ""
 	callerSaved := []string{}
+	// entryPoint determines whether the source program contains a main
+	// function (entry point).
+	entryPoint := false
 
 	// Define the assembler directives for data and text.
 	fmt.Fprintln(&ds.Stmts, "\t.data")
@@ -301,7 +304,10 @@ func CodeGen(t tac.Tac) {
 				fmt.Fprintf(&ts.Stmts, "%s:\n", stmt.Dst)
 
 			case tac.FUNC:
-				fmt.Fprintf(&ts.Stmts, "\n\t.globl %s\n\t.ent %s\n", funcName, funcName)
+				if funcName == "main" {
+					entryPoint = true
+					fmt.Fprintf(&ts.Stmts, "\n\t.globl %s\n\t.ent %s\n", funcName, funcName)
+				}
 				fmt.Fprintf(&ts.Stmts, "%s:\n", stmt.Dst)
 				if funcName != "main" {
 					fmt.Fprintln(&ts.Stmts, "\taddi\t$sp, $sp, -4\n\tsw\t$ra, 0($sp)")
@@ -441,6 +447,11 @@ func CodeGen(t tac.Tac) {
 			fmt.Fprintln(&ts.Stmts, v)
 		}
 		fmt.Fprintln(&ts.Stmts, exitStmt)
+	}
+
+	// Check if the entry point (main) has been encountered.
+	if !entryPoint {
+		log.Fatal("Function main not defined\n")
 	}
 
 	fmt.Fprintln(&ds.Stmts, "")

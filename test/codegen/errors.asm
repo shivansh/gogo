@@ -15,9 +15,6 @@ e.4:		.word	0
 f.5:		.word	0
 
 	.text
-
-	.globl test
-	.ent test
 test:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)
