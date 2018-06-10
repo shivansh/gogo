@@ -47,13 +47,13 @@ test:
 main:
 	li	$3, 1		# a.0 -> $3
 	li	$3, 4		# a.0 -> $3
-	sw	$3, a.0	# spilled a.0, freed $3
+	sw	$3, a.0		# spilled a.0, freed $3
 	li	$3, 1		# b.1 -> $3
-	sw	$3, b.1	# spilled b.1, freed $3
+	sw	$3, b.1		# spilled b.1, freed $3
 	li	$3, 2		# c.2 -> $3
-	sw	$3, c.2	# spilled c.2, freed $3
+	sw	$3, c.2		# spilled c.2, freed $3
 	li	$3, 3		# d.3 -> $3
-	sw	$3, d.3	# spilled d.3, freed $3
+	sw	$3, d.3		# spilled d.3, freed $3
 	li	$3, 1		# test.0 -> $3
 	sw	$3, test.0	# spilled test.0, freed $3
 	li	$3, 2		# test.1 -> $3
@@ -63,7 +63,7 @@ main:
 	lw	$3, return.0	# return.0 -> $3
 	move	$5, $3		# e.4 -> $5
 	lw	$3, return.1	# return.1 -> $3
-	sw	$5, e.4	# spilled e.4, freed $5
+	sw	$5, e.4		# spilled e.4, freed $5
 	move	$5, $3		# f.5 -> $5
 	# Store dirty variables back into memory
 	sw	$5, f.5

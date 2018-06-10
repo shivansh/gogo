@@ -10,7 +10,7 @@ t0:		.word	0
 	.ent main
 main:
 	li	$3, 0		# a.0 -> $3
-	sw	$3, a.0	# spilled a.0, freed $3
+	sw	$3, a.0		# spilled a.0, freed $3
 	li	$3, 0		# i.2 -> $3
 	# Store dirty variables back into memory
 	sw	$3, i.2

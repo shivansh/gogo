@@ -9,7 +9,7 @@ newline.2:	.asciiz "\n"
 	.ent main
 main:
 	li	$3, 1		# a.0 -> $3
-	sw	$3, a.0	# spilled a.0, freed $3
+	sw	$3, a.0		# spilled a.0, freed $3
 	li	$3, 2		# b.1 -> $3
 	# Store dirty variables back into memory
 	sw	$3, b.1
@@ -29,7 +29,7 @@ l1:
 l2:
 	li	$3, 4		# a.0 -> $3
 	li	$2, 1
-	sw	$3, a.0	# spilled a.0, freed $3
+	sw	$3, a.0		# spilled a.0, freed $3
 	lw	$3, b.1		# b.1 -> $3
 	move	$4, $3
 	syscall

@@ -71,7 +71,7 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, typeInfo map[string]types.RegType
 			if entry, ok := blk.Rdesc[reg]; ok && typeInfo[entry.Name] != types.ARR && entry.Dirty {
 				comment := fmt.Sprintf("# spilled %s, freed $%s", blk.Rdesc[reg].Name, item.Name)
 				tab := "\t\t" // indentation for in-line comments
-				if len(blk.Rdesc[reg].Name) >= 3 {
+				if len(blk.Rdesc[reg].Name) > 3 {
 					tab = "\t"
 				}
 				fmt.Fprintf(&ts.Stmts, "\tsw\t$%s, %s\n", item.Name, blk.Rdesc[reg].Name+tab+comment)
@@ -104,11 +104,11 @@ func (blk Blk) GetReg(stmt *Stmt, ts *TextSec, typeInfo map[string]types.RegType
 		heap.Push(&blk.Pq, v)
 	}
 
-	// Check if any src variable is without a register. If there is,
-	// then temporarily mark the lookup table corresponding to it to
-	// ensure that the relevant statement is correctly inserted into
-	// the text segment data structure. Once that is done, this entry
-	// will be deleted by the caller of GetReg().
+	// Check if any src variable is without a register. If there is, then
+	// temporarily mark the lookup table corresponding to it to ensure that
+	// the relevant statement is correctly inserted into the text segment
+	// data structure. Once that is done, this entry will be deleted by the
+	// caller (codegen) of GetReg().
 	for i := 0; i < len(srcVars)-1; i++ {
 		if _, ok := blk.Adesc[srcVars[i]]; !ok {
 			blk.Adesc[srcVars[i]] = Addr{blk.Adesc[stmt.Dst].Reg, 0}

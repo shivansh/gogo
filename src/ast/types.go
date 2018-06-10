@@ -1,4 +1,9 @@
+// This file declares the types used to represent the syntax tree of a source
+// program.
+
 package ast
+
+import "strings"
 
 // Prefix declarations used as symbol table metadata. The use of these constants
 // is to act as meta information stored in the place attribute of a node.
@@ -33,39 +38,33 @@ const (
 )
 
 // GetType returns the type information from a symkind variable.
-func GetType(kind symkind) (retVal string) {
+func GetType(kind symkind) string {
 	switch kind {
 	case ARRAYINT:
-		retVal = ARRINT // reusing prefix values
+		return ARRINT // reusing prefix values
 	case ARRAYSTR:
-		retVal = ARRSTR
+		return ARRSTR
 	case INTEGER:
-		retVal = INT
+		return INT
 	case STRING:
-		retVal = STR
+		return STR
 	default:
 		panic("GetType: invalid type")
 	}
-	return retVal
 }
 
 // GetPrefix returns the prefix from a place value.
 func GetPrefix(place string) string {
-	i := 0
-	for ; i < len(place) && place[i] != ':'; i++ {
+	if i := strings.Index(place, ":"); i != -1 {
+		return place[:i]
 	}
-	return place[:i]
+	return place
 }
 
 // StripPrefix strips the prefix from a place value.
 func StripPrefix(place string) string {
-	i := 0
-	for ; i < len(place) && place[i] != ':'; i++ {
-	}
-	if i < len(place) {
-		return place[i+1:]
-	}
-	return place
+	i := strings.Index(place, ":")
+	return place[i+1:]
 }
 
 // AstNode defines a node in the AST of a given program.
@@ -82,13 +81,9 @@ type Node struct {
 	Code  []string // IR instructions
 }
 
-func (node *Node) place() string {
-	return node.Place
-}
+func (node *Node) place() string { return node.Place }
 
-func (node *Node) code() []string {
-	return node.Code
-}
+func (node *Node) code() []string { return node.Code }
 
 type (
 	// StructType represents an AST node of a struct.
@@ -99,6 +94,7 @@ type (
 	}
 
 	// ArrayType represents an AST node of an array.
+	// TODO: ArrayType hasn't been used yet.
 	ArrayType struct {
 		Node
 		// TODO: Update type of Type.

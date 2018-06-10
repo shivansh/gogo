@@ -70,7 +70,7 @@ ifBranch:
 	lw	$3, mid		# mid -> $3
 	addi	$5, $3, 1
 	move	$6, $3		# ans -> $6
-	sw	$6, ans	# spilled ans, freed $6
+	sw	$6, ans		# spilled ans, freed $6
 	lw	$6, end		# end -> $6
 	# Store dirty variables back into memory
 	sw	$5, start

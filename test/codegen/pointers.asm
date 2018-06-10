@@ -10,7 +10,7 @@ y.3:		.word	0
 main:
 	li	$3, 1		# a.0 -> $3
 	li	$5, 2		# b.1 -> $5
-	sw	$5, b.1	# spilled b.1, freed $5
+	sw	$5, b.1		# spilled b.1, freed $5
 	move	$5, $3		# y.3 -> $5
 	li	$2, 1
 	move	$4, $5

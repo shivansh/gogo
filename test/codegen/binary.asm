@@ -33,7 +33,7 @@ main:
 	li	$2, 4
 	la	$4, binaryLine.4
 	syscall
-	sw	$3, a.0	# spilled a.0, freed $3
+	sw	$3, a.0		# spilled a.0, freed $3
 	li	$3, 0		# i.5 -> $3
 	# Store dirty variables back into memory
 	sw	$3, i.5

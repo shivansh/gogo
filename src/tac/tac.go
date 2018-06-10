@@ -42,7 +42,7 @@ type Stmt struct {
 type DataSec struct {
 	// Stmts is a slice of statements which will be flushed into the data
 	// section of the generated assembly file.
-	Stmts []string
+	Stmts bytes.Buffer
 	// Lookup keeps track of all the variables currently available in the
 	// the data section.
 	Lookup map[string]bool

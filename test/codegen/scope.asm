@@ -22,10 +22,10 @@ main:
 	sw	$6, 0($5)	# variable -> array
 	sw	$6, t1		# spilled t1, freed $6
 	li	$6, 1		# a.2 -> $6
-	sw	$6, a.2	# spilled a.2, freed $6
+	sw	$6, a.2		# spilled a.2, freed $6
 	li	$6, 4		# a.3 -> $6
 	li	$6, 2		# a.3 -> $6
-	sw	$6, a.3	# spilled a.3, freed $6
+	sw	$6, a.3		# spilled a.3, freed $6
 	li	$6, 4		# a.2 -> $6
 	# Store dirty variables back into memory
 	sw	$6, a.2

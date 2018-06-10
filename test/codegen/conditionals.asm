@@ -14,7 +14,7 @@ main:
 	li	$3, 1		# a.0 -> $3
 	li	$5, 1		# b.1 -> $5
 	li	$6, 4		# c.2 -> $6
-	sw	$6, c.2	# spilled c.2, freed $6
+	sw	$6, c.2		# spilled c.2, freed $6
 	add	$6, $3, $5
 	# Store dirty variables back into memory
 	sw	$3, a.0

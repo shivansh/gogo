@@ -12,9 +12,9 @@ f.5:		.asciiz "Hello types"
 	.ent main
 main:
 	li	$3, 1		# a.0 -> $3
-	sw	$3, a.0	# spilled a.0, freed $3
+	sw	$3, a.0		# spilled a.0, freed $3
 	li	$3, 0		# c.2 -> $3
-	sw	$3, c.2	# spilled c.2, freed $3
+	sw	$3, c.2		# spilled c.2, freed $3
 	li	$3, 2		# e.4 -> $3
 	# Store dirty variables back into memory
 	sw	$3, e.4

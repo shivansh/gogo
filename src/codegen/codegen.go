@@ -43,7 +43,7 @@ func CodeGen(t tac.Tac) {
 	callerSaved := []string{}
 
 	// Define the assembler directives for data and text.
-	ds.Stmts = append(ds.Stmts, "\t.data")
+	fmt.Fprintln(&ds.Stmts, "\t.data")
 	fmt.Fprintln(&ts.Stmts, "\t.text")
 
 	for _, blk := range t {
@@ -127,17 +127,17 @@ func CodeGen(t tac.Tac) {
 					tab = "\t"
 				}
 				if stmt.Op == tac.DECL && !ds.Lookup[stmt.Dst] {
-					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:%s.space\t%d", stmt.Dst, tab, 4*stmt.Src[0].IntVal()))
+					fmt.Fprintf(&ds.Stmts, "%s:%s.space\t%d\n", stmt.Dst, tab, 4*stmt.Src[0].IntVal())
 					ds.Lookup[stmt.Dst] = true
 					typeInfo[stmt.Dst] = types.ARR
 				} else if stmt.Op == tac.DECLSTR {
-					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:%s.asciiz %s", stmt.Dst, tab, stmt.Src[0].StrVal()))
+					fmt.Fprintf(&ds.Stmts, "%s:%s.asciiz %s\n", stmt.Dst, tab, stmt.Src[0].StrVal())
 					ds.Lookup[stmt.Dst] = true
 					typeInfo[stmt.Dst] = types.STR
 				} else if !ds.Lookup[stmt.Dst] {
 					ds.Lookup[stmt.Dst] = true
 					typeInfo[stmt.Dst] = types.INT
-					ds.Stmts = append(ds.Stmts, fmt.Sprintf("%s:%s.word\t0", stmt.Dst, tab))
+					fmt.Fprintf(&ds.Stmts, "%s:%s.word\t0\n", stmt.Dst, tab)
 				}
 			}
 		}
@@ -385,13 +385,18 @@ func CodeGen(t tac.Tac) {
 
 			case tac.CMT:
 				if stmt.Line == 0 {
-					ds.Stmts = append([]string{fmt.Sprintf("# %s\n", stmt.Dst)}, ds.Stmts...)
+					// Topmost comment in IR goes in the topmost position in
+					// the generated assembly.
+					s := ds.Stmts.String()
+					ds.Stmts.Reset()
+					fmt.Fprintf(&ds.Stmts, "# %s\n\n%s", stmt.Dst, s)
 				} else {
 					fmt.Fprintf(&ts.Stmts, "\t# %s\n", stmt.Dst)
 				}
 
 			case tac.DECL, tac.DECLSTR:
-				// Handled above in the first pass while updating data segment.
+				// Handled above in the first pass while updating data segment as
+				// data segment is required to be updated in case of declarations.
 
 			default:
 				log.Fatalf("Codegen: invalid operator %s\n", stmt.Op)
@@ -438,10 +443,10 @@ func CodeGen(t tac.Tac) {
 		fmt.Fprintln(&ts.Stmts, exitStmt)
 	}
 
-	ds.Stmts = append(ds.Stmts, "") // data section terminator
+	fmt.Fprintln(&ds.Stmts, "")
 
-	for _, s := range ds.Stmts {
-		fmt.Println(s)
+	if _, err := ds.Stmts.WriteTo(os.Stdout); err != nil {
+		log.Fatal(err)
 	}
 	if _, err := ts.Stmts.WriteTo(os.Stdout); err != nil {
 		log.Fatal(err)
