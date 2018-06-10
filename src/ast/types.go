@@ -48,6 +48,9 @@ func GetType(kind symkind) string {
 		return INT
 	case STRING:
 		return STR
+	case POINTER:
+		// TODO: Better type info.
+		return PTR
 	default:
 		panic("GetType: invalid type")
 	}

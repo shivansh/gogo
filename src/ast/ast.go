@@ -113,7 +113,7 @@ func NewVarSpec(typ int, args ...*Node) (*Node, error) {
 	case STR:
 		vartype = STRING
 	default:
-		return &Node{}, fmt.Errorf("unsupported type: %s", args[1].Place)
+		return nil, fmt.Errorf("unsupported type: %s", args[1].Place)
 	}
 
 	// Add the IR instructions for ExpressionList.
@@ -184,7 +184,7 @@ func NewVarSpec(typ int, args ...*Node) (*Node, error) {
 				}
 			} else {
 				exprName := RealName(StripPrefix(expr[k]))
-				return &Node{}, fmt.Errorf("cannot use %s (type %s) as type %s in assignment",
+				return nil, fmt.Errorf("cannot use %s (type %s) as type %s in assignment",
 					exprName, GetType(exprtype), GetType(vartype))
 			}
 		}
@@ -204,7 +204,7 @@ func NewTypeDecl(typespec AstNode) (*Node, error) {
 			symbols: t.code(),
 		}
 	default:
-		return &Node{}, fmt.Errorf("unknown type %v", t)
+		return nil, fmt.Errorf("unknown type %v", t)
 	}
 	// Member initialization will be done when a new object is instantiated.
 	return &Node{"", []string{}}, nil
@@ -318,11 +318,11 @@ func NewArithExpr(op string, leftexpr, rightexpr *Node) (*Node, error) {
 		// be reduced by evaluating its value during compilation itself.
 		leftval, err := strconv.Atoi(leftexpr.Place)
 		if err != nil {
-			return &Node{}, err
+			return nil, err
 		}
 		rightval, err := strconv.Atoi(rightexpr.Place)
 		if err != nil {
-			return &Node{}, err
+			return nil, err
 		}
 		switch op {
 		case ADD:
@@ -336,7 +336,7 @@ func NewArithExpr(op string, leftexpr, rightexpr *Node) (*Node, error) {
 		case REM:
 			n.Place = strconv.Itoa(leftval % rightval)
 		default:
-			return &Node{}, fmt.Errorf("Invalid operation %s", op)
+			return nil, fmt.Errorf("Invalid operation %s", op)
 		}
 	} else if re.MatchString(leftexpr.Place) {
 		// Expression is of the form "1 + b", which needs to be
@@ -360,7 +360,7 @@ func NewUnaryExpr(op, expr *Node) (*Node, error) {
 			// expression is of the form 1+2, perform constant folding.
 			term3val, err := strconv.Atoi(expr.Place)
 			if err != nil {
-				return &Node{}, err
+				return nil, err
 			}
 			n.Place = strconv.Itoa(term3val * -1)
 		} else {
@@ -379,7 +379,7 @@ func NewUnaryExpr(op, expr *Node) (*Node, error) {
 	case AST:
 		n.Place = DRF + ":" + expr.Place
 	default:
-		return &Node{}, fmt.Errorf("%s operator not supported", op.Place)
+		return nil, fmt.Errorf("%s operator not supported", op.Place)
 	}
 	return n, nil
 }
@@ -392,12 +392,12 @@ func NewPrimaryExprSel(expr, selector *Node) (*Node, error) {
 	if symEntry, found := Lookup(varName); found {
 		if _, found := globalSymTab[varName]; found {
 			// TODO verify if this is correct.
-			return &Node{}, fmt.Errorf("undefined: %s", varName)
+			return nil, ErrUndefined(varName)
 		} else {
 			return &Node{symEntry.symbols[0], []string{}}, nil
 		}
 	} else {
-		return &Node{}, fmt.Errorf("undefined: %s", varName)
+		return nil, ErrUndefined(varName)
 	}
 }
 
@@ -418,7 +418,7 @@ func NewPrimaryExprIndex(expr, index *Node) (*Node, error) {
 			panic("NewPrimaryExprIndex: indexing not supported on type")
 		}
 	} else {
-		return &Node{}, fmt.Errorf("undefined: %s", RealName(expr.Place))
+		return nil, ErrUndefined(RealName(expr.Place))
 	}
 	InsertSymbol(n.Place, exprtype, expr.Place, index.Place)
 
@@ -435,12 +435,17 @@ func NewPrimaryExprArgs(expr, args *Node) (*Node, error) {
 	returnLen := 0
 	if symEntry.kind == FUNCTION {
 		if ret, err := strconv.Atoi(symEntry.symbols[0]); err != nil {
-			return &Node{}, err
+			return nil, err
 		} else {
 			returnLen = ret
 		}
 	} else {
-		return &Node{}, fmt.Errorf("%s is not a function", expr.Place)
+		varName := RealName(expr.Place)
+		if symEntry, ok := GetSymbol(varName); !ok {
+			return nil, ErrUndefined(varName)
+		} else {
+			return nil, ErrInvalidFunc(varName, GetType(symEntry.kind))
+		}
 	}
 	argExpr := utils.SplitAndSanitize(args.Place, ",")
 	for k, v := range argExpr {
@@ -467,7 +472,7 @@ func NewCompositeLit(typ, val *Node) (AstNode, error) {
 	// In case the corresponds to a struct, add the code for its data member
 	// initialization.
 	if symEntry, found := Lookup(typ.Place); !found {
-		return &Node{}, fmt.Errorf("undefined: %s", typ.Place)
+		return nil, ErrUndefined(typ.Place)
 	} else {
 		switch symEntry.kind {
 		case STRUCT:
@@ -512,7 +517,7 @@ func NewIdentifier(varName string) (*Node, error) {
 			return &Node{symEntry.symbols[0], []string{}}, nil
 		}
 	} else {
-		return &Node{}, fmt.Errorf("undefined: %s", varName)
+		return nil, ErrUndefined(varName)
 	}
 }
 
@@ -548,7 +553,7 @@ func NewFuncMarker(name, signature *Node) (*Node, error) {
 			symbols: []string{signature.Place},
 		}
 	} else {
-		return &Node{}, fmt.Errorf("function %s is already declared\n", name.Place)
+		return nil, fmt.Errorf("function %s is already declared\n", name.Place)
 	}
 	return n, nil
 }
@@ -953,7 +958,7 @@ func NewForClause(typ int, args ...*Node) (*Node, error) {
 		}
 		return &Node{args[1].Place, []string{initStmtCode, condStmtCode, postStmtCode}}, nil
 	}
-	return &Node{}, fmt.Errorf("NewForClause: Invalid type %d", typ)
+	return nil, fmt.Errorf("NewForClause: Invalid type %d", typ)
 }
 
 // NewDeferStmt returns a defer statement.
@@ -996,7 +1001,7 @@ func NewIncDecStmt(op string, expr *Node) (*Node, error) {
 	case DEC:
 		n.Code = append(n.Code, fmt.Sprintf("-, %s, %s, 1", expr.Place, expr.Place))
 	default:
-		return &Node{}, fmt.Errorf("Invalid operator %s", op)
+		return nil, fmt.Errorf("Invalid operator %s", op)
 	}
 	return n, nil
 }
@@ -1038,7 +1043,7 @@ func NewAssignStmt(typ int, op string, leftExpr, rightExpr *Node) (*Node, error)
 		leftExpr := utils.SplitAndSanitize(leftExpr.Place, ",")
 		rightExpr := utils.SplitAndSanitize(rightExpr.Place, ",")
 		if len(leftExpr) != len(rightExpr) {
-			return &Node{}, ErrCountMismatch(len(leftExpr), len(rightExpr))
+			return nil, ErrCountMismatch(len(leftExpr), len(rightExpr))
 		}
 		for k, v := range leftExpr {
 			if currScope.symTab[RealName(v)].kind == POINTER {
@@ -1067,6 +1072,11 @@ func NewAssignStmt(typ int, op string, leftExpr, rightExpr *Node) (*Node, error)
 				}
 			} else if strings.HasPrefix(v, DRF) {
 				symEntry, _ := Lookup(RealName(StripPrefix(v)))
+				if len(symEntry.symbols) != 2 {
+					varName := RealName(symEntry.symbols[0])
+					varType := GetType(symEntry.kind)
+					return nil, ErrIndirection(varName, varType)
+				}
 				varName := symEntry.symbols[1]
 				n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", varName, rightExpr[k]))
 			} else {
@@ -1099,30 +1109,30 @@ func NewAssignStmt(typ int, op string, leftExpr, rightExpr *Node) (*Node, error)
 		// single statement for now.
 		exprName := rightExpr.Place
 		if strings.HasPrefix(exprName, STRCT) {
-			return &Node{}, ErrDeclStruct
+			return nil, ErrDeclStruct
 		} else {
 			n.Code = rightExpr.Code
 			expr := utils.SplitAndSanitize(rightExpr.Place, ",")
 			if len(leftExpr.Code) != len(expr) {
-				return &Node{}, ErrCountMismatch(len(leftExpr.Code), len(expr))
+				return nil, ErrCountMismatch(len(leftExpr.Code), len(expr))
 			}
 			for k, v := range leftExpr.Code {
 				if symEntry, found := Lookup(v); found {
 					renamedVar := symEntry.symbols[0]
 					if strings.HasPrefix(expr[k], ARR) {
-						return &Node{}, ErrDeclArr
+						return nil, ErrDeclArr
 					} else if symEntry.kind != POINTER {
 						n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", renamedVar, expr[k]))
 					}
 				} else {
-					return &Node{}, fmt.Errorf("undefined: %s", v)
+					return nil, ErrUndefined(v)
 				}
 			}
 		}
 		return n, nil
 	}
 
-	return &Node{}, nil
+	return nil, nil
 }
 
 // NewShortDecl returns a short variable declaration.
@@ -1162,12 +1172,14 @@ func NewShortDecl(identList *Node, exprList AstNode) (*Node, error) {
 		n.Code = exprList.Code
 		expr := utils.SplitAndSanitize(exprList.Place, ",")
 		if numIdent := len(identList.Code); numIdent != len(expr) {
-			return &Node{}, ErrCountMismatch(numIdent, len(expr))
+			return nil, ErrCountMismatch(numIdent, len(expr))
 		}
 		for k, v := range identList.Code {
 			renamedVar := RenameVariable(v)
 			if _, found := GetSymbol(v); !found {
 				if strings.HasPrefix(expr[k], PTR) {
+					// The symbol table entry of a pointer (&var) is of the form -
+					// 	{ type, renamedVar, (variable name which is being pointed to) }
 					InsertSymbol(v, POINTER, renamedVar, StripPrefix(expr[k]))
 				} else if currScope.symTab[RealName(expr[k])].kind == POINTER {
 					InsertSymbol(v, POINTER, renamedVar, currScope.symTab[RealName(expr[k])].symbols[1])
@@ -1175,13 +1187,23 @@ func NewShortDecl(identList *Node, exprList AstNode) (*Node, error) {
 					InsertSymbol(v, INTEGER, renamedVar)
 				}
 			} else {
-				return &Node{}, ErrShortDecl
+				return nil, ErrShortDecl
 			}
 			if strings.HasPrefix(expr[k], ARR) {
 				// TODO: rename arrays
 				n.Code = append(n.Code, fmt.Sprintf("decl, %s, %s", renamedVar, StripPrefix(expr[k])))
 			} else if strings.HasPrefix(expr[k], DRF) {
-				n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", renamedVar, currScope.symTab[RealName(StripPrefix(expr[k]))].symbols[1]))
+				varName := RealName(StripPrefix(expr[k]))
+				if symEntry, ok := GetSymbol(varName); !ok {
+					return nil, ErrUndefined(varName)
+				} else {
+					varType := GetType(symEntry.kind)
+					if len(symEntry.symbols) != 2 {
+						return nil, ErrIndirection(varName, varType)
+					} else {
+						n.Code = append(n.Code, fmt.Sprintf("=, %s, %s", renamedVar, symEntry.symbols[1]))
+					}
+				}
 			} else if strings.HasPrefix(expr[k], STR) {
 				n.Code = append(n.Code, fmt.Sprintf("declStr, %s, %s", renamedVar, StripPrefix(expr[k])))
 			} else if currScope.symTab[v].kind != POINTER {

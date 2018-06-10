@@ -312,7 +312,7 @@ Literal
 
 BasicLit
         : intLit     << ast.InitNode(string($0.(*token.Token).Lit), []string{}) >>
-        | stringLit  << ast.InitNode(fmt.Sprintf("string:%s", string($0.(*token.Token).Lit)), []string{}) >>
+        | stringLit  << ast.InitNode(fmt.Sprintf("string:%s", $0.(*token.Token).Lit), []string{}) >>
         ;
 
 // CompositeLit  = LiteralType LiteralValue .
