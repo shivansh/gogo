@@ -23,6 +23,7 @@ var (
 	// when the surrounding function block ends.
 	deferStack *utils.Stack
 	re         *regexp.Regexp
+	PkgName    string
 )
 
 func init() {
@@ -52,6 +53,14 @@ func PrintIR(src *Node) (*Node, error) {
 // InitNode initializes an AST node with the given "Place" and "Code" attributes.
 func InitNode(place string, code []string) (*Node, error) {
 	return &Node{place, code}, nil
+}
+
+// --- [ Package declarations ] ----==------------------------------------------
+
+// NewPkgDecl initializes package relevant data structures.
+func NewPkgDecl(pkgName []byte) (*Node, error) {
+	PkgName = string(pkgName)
+	return nil, nil
 }
 
 // --- [ Top level declarations ] ----------------------------------------------
@@ -539,7 +548,7 @@ func NewFuncMarker(name, signature *Node) (*Node, error) {
 			symbols: []string{signature.Place},
 		}
 	} else {
-		return &Node{}, fmt.Errorf("Function %s is already declared\n", name)
+		return &Node{}, fmt.Errorf("function %s is already declared\n", name.Place)
 	}
 	return n, nil
 }

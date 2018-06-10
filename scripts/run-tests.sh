@@ -33,7 +33,7 @@ runIRTests() {
 	# Remove everything after and including the last '.'
 	testName=$(echo "$f" | sed -E 's/(.*)\.(.*)/\1/')
 	rm -f "$testName.asm"
-	"$binDir/gogo" -r2s "$f" > "$testName.asm"
+	"$binDir/gogo" -r2s "$f"
     done
 }
 
@@ -54,7 +54,7 @@ runCodegenTests() {
 	testName=$(echo "$f" | sed -E 's/(.*)\.(.*)/\1/')
 	rm -f "$testName.ir" "$testName.asm"
 	"$binDir/gogo" -r "$f" > "$testName.ir"
-	"$binDir/gogo" -s "$f" > "$testName.asm"
+	"$binDir/gogo" -s "$f"
     done
 }
 

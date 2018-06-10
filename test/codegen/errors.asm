@@ -15,6 +15,15 @@ e.4:		.word	0
 f.5:		.word	0
 
 	.text
+
+runtime:
+	addi	$sp, $sp, -4
+	sw	$ra, 0($sp)
+
+	lw	$ra, 0($sp)
+	addi	$sp, $sp, 4
+	jr	$ra
+	.end runtime
 test:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)

@@ -4,10 +4,12 @@ package codegen
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"sort"
 
+	"github.com/shivansh/gogo/src/ast"
 	"github.com/shivansh/gogo/src/tac"
 	"github.com/shivansh/gogo/src/types"
 )
@@ -28,7 +30,7 @@ type Addr struct {
 
 // CodeGen updates the data structures for text and data segments with the
 // generated assembly code.
-func CodeGen(t tac.Tac) {
+func CodeGen(t tac.Tac, runtime bool) {
 	ts := new(tac.TextSec)
 	ds := new(tac.DataSec)
 	ds.Lookup = make(map[string]bool)
@@ -48,9 +50,18 @@ func CodeGen(t tac.Tac) {
 	// globalLineNo stores the line number of global declarations.
 	globalLineNo := make(map[int]bool)
 
-	// Define the assembler directives for data and text.
-	fmt.Fprintln(&ds.Stmts, "\t.data")
-	fmt.Fprintln(&ts.Stmts, "\t.text")
+	if !runtime {
+		// Define the assembler directives for data and text.
+		fmt.Fprintln(&ds.Stmts, "\t.data")
+		fmt.Fprintln(&ts.Stmts, "\t.text")
+		// Place the runtime code in the generated assembly.
+		// Avoid generating runtime code when compiling runtime itself.
+		if content, err := ioutil.ReadFile("src/runtime/runtime.asm"); err == nil {
+			fmt.Fprintf(&ts.Stmts, "%s", content)
+		} else {
+			log.Fatal(err)
+		}
+	}
 
 	// Make a single pass across the entire three-address code and collect
 	// code for the global declarations. This code will be inserted in the
@@ -95,7 +106,7 @@ func CodeGen(t tac.Tac) {
 					// as the only side-effect of string declaration are
 					// limited to data section and not text section.
 				default:
-					log.Fatal("Codegen: unknown type %T\n", v)
+					log.Fatal("CodeGen: unknown type %T\n", v)
 				}
 			}
 		}
@@ -473,8 +484,8 @@ func CodeGen(t tac.Tac) {
 	}
 
 	// Check if the entry point (main) has been encountered.
-	if !entryPoint {
-		log.Fatal("Function main not defined\n")
+	if !entryPoint && ast.PkgName != "runtime" {
+		log.Fatal("function main not defined\n")
 	}
 
 	fmt.Fprintln(&ds.Stmts, "")

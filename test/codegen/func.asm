@@ -12,6 +12,15 @@ a.1:		.word	0
 b.2:		.word	0
 
 	.text
+
+runtime:
+	addi	$sp, $sp, -4
+	sw	$ra, 0($sp)
+
+	lw	$ra, 0($sp)
+	addi	$sp, $sp, 4
+	jr	$ra
+	.end runtime
 temp:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)

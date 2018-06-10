@@ -109,13 +109,13 @@ Start
         ;
 
 SourceFile
-        : PackageClause terminator RepeatTerminator RepeatTopLevelDecl  << $3, nil >>
+        : RepeatTerminator PackageClause terminator RepeatTerminator RepeatTopLevelDecl  << $4, nil >>
         ;
 
 // TODO: Package parsing logic will be complete when support for imports has
 // been integrated.
 PackageClause
-        : kwdPackage PackageName
+        : kwdPackage PackageName  << ast.NewPkgDecl($1.(*token.Token).Lit) >>
         ;
 
 PackageName
