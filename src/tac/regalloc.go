@@ -1,3 +1,5 @@
+// This file implements the register allocator.
+
 package tac
 
 import (

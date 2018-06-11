@@ -148,7 +148,7 @@ Declaration
 // VarDecl     = "var" ( VarSpec | "(" { VarSpec ";" } ")" ) .
 // VarSpec     = IdentifierList ( Type [ "=" ExpressionList ] | "=" ExpressionList ) .
 VarDecl
-        : kwdVar VarSpec  << ast.InitNode("", $1.(*ast.Node).Code) >>
+        : kwdVar VarSpec  << $1, nil >>
         ;
 
 VarSpec

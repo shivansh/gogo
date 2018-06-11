@@ -30,7 +30,8 @@ func GenIR(file string) {
 	}
 }
 
-// GenAsmFromIR generates the assembly code using IR generated from the input program and writes it into file dst.
+// GenAsmFromIR generates the assembly code using IR generated from the input
+// program and writes it into file dst.
 func GenAsmFromIR(file string, dst string, runtime bool) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	old := os.Stdout

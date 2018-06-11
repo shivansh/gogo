@@ -10,7 +10,7 @@ import "sort"
 const (
 	NIL   = iota
 	FALSE // cannot be dropped
-	MAYBE // **might** be dropped
+	MAYBE // might be dropped
 	TRUE  // will be dropped
 )
 

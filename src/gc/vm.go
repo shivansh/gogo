@@ -77,7 +77,7 @@ func (vm *VM) PushPair() *Object {
 	return object
 }
 
-// MarkAll marks all the objects live.
+// MarkAll marks all the objects as live.
 func (vm *VM) MarkAll() {
 	for i := 0; i < vm.stackSize; i++ {
 		vm.stack[i].mark()

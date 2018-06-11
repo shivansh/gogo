@@ -75,7 +75,7 @@ func Lookup(v string) (*SymTabEntry, bool) {
 			return &entry, true
 		}
 	}
-	return &SymTabEntry{}, false
+	return nil, false
 }
 
 // NewScope modifies the symbol table hierarchy, creating a new scope.

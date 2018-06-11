@@ -525,7 +525,7 @@ func NewIdentifier(varName string) (*Node, error) {
 
 // NewFuncDecl returns a function declaration.
 func NewFuncDecl(marker, body *Node) (AstNode, error) {
-	n := &FuncType{Node{"", append(marker.Code, body.Code...)}}
+	n := &FuncType{Node{"", append(marker.Code, body.Code...)}, nil, nil}
 	funcSymtabCreated = true // end of function block
 	// Return statement insertion will be handled when the defer stack is
 	// emptied and the code for deferred calls has been inserted.

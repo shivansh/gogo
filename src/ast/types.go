@@ -3,7 +3,11 @@
 
 package ast
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/shivansh/gogo/goccgen/token"
+)
 
 // Prefix declarations used as symbol table metadata. The use of these constants
 // is to act as meta information stored in the place attribute of a node.
@@ -22,7 +26,7 @@ const (
 )
 
 // symkind determines the kind of symbol table entry.
-type symkind uint8
+type symkind int
 
 // The following declarations determine the values which can be taken by symkind.
 const (
@@ -88,26 +92,74 @@ func (node *Node) place() string { return node.Place }
 
 func (node *Node) code() []string { return node.Code }
 
+// BasicType defines the base types.
+type BasicType int
+
+const (
+	Invalid BasicType = iota
+	Int
+	String
+)
+
+// --- [ Expressions ] ---------------------------------------------------------
+
+// Expr represents an AST node of an expression.
+type Expr interface {
+	AstNode
+}
+
 type (
-	// StructType represents an AST node of a struct.
-	StructType struct {
+	// BasicLit represents an AST node of a literal of basic type.
+	BasicLit struct {
+		*Node
+		Type *token.Token
+	}
+)
+
+// -----------------------------------------------------------------------------
+
+type (
+	// Field represents an AST node of a field declaration.
+	Field struct {
+		Name string
+		Type Expr
+	}
+
+	// VarType represents an AST node of a variable declaration.
+	VarType struct {
 		Node
-		Name string // name of the struct
-		Len  int    // number of members
+		Name string
+		Type BasicType
+	}
+
+	// PointerType represents an AST node of a pointer.
+	PointerType struct {
+		Node
+		Type Expr
 	}
 
 	// ArrayType represents an AST node of an array.
 	// TODO: ArrayType hasn't been used yet.
 	ArrayType struct {
 		Node
-		// TODO: Update type of Type.
-		Type string // type of elements
-		Len  int    // array size
+		Type Expr // type of elements
+		Len  int  // array size
+	}
+
+	// StructType represents an AST node of a struct.
+	StructType struct {
+		Node
+		Name string // name of the struct
+		Len  int
+		// TODO: Integrate these in ast.go
+		// Fields []*Field
 	}
 
 	// FuncType represents an AST node of a function.
 	FuncType struct {
 		Node
+		Params  []*Field
+		Results []*Field
 	}
 )
 

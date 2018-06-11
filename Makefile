@@ -22,7 +22,6 @@ tac: $(SRC)/tac/tac.go
 
 gogo: $(SRC)/main.go
 	$(CC) build $(GCFLAGS) -o $(BIN)/gogo $(SRC)/main.go
-	@echo --- [ Regenerating runtime ] ------------------------------
 	$(BIN)/gogo -runtime
 
 test:
