@@ -100,7 +100,7 @@ import (
 >>
 
 // NOTE
-//      - https://github.com/goccmack/gocc/issues/5998
+//      - https://github.com/goccmack/gocc/issues/59
 //      - Before each production rule, the corresponding rules from the go
 //        language specification are written in comments.
 
